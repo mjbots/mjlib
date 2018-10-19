@@ -74,6 +74,7 @@ utest::v1::status_t test_setup(const size_t number_of_cases) {
 
 Case cases[] = {
   Case("basic_string_span", test_basic_string_span),
+  Case("basic_string_view", test_basic_string_view),
 };
 
 Specification specification(test_setup, cases);
