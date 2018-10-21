@@ -49,6 +49,7 @@ class Stm32F466AsyncUart::Impl : public RawSerial {
           this->HandleTransmit();
         });
       NVIC_SetVector(tx_dma_.irq, reinterpret_cast<uint32_t>(tx_callback_.irq_function));
+      NVIC_EnableIRQ(tx_dma_.irq);
     }
 
     if (options.rx != NC) {
@@ -64,6 +65,7 @@ class Stm32F466AsyncUart::Impl : public RawSerial {
           this->HandleReceive();
         });
       NVIC_SetVector(rx_dma_.irq, reinterpret_cast<uint32_t>(rx_callback_.irq_function));
+      NVIC_EnableIRQ(rx_dma_.irq);
     }
   }
 
@@ -131,11 +133,15 @@ class Stm32F466AsyncUart::Impl : public RawSerial {
       MBED_ASSERT(false);
     }
 
-    event_queue_->call(current_write_callback_.shrink<4>(), error_code, amount_sent);
-    current_write_callback_ = {};
+    event_queue_->call(this, &Impl::EventHandleTransmit, error_code, amount_sent);
 
     // TODO(jpieper): Verify that USART_CR3_DMAT gets cleared here on
     // its own even if we send back to back quickly.
+  }
+
+  void EventHandleTransmit(int error_code, size_t amount_sent) {
+    event_queue_->call(current_write_callback_.shrink<4>(), error_code, amount_sent);
+    current_write_callback_ = {};
   }
 
   // INVOKED FROM INTERRUPT CONTEXT
@@ -165,6 +171,10 @@ class Stm32F466AsyncUart::Impl : public RawSerial {
       MBED_ASSERT(false);
     }
 
+    event_queue_->call(this, &Impl::EventHandleReceive, error_code, amount_received);
+  }
+
+  void EventHandleReceive(int error_code, size_t amount_received) {
     event_queue_->call(current_read_callback_.shrink<4>(), error_code, amount_received);
     current_read_callback_ = {};
   }
