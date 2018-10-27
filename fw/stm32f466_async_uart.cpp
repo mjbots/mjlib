@@ -30,6 +30,10 @@ class Stm32F466AsyncUart::Impl : public RawSerial {
   Impl(EventQueue* event_queue, const Options& options)
       : RawSerial(options.tx, options.rx, options.baud_rate),
         event_queue_(event_queue) {
+    // Our receive buffer requires that all unprocessed words be
+    // 0xffff.
+    for (auto& value : rx_buffer_) { value = 0xffff; }
+
     // Just in case no one else has done it yet.
     __HAL_RCC_DMA1_CLK_ENABLE();
     __HAL_RCC_DMA2_CLK_ENABLE();
@@ -60,8 +64,8 @@ class Stm32F466AsyncUart::Impl : public RawSerial {
     // case, or even better, getting it into an appropriate state.  We
     // won't worry about it for now.
 
-    // TODO(jpieper): Configure the FIFO to reduce the bus contention
-    // involved with writing data.
+    // TODO(jpieper): Configure the FIFO to reduce the possibility of
+    // bus contention causing data loss.
 
     if (options.tx != NC) {
       tx_dma_.stream -> PAR = reinterpret_cast<uint32_t>(&(uart_->DR));
@@ -81,7 +85,12 @@ class Stm32F466AsyncUart::Impl : public RawSerial {
     if (options.rx != NC) {
       rx_dma_.stream -> PAR = reinterpret_cast<uint32_t>(&(uart_->DR));
       rx_dma_.stream -> CR =
-          rx_dma_.channel | DMA_SxCR_MINC | DMA_PERIPH_TO_MEMORY |
+          rx_dma_.channel |
+          DMA_SxCR_MINC |
+          DMA_PERIPH_TO_MEMORY |
+          (0x1 << DMA_SxCR_MSIZE_Pos) |  // 16-bit memory
+          (0x1 << DMA_SxCR_PSIZE_Pos) |  // 16-bit peripheral
+          DMA_SxCR_CIRC |
           DMA_SxCR_TCIE | DMA_SxCR_TEIE;
 
       rx_callback_ = IrqCallbackTable::MakeFunction([this]() {
@@ -90,7 +99,7 @@ class Stm32F466AsyncUart::Impl : public RawSerial {
       NVIC_SetVector(rx_dma_.irq, reinterpret_cast<uint32_t>(rx_callback_.irq_function));
       NVIC_EnableIRQ(rx_dma_.irq);
 
-      // Terminate DMA transactions when there is idle time on the bus.
+      // Notify when there are idle times on the bus.
       uart_->CR1 |= USART_CR1_IDLEIE;
 
       uart_callback_ = IrqCallbackTable::MakeFunction([this]() {
@@ -98,31 +107,29 @@ class Stm32F466AsyncUart::Impl : public RawSerial {
         });
       NVIC_SetVector(uart_rx_irq_, reinterpret_cast<uint32_t>(uart_callback_.irq_function));
       NVIC_EnableIRQ(uart_rx_irq_);
+
+      // We run our receiver continuously in circular buffer mode.
+      rx_dma_.stream->M0AR = reinterpret_cast<uint32_t>(rx_buffer_);
+
+      *rx_dma_.status_clear |= rx_dma_.all_status();
+      rx_dma_.stream->NDTR = kRxBufferSize;
+      rx_dma_.stream->CR |= DMA_SxCR_EN;
+
+      uart_->CR3 |= USART_CR3_DMAR;
     }
   }
 
   void AsyncReadSome(const string_span& data, const SizeCallback& callback) {
     MBED_ASSERT(!current_read_callback_.valid());
 
+    // All this does is set our buffer and callback.  We're always
+    // reading, and that process will just look to see if we have a
+    // buffer outstanding.
+    current_read_data_ = data;
     current_read_callback_ = callback;
-    rx_size_ = data.size();
 
-    // AN4031, 4.2: Clear all status registers.
-
-    *rx_dma_.status_clear |= (
-        rx_dma_.status_tcif |
-        rx_dma_.status_htif |
-        rx_dma_.status_teif |
-        rx_dma_.status_dmeif |
-        rx_dma_.status_feif);
-
-    rx_dma_.stream->NDTR = data.size();
-    rx_dma_.stream->M0AR = reinterpret_cast<uint32_t>(data.data());
-    rx_dma_.stream->CR |= DMA_SxCR_EN;
-
-    uart_  -> CR3 |= USART_CR3_DMAR;
-
-    printf("AsyncReadSome size=%d\r\n", data.size());
+    // See if we already have data for this receiver.
+    EventProcessData();
   }
 
   void AsyncWriteSome(const string_view& data, const SizeCallback& callback) {
@@ -133,12 +140,7 @@ class Stm32F466AsyncUart::Impl : public RawSerial {
 
     // AN4031, 4.2: Clear all status registers.
 
-    *tx_dma_.status_clear |= (
-        tx_dma_.status_tcif |
-        tx_dma_.status_htif |
-        tx_dma_.status_teif |
-        tx_dma_.status_dmeif |
-        tx_dma_.status_feif);
+    *tx_dma_.status_clear |= tx_dma_.all_status();
 
     tx_dma_.stream->NDTR = data.size();
     tx_dma_.stream->M0AR = reinterpret_cast<uint32_t>(data.data());
@@ -149,7 +151,7 @@ class Stm32F466AsyncUart::Impl : public RawSerial {
 
   // INVOKED FROM INTERRUPT CONTEXT
   void HandleTransmit() {
-    const size_t amount_sent = tx_size_ - tx_dma_.stream->NDTR;
+    const ssize_t amount_sent = tx_size_ - tx_dma_.stream->NDTR;
     int error_code = 0;
 
     // The enable bit should be 0 at this point.
@@ -180,7 +182,7 @@ class Stm32F466AsyncUart::Impl : public RawSerial {
     // its own even if we send back to back quickly.
   }
 
-  void EventHandleTransmit(int error_code, size_t amount_sent) {
+  void EventHandleTransmit(int error_code, ssize_t amount_sent) {
     const int id = event_queue_->call(current_write_callback_, error_code, amount_sent);
     MBED_ASSERT(id != 0);
     current_write_callback_ = {};
@@ -188,41 +190,37 @@ class Stm32F466AsyncUart::Impl : public RawSerial {
 
   // INVOKED FROM INTERRUPT CONTEXT
   void HandleReceive() {
-    const size_t amount_received = rx_size_ - rx_dma_.stream->NDTR;
-    int error_code = 0;
+    // All we do here is process any error flags and then request to
+    // flush an outstanding buffer if we have one.
 
     if (*rx_dma_.status_register & rx_dma_.status_teif) {
       *rx_dma_.status_clear |= rx_dma_.status_teif;
       const auto uart_sr = uart_->SR;
       if (uart_sr & USART_SR_ORE) {
-        error_code = kUartOverrunError;
+        pending_rx_error_ = kUartOverrunError;
       } else if (uart_sr & USART_SR_FE) {
-        error_code = kUartFramingError;
+        pending_rx_error_ = kUartFramingError;
       } else if (uart_sr & USART_SR_NE) {
-        error_code = kUartNoiseError;
+        pending_rx_error_ = kUartNoiseError;
       } else {
-        error_code = kDmaStreamTransferError;
+        pending_rx_error_ = kDmaStreamTransferError;
       }
+      // TODO(jpieper): TI's reference manual in RM0390 says that to
+      // clear these flags you have to read the status register
+      // followed by reading the data register.  Can you read the data
+      // register while a DMA transaction is ongoing?  This needs to
+      // be tested somehow.
     } else if (*rx_dma_.status_register & rx_dma_.status_feif) {
       *rx_dma_.status_clear |= rx_dma_.status_feif;
-      error_code = kDmaStreamFifoError;
+      pending_rx_error_ = kDmaStreamFifoError;
     } else if (*rx_dma_.status_register & rx_dma_.status_tcif) {
       *rx_dma_.status_clear |= rx_dma_.status_tcif;
-      error_code = 0;
     } else {
       MBED_ASSERT(false);
     }
 
-    uart_  -> CR3 &= ~(USART_CR3_DMAR);
-
-    const int id = event_queue_->call(this, &Impl::EventHandleReceive, error_code, amount_received);
+    const int id = event_queue_->call(this, &Impl::EventProcessData);
     MBED_ASSERT(id != 0);
-  }
-
-  void EventHandleReceive(int error_code, size_t amount_received) {
-    const int id = event_queue_->call(current_read_callback_, error_code, amount_received);
-    MBED_ASSERT(id != 0);
-    current_read_callback_ = {};
   }
 
   // INVOKED FROM INTERRUPT CONTEXT
@@ -234,8 +232,62 @@ class Stm32F466AsyncUart::Impl : public RawSerial {
       tmp = uart_->DR;
       (void)tmp;
 
-      // Disable any outstanding DMA transfers.
-      rx_dma_.stream->CR &= ~DMA_SxCR_EN;
+      const int id = event_queue_->call(this, &Impl::EventProcessData);
+      MBED_ASSERT(id != 0);
+    }
+  }
+
+  void EventProcessData() {
+    if (current_read_data_.data() == nullptr) {
+      // There is no outstanding callback.
+      return;
+    }
+
+    if (rx_buffer_[rx_buffer_pos_] == 0xffff && pending_rx_error_ == 0) {
+      // There are no data or errors pending.
+      return;
+    }
+
+    const uint16_t last_pos = (rx_buffer_pos_ + (kRxBufferSize - 1)) % kRxBufferSize;
+    if (rx_buffer_[last_pos] != 0xffff) {
+      pending_rx_error_ = kUartBufferOverrunError;
+      // We have lost synchronization with wherever the DMA controller
+      // is spewing.
+      if (rx_dma_.stream->CR & DMA_SxCR_EN) {
+        // Disable and return early.  The TCIF interrupt will fire,
+        // which will trigger us again.
+        rx_dma_.stream->CR &= ~(DMA_SxCR_EN);
+        return;
+      } else {
+        // Just fall through, we'll re-enable ourselves at the bottom
+        // and start over.
+      }
+    }
+
+    ssize_t bytes_read = 0;
+    for (;
+         bytes_read < current_read_data_.size() && rx_buffer_[rx_buffer_pos_] != 0xffffu;
+         bytes_read++, (rx_buffer_pos_ = (rx_buffer_pos_ + 1) % kRxBufferSize)) {
+      current_read_data_.data()[bytes_read] = rx_buffer_[rx_buffer_pos_] & 0xff;
+      rx_buffer_[rx_buffer_pos_] = 0xffff;
+    }
+
+    const int id = event_queue_->call(current_read_callback_,
+                                      pending_rx_error_, bytes_read);
+    MBED_ASSERT(id != 0);
+
+    pending_rx_error_ = 0;
+    current_read_callback_ = {};
+    current_read_data_ = {};
+
+    // If our DMA stream was disabled for some reason, start over
+    // again.
+    if ((rx_dma_.stream->CR & DMA_SxCR_EN) == 0) {
+      for (auto& value : rx_buffer_) { value = 0xffff; }
+      rx_buffer_pos_ = 0;
+
+      rx_dma_.stream->CR |= DMA_SxCR_EN;
+      uart_->CR3 |= USART_CR3_DMAR;
     }
   }
 
@@ -250,6 +302,14 @@ class Stm32F466AsyncUart::Impl : public RawSerial {
     uint32_t status_dmeif;
     uint32_t status_feif;
     IRQn_Type irq;
+
+    uint32_t all_status() const {
+      return status_tcif |
+        status_htif |
+        status_teif |
+        status_dmeif |
+        status_feif;
+    }
   };
 
 #define MAKE_UART(DmaNumber, StreamNumber, ChannelNumber, StatusRegister) \
@@ -299,10 +359,18 @@ class Stm32F466AsyncUart::Impl : public RawSerial {
   IrqCallbackTable::Callback uart_callback_;
 
   SizeCallback current_read_callback_;
-  size_t rx_size_ = 0;
+  string_span current_read_data_;
+  ErrorCode pending_rx_error_ = 0;
 
   SizeCallback current_write_callback_;
-  size_t tx_size_ = 0;
+  ssize_t tx_size_ = 0;
+
+  // This buffer serves as a place to store things in between calls to
+  // AsyncReadSome so that there is minimal chance of data loss even
+  // at high data rates.
+  static constexpr int kRxBufferSize = 64;
+  volatile uint16_t rx_buffer_[kRxBufferSize] = {};
+  uint16_t rx_buffer_pos_ = 0;
 };
 
 Stm32F466AsyncUart::Stm32F466AsyncUart(EventQueue* event_queue, const Options& options)

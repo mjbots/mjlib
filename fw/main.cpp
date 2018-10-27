@@ -45,7 +45,9 @@ class Emitter {
 
  private:
   void HandleRead(ErrorCode ec, size_t amount) {
-    MBED_ASSERT(ec == 0);
+    if (ec != 0) {
+      printf("got err: %x\r\n", ec);
+    }
 
     readbuf_[amount] = 0;
     const int int_amount = static_cast<int>(amount);

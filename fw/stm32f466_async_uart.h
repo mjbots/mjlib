@@ -27,5 +27,5 @@ class Stm32F466AsyncUart : public AsyncStream {
 
  private:
   class Impl;
-  OpaquePtr<Impl, 384> impl_;
+  OpaquePtr<Impl, 512> impl_;
 };
