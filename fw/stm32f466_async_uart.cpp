@@ -196,6 +196,16 @@ class Stm32F466AsyncUart::Impl : public RawSerial {
     if (*rx_dma_.status_register & rx_dma_.status_teif) {
       *rx_dma_.status_clear |= rx_dma_.status_teif;
       const auto uart_sr = uart_->SR;
+
+      // TI's reference manual in RM0390 says that to clear these
+      // flags you have to read the status register followed by
+      // reading the data register.  Can you read the data register
+      // while a DMA transaction is ongoing?  We've already had a
+      // transfer error of some sort by the time we get here, so
+      // hopefully it doesn't break too much.
+      volatile uint32_t tmp = uart_->DR;
+      (void)tmp;
+
       if (uart_sr & USART_SR_ORE) {
         pending_rx_error_ = kUartOverrunError;
       } else if (uart_sr & USART_SR_FE) {
@@ -205,11 +215,6 @@ class Stm32F466AsyncUart::Impl : public RawSerial {
       } else {
         pending_rx_error_ = kDmaStreamTransferError;
       }
-      // TODO(jpieper): TI's reference manual in RM0390 says that to
-      // clear these flags you have to read the status register
-      // followed by reading the data register.  Can you read the data
-      // register while a DMA transaction is ongoing?  This needs to
-      // be tested somehow.
     } else if (*rx_dma_.status_register & rx_dma_.status_feif) {
       *rx_dma_.status_clear |= rx_dma_.status_feif;
       pending_rx_error_ = kDmaStreamFifoError;
