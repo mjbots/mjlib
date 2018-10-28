@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include <cstddef>
+#include <utility>
+
 /// Holds an instance of T as if by value, however is guaranteed to
 /// always be of size Size and the definition of T is not required to
 /// be in scope unless it is dereferenced.
