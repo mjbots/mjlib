@@ -7,6 +7,7 @@
 
 #include "async_stream.h"
 #include "stm32f466_async_uart.h"
+#include "stm32f466_bldc_foc.h"
 
 namespace {
 
@@ -78,6 +79,15 @@ int main(void) {
   Stm32F466AsyncUart pc(&queue, pc_options);
 
   Emitter emitter(&queue, &pc, &led);
+
+  Stm32F466BldcFoc bldc;
+  Stm32F466BldcFoc::CommandData bldc_command;
+  bldc_command.mode = Stm32F466BldcFoc::kPhasePwm;
+  bldc_command.phase_a_millipercent = 2000;
+  bldc_command.phase_b_millipercent = 3000;
+  bldc_command.phase_c_millipercent = 4000;
+
+  bldc.Command(bldc_command);
 
   queue.dispatch_forever();
 
