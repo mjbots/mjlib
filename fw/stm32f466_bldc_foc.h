@@ -13,6 +13,21 @@ class Stm32F466BldcFoc {
   Stm32F466BldcFoc();
   ~Stm32F466BldcFoc();
 
+  struct Config {
+    float i_scale_A = 0.02014f;  // Amps per A/D LSB
+    float v_scale_V = 0.00884f;  // V per A/D count
+  };
+
+  struct Status {
+    uint16_t adc1_raw = 0;
+    uint16_t adc2_raw = 0;
+    uint16_t adc3_raw = 0;
+
+    float cur1_A = 0.0;
+    float cur2_A = 0.0;
+    float bus_V = 0.0;
+  };
+
   enum Mode {
     kDisabled,
     kPhasePwm,

@@ -4,6 +4,7 @@
 
 #include "mbed.h"
 #include "mbed_events.h"
+#include "rtos_idle.h"
 
 #include "async_stream.h"
 #include "stm32f466_async_uart.h"
@@ -65,9 +66,16 @@ class Emitter {
 
   char readbuf_[16] = {};
 };
+
+void new_idle_loop() {
+}
 }
 
 int main(void) {
+  // We want no sleep modes at all for highest timing resolution
+  // w.r.t. interrupts.
+  rtos_attach_idle_hook(&new_idle_loop);
+
   EventQueue queue(4096);
 
   DigitalOut led(LED1);
