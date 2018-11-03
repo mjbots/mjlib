@@ -7,8 +7,8 @@
 #include "rtos_idle.h"
 
 #include "async_stream.h"
-#include "stm32f466_async_uart.h"
-#include "stm32f466_bldc_foc.h"
+#include "stm32f446_async_uart.h"
+#include "stm32f446_bldc_foc.h"
 
 namespace {
 
@@ -16,7 +16,7 @@ static constexpr char kMessage[] = "hello\r\n";
 
 class Emitter {
  public:
-  Emitter(EventQueue* queue, AsyncStream* stream, DigitalOut* led, Stm32F466BldcFoc* bldc)
+  Emitter(EventQueue* queue, AsyncStream* stream, DigitalOut* led, Stm32F446BldcFoc* bldc)
       : stream_(stream), led_(led), bldc_(bldc) {
     queue->call_every(1000, this, &Emitter::Emit);
 
@@ -62,7 +62,7 @@ class Emitter {
 
   AsyncStream* const stream_;
   DigitalOut* const led_;
-  Stm32F466BldcFoc* const bldc_;
+  Stm32F446BldcFoc* const bldc_;
 
   bool printing_ = false;
   uint32_t count_ = 0;
@@ -83,13 +83,13 @@ int main(void) {
 
   DigitalOut led(LED1);
 
-  Stm32F466AsyncUart::Options pc_options;
+  Stm32F446AsyncUart::Options pc_options;
   pc_options.tx = PC_10;
   pc_options.rx = PC_11;
   pc_options.baud_rate = 9600;
-  Stm32F466AsyncUart pc(&queue, pc_options);
+  Stm32F446AsyncUart pc(&queue, pc_options);
 
-  Stm32F466BldcFoc::Options bldc_options;
+  Stm32F446BldcFoc::Options bldc_options;
   bldc_options.pwm1 = PA_0;
   bldc_options.pwm2 = PA_1;
   bldc_options.pwm3 = PA_2;
@@ -100,9 +100,9 @@ int main(void) {
 
   bldc_options.debug_out = PB_3;
 
-  Stm32F466BldcFoc bldc{bldc_options};
-  Stm32F466BldcFoc::CommandData bldc_command;
-  bldc_command.mode = Stm32F466BldcFoc::kPhasePwm;
+  Stm32F446BldcFoc bldc{bldc_options};
+  Stm32F446BldcFoc::CommandData bldc_command;
+  bldc_command.mode = Stm32F446BldcFoc::kPhasePwm;
   bldc_command.phase_a_millipercent = 2000;
   bldc_command.phase_b_millipercent = 3000;
   bldc_command.phase_c_millipercent = 4000;

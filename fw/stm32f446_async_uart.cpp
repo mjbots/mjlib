@@ -1,6 +1,6 @@
 // Copyright 2018 Josh Pieper, jjp@pobox.com.  All rights reserved.
 
-#include "stm32f466_async_uart.h"
+#include "stm32f446_async_uart.h"
 
 #include <tuple>
 
@@ -25,7 +25,7 @@ IRQn_Type FindUartRxIrq(USART_TypeDef* uart) {
 }
 }
 
-class Stm32F466AsyncUart::Impl : public RawSerial {
+class Stm32F446AsyncUart::Impl : public RawSerial {
  public:
   Impl(EventQueue* event_queue, const Options& options)
       : RawSerial(options.tx, options.rx, options.baud_rate),
@@ -378,16 +378,16 @@ class Stm32F466AsyncUart::Impl : public RawSerial {
   uint16_t rx_buffer_pos_ = 0;
 };
 
-Stm32F466AsyncUart::Stm32F466AsyncUart(EventQueue* event_queue, const Options& options)
+Stm32F446AsyncUart::Stm32F446AsyncUart(EventQueue* event_queue, const Options& options)
     : impl_(event_queue, options) {}
-Stm32F466AsyncUart::~Stm32F466AsyncUart() {}
+Stm32F446AsyncUart::~Stm32F446AsyncUart() {}
 
-void Stm32F466AsyncUart::AsyncReadSome(const string_span& data,
+void Stm32F446AsyncUart::AsyncReadSome(const string_span& data,
                                        const SizeCallback& callback) {
   impl_->AsyncReadSome(data, callback);
 }
 
-void Stm32F466AsyncUart::AsyncWriteSome(const string_view& data,
+void Stm32F446AsyncUart::AsyncWriteSome(const string_view& data,
                                         const SizeCallback& callback) {
   impl_->AsyncWriteSome(data, callback);
 }

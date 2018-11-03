@@ -10,7 +10,7 @@
 
 /// Commands a BLDC motor.  Pin and peripheral assignments are
 /// hardcoded as: TBD
-class Stm32F466BldcFoc {
+class Stm32F446BldcFoc {
  public:
   struct Options {
     // These three pins must be on the same timer, and one that
@@ -29,8 +29,8 @@ class Stm32F466BldcFoc {
     PinName debug_out = NC;
   };
 
-  Stm32F466BldcFoc(const Options&);
-  ~Stm32F466BldcFoc();
+  Stm32F446BldcFoc(const Options&);
+  ~Stm32F446BldcFoc();
 
   struct Config {
     float i_scale_A = 0.02014f;  // Amps per A/D LSB

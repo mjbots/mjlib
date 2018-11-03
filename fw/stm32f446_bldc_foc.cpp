@@ -1,6 +1,6 @@
 // Copyright 2018 Josh Pieper, jjp@pobox.com.  All rights reserved.
 
-#include "stm32f466_bldc_foc.h"
+#include "stm32f446_bldc_foc.h"
 
 #include "mbed.h"
 #include "PeripheralPins.h"
@@ -54,7 +54,7 @@ volatile uint32_t* FindCcr(TIM_TypeDef* timer, PinName pin) {
 }
 }
 
-class Stm32F466BldcFoc::Impl {
+class Stm32F446BldcFoc::Impl {
  public:
   Impl(const Options& options)
       : options_(options),
@@ -253,15 +253,15 @@ class Stm32F466BldcFoc::Impl {
   static Impl* g_impl_;
 };
 
-Stm32F466BldcFoc::Impl* Stm32F466BldcFoc::Impl::g_impl_ = nullptr;
+Stm32F446BldcFoc::Impl* Stm32F446BldcFoc::Impl::g_impl_ = nullptr;
 
-Stm32F466BldcFoc::Stm32F466BldcFoc(const Options& options) : impl_(options) {}
-Stm32F466BldcFoc::~Stm32F466BldcFoc() {}
+Stm32F446BldcFoc::Stm32F446BldcFoc(const Options& options) : impl_(options) {}
+Stm32F446BldcFoc::~Stm32F446BldcFoc() {}
 
-void Stm32F466BldcFoc::Command(const CommandData& data) {
+void Stm32F446BldcFoc::Command(const CommandData& data) {
   impl_->Command(data);
 }
 
-Stm32F466BldcFoc::Status Stm32F466BldcFoc::status() const {
+Stm32F446BldcFoc::Status Stm32F446BldcFoc::status() const {
   return impl_->status();
 }

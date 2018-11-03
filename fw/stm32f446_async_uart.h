@@ -8,8 +8,8 @@
 #include "async_stream.h"
 #include "opaque_ptr.h"
 
-/// Presents a single USART on the STM32F466 as an AsyncStream.
-class Stm32F466AsyncUart : public AsyncStream {
+/// Presents a single USART on the STM32F446 as an AsyncStream.
+class Stm32F446AsyncUart : public AsyncStream {
  public:
   struct Options {
     PinName tx = NC;
@@ -19,8 +19,8 @@ class Stm32F466AsyncUart : public AsyncStream {
 
   /// @param event_queue - All callbacks will be invoked from this, it
   /// is aliased internally and must live as long as the instance.
-  Stm32F466AsyncUart(events::EventQueue* event_queue, const Options&);
-  ~Stm32F466AsyncUart() override;
+  Stm32F446AsyncUart(events::EventQueue* event_queue, const Options&);
+  ~Stm32F446AsyncUart() override;
 
   void AsyncReadSome(const string_span&, const SizeCallback&) override;
   void AsyncWriteSome(const string_view&, const SizeCallback&) override;
