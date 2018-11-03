@@ -95,8 +95,8 @@ int main(void) {
   bldc_options.pwm3 = PA_2;
 
   bldc_options.current1 = PC_5;
-  bldc_options.current2 = PB_0;
-  bldc_options.vsense = PC_1;
+  bldc_options.current2 = PB_0_ALT0;
+  bldc_options.vsense = PC_1_ALT1;
 
   bldc_options.debug_out = PB_3;
 

@@ -52,6 +52,13 @@ volatile uint32_t* FindCcr(TIM_TypeDef* timer, PinName pin) {
   MBED_ASSERT(false);
   return nullptr;
 }
+
+uint32_t FindSqr(PinName pin) {
+  const auto function = pinmap_function(pin, PinMap_ADC);
+
+  const auto channel = STM_PIN_CHANNEL(function);
+  return channel;
+}
 }
 
 class Stm32F446BldcFoc::Impl {
@@ -173,19 +180,31 @@ class Stm32F446BldcFoc::Impl {
     ADC3->CR2 = ADC_CR2_ADON;
 
     // We rely on the AnalogIn members to configure the pins as
-    // inputs.
+    // inputs, however they won't
+    ADC1->SQR3 = FindSqr(options_.current1);
+    ADC2->SQR3 = FindSqr(options_.current2);
+    ADC3->SQR3 = FindSqr(options_.vsense);
+
+    constexpr uint32_t kCycles = 0x1;  // 15 cycles
+
+    MBED_ASSERT(reinterpret_cast<uint32_t>(ADC1) ==
+                pinmap_peripheral(options_.current1, PinMap_ADC));
+    MBED_ASSERT(reinterpret_cast<uint32_t>(ADC2) ==
+                pinmap_peripheral(options_.current2, PinMap_ADC));
+    MBED_ASSERT(reinterpret_cast<uint32_t>(ADC3) ==
+                pinmap_peripheral(options_.vsense, PinMap_ADC));
 
     // Set sample times to 15 cycles across the board
     constexpr uint32_t kAll15Cycles =
-        (0x1 << 0) |
-        (0x1 << 3) |
-        (0x1 << 6) |
-        (0x1 << 9) |
-        (0x1 << 12) |
-        (0x1 << 15) |
-        (0x1 << 18) |
-        (0x1 << 21) |
-        (0x1 << 24);
+        (kCycles << 0) |
+        (kCycles << 3) |
+        (kCycles << 6) |
+        (kCycles << 9) |
+        (kCycles << 12) |
+        (kCycles << 15) |
+        (kCycles << 18) |
+        (kCycles << 21) |
+        (kCycles << 24);
     ADC1->SMPR1 = kAll15Cycles;
     ADC1->SMPR2 = kAll15Cycles;
     ADC2->SMPR1 = kAll15Cycles;
@@ -228,6 +247,8 @@ class Stm32F446BldcFoc::Impl {
   const Config config_;
   TIM_TypeDef* timer_ = nullptr;
   ADC_TypeDef* const adc1_ = ADC1;
+  ADC_TypeDef* const adc2_ = ADC2;
+  ADC_TypeDef* const adc3_ = ADC3;
 
   // We create these to initialize our pins as output and PWM mode,
   // but otherwise don't use them.

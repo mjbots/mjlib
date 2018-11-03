@@ -19,11 +19,11 @@ class Stm32F446BldcFoc {
     PinName pwm2 = NC;
     PinName pwm3 = NC;
 
-    PinName current1 = NC;  // Must be sample-able from ADC1
-    PinName current2 = NC;  // Must be sample-able from ADC2
+    PinName current1 = NC;  // Must be sampled from ADC1
+    PinName current2 = NC;  // Must be sampled from ADC2
 
     PinName current3 = NC;
-    PinName vsense = NC;
+    PinName vsense = NC;  // Must be sampled from ADC3.
     PinName vtemp = NC;
 
     PinName debug_out = NC;
