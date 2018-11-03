@@ -185,8 +185,6 @@ class Stm32F446BldcFoc::Impl {
     ADC2->SQR3 = FindSqr(options_.current2);
     ADC3->SQR3 = FindSqr(options_.vsense);
 
-    constexpr uint32_t kCycles = 0x1;  // 15 cycles
-
     MBED_ASSERT(reinterpret_cast<uint32_t>(ADC1) ==
                 pinmap_peripheral(options_.current1, PinMap_ADC));
     MBED_ASSERT(reinterpret_cast<uint32_t>(ADC2) ==
@@ -195,6 +193,7 @@ class Stm32F446BldcFoc::Impl {
                 pinmap_peripheral(options_.vsense, PinMap_ADC));
 
     // Set sample times to 15 cycles across the board
+    constexpr uint32_t kCycles = 0x1;  // 15 cycles
     constexpr uint32_t kAll15Cycles =
         (kCycles << 0) |
         (kCycles << 3) |
