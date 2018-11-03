@@ -29,7 +29,7 @@ class OpaquePtr {
   OpaquePtr& operator=(const OpaquePtr&) = delete;
 
   T* operator->() { return &(**this); }
-  const T* operator->() const { &(**this); }
+  const T* operator->() const { return &(**this); }
   T& operator*() { return *reinterpret_cast<T*>(data()); }
   const T& operator*() const { return *reinterpret_cast<const T*>(data()); }
 
