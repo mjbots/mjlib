@@ -16,8 +16,8 @@ static constexpr char kMessage[] = "hello\r\n";
 
 class Emitter {
  public:
-  Emitter(EventQueue* queue, AsyncStream* stream, DigitalOut* led)
-      : stream_(stream), led_(led) {
+  Emitter(EventQueue* queue, AsyncStream* stream, DigitalOut* led, Stm32F466BldcFoc* bldc)
+      : stream_(stream), led_(led), bldc_(bldc) {
     queue->call_every(1000, this, &Emitter::Emit);
 
     StartRead();
@@ -26,7 +26,9 @@ class Emitter {
   void Emit() {
     *led_ = !(*led_);
 
-    printf("Emit %" PRIu32 " %d\r\n", count_++, printing_);
+    const auto& status = bldc_->status();
+    printf("Emit %" PRIu32 " %d  %d %d\r\n", count_++, printing_,
+           status.adc1_raw, status.adc2_raw);
 
     if (printing_) { return; }
     printing_ = true;
@@ -60,6 +62,7 @@ class Emitter {
 
   AsyncStream* const stream_;
   DigitalOut* const led_;
+  Stm32F466BldcFoc* const bldc_;
 
   bool printing_ = false;
   uint32_t count_ = 0;
@@ -86,9 +89,18 @@ int main(void) {
   pc_options.baud_rate = 9600;
   Stm32F466AsyncUart pc(&queue, pc_options);
 
-  Emitter emitter(&queue, &pc, &led);
+  Stm32F466BldcFoc::Options bldc_options;
+  bldc_options.pwm1 = PA_0;
+  bldc_options.pwm2 = PA_1;
+  bldc_options.pwm3 = PA_2;
 
-  Stm32F466BldcFoc bldc;
+  bldc_options.current1 = PC_5;
+  bldc_options.current2 = PB_0;
+  bldc_options.vsense = PC_1;
+
+  bldc_options.debug_out = PB_3;
+
+  Stm32F466BldcFoc bldc{bldc_options};
   Stm32F466BldcFoc::CommandData bldc_command;
   bldc_command.mode = Stm32F466BldcFoc::kPhasePwm;
   bldc_command.phase_a_millipercent = 2000;
@@ -96,6 +108,8 @@ int main(void) {
   bldc_command.phase_c_millipercent = 4000;
 
   bldc.Command(bldc_command);
+
+  Emitter emitter(&queue, &pc, &led, &bldc);
 
   queue.dispatch_forever();
 

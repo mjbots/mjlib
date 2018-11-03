@@ -12,31 +12,65 @@
 //  * Enable/disable the DRV8323
 //  * Implement current controllers
 
-// mbed seems to configure the TIM1 clock input to 180MHz.  We want
-// 40kHz update rate, so:
-//
-//  180000000 / 40000 = 4500
-constexpr uint32_t kPwmCounts = 4500;
+namespace {
+
+// mbed seems to configure the Timer clock input to 90MHz.  We want
+// 80kHz up/down rate for 40kHz freqency, so:
+constexpr uint32_t kPwmCounts = 90000000 / 80000;
+
+IRQn_Type FindUpdateIrq(TIM_TypeDef* timer) {
+  if (timer == TIM1) {
+    return TIM1_UP_TIM10_IRQn;
+  } else if (timer == TIM2) {
+    return TIM2_IRQn;
+  } else if (timer == TIM3) {
+    return TIM3_IRQn;
+  } else if (timer == TIM4) {
+    return TIM4_IRQn;
+  } else if (timer == TIM8) {
+    return TIM8_UP_TIM13_IRQn;
+  } else {
+    MBED_ASSERT(false);
+  }
+  return TIM1_UP_TIM10_IRQn;
+}
+
+volatile uint32_t* FindCcr(TIM_TypeDef* timer, PinName pin) {
+  const auto function = pinmap_function(pin, PinMap_PWM);
+
+  const auto inverted = STM_PIN_INVERTED(function);
+  MBED_ASSERT(!inverted);
+
+  const auto channel = STM_PIN_CHANNEL(function);
+
+  switch (channel) {
+    case 1: { return &timer->CCR1; }
+    case 2: { return &timer->CCR2; }
+    case 3: { return &timer->CCR3; }
+    case 4: { return &timer->CCR4; }
+  }
+  MBED_ASSERT(false);
+  return nullptr;
+}
+}
 
 class Stm32F466BldcFoc::Impl {
  public:
-  Impl() {
+  Impl(const Options& options)
+      : options_(options),
+        pwm1_(options.pwm1),
+        pwm2_(options.pwm2),
+        pwm3_(options.pwm3),
+        current1_(options.current1),
+        current2_(options.current2),
+        vsense_(options.vsense),
+        debug_out_(options.debug_out) {
+
     MBED_ASSERT(!g_impl_);
     g_impl_ = this;
 
-    // Hardware assignment:
-    //
-    // TIM1: Primary PWM generation.
-    //  * Center-aligned PWM (up/down counting)
-    //  * 40kHz frequency (for 20kHz PWM)
-    //
-    // PA_8, PA_9, PA_10 configured as PWM outputs.
-    //
-    // ADC1/2/3
-    //  * PC_0, PC_1, PA_0 as analog inputs
-
     ConfigureADC();
-    ConfigureTim1();
+    ConfigureTimer();
   }
 
   ~Impl() {
@@ -52,9 +86,9 @@ class Stm32F466BldcFoc::Impl {
         break;
       }
       case kPhasePwm: {
-        tim1_->CCR1 = static_cast<uint32_t>(data.phase_a_millipercent) * kPwmCounts / 10000;
-        tim1_->CCR2 = static_cast<uint32_t>(data.phase_b_millipercent) * kPwmCounts / 10000;
-        tim1_->CCR3 = static_cast<uint32_t>(data.phase_c_millipercent) * kPwmCounts / 10000;
+        (*pwm1_ccr_) = static_cast<uint32_t>(data.phase_a_millipercent) * kPwmCounts / 10000;
+        (*pwm2_ccr_) = static_cast<uint32_t>(data.phase_b_millipercent) * kPwmCounts / 10000;
+        (*pwm3_ccr_) = static_cast<uint32_t>(data.phase_c_millipercent) * kPwmCounts / 10000;
         break;
       }
       case kFoc: {
@@ -63,15 +97,31 @@ class Stm32F466BldcFoc::Impl {
     }
   }
 
+  Status status() const { return status_; }
+
  private:
-  void ConfigureTim1() {
-    __HAL_RCC_TIM1_CLK_ENABLE();
+  void ConfigureTimer() {
+    const auto pwm1_timer = pinmap_peripheral(options_.pwm1, PinMap_PWM);
+    const auto pwm2_timer = pinmap_peripheral(options_.pwm2, PinMap_PWM);
+    const auto pwm3_timer = pinmap_peripheral(options_.pwm3, PinMap_PWM);
+
+    // All three must be the same and be valid.
+    MBED_ASSERT(pwm1_timer != 0 &&
+                pwm1_timer == pwm2_timer &&
+                pwm2_timer == pwm3_timer);
+    timer_ = reinterpret_cast<TIM_TypeDef*>(pwm1_timer);
+
+
+    pwm1_ccr_ = FindCcr(timer_, options_.pwm1);
+    pwm2_ccr_ = FindCcr(timer_, options_.pwm2);
+    pwm3_ccr_ = FindCcr(timer_, options_.pwm3);
+
 
     // Enable the update interrupt.
-    tim1_->DIER = TIM_DIER_UIE;
+    timer_->DIER = TIM_DIER_UIE;
 
     // Enable the update interrupt.
-    tim1_->CR1 =
+    timer_->CR1 =
         // Center-aligned mode 2.  The counter counts up and down
         // alternatively.  Output compare interrupt flags of channels
         // configured in output are set only when the counter is
@@ -82,30 +132,31 @@ class Stm32F466BldcFoc::Impl {
         TIM_CR1_ARPE;
 
     // Update once per up/down of the counter.
-    tim1_->RCR |= 0x01;
+    timer_->RCR |= 0x01;
 
     // Set up PWM.
 
-    tim1_->PSC = 0; // No prescaler.
-    tim1_->ARR = kPwmCounts;
+    timer_->PSC = 0; // No prescaler.
+    timer_->ARR = kPwmCounts;
 
     // Configure the first three outputs with positive polarity.
-    tim1_->CCER = // |= ~(TIM_CCER_CC1NP);
-        TIM_CCER_CC1E | TIM_CCER_CC1P |
-        TIM_CCER_CC2E | TIM_CCER_CC2P |
-        TIM_CCER_CC3E | TIM_CCER_CC3P;
+    // timer_->CCER =
+    //     TIM_CCER_CC1E | TIM_CCER_CC1P |
+    //     TIM_CCER_CC2E | TIM_CCER_CC2P |
+    //     TIM_CCER_CC3E | TIM_CCER_CC3P;
 
     // NOTE: We don't use IrqCallbackTable here because we need the
     // absolute minimum latency possible.
-    NVIC_SetVector(TIM1_UP_TIM10_IRQn, reinterpret_cast<uint32_t>(&Impl::GlobalInterrupt));
-    NVIC_SetPriority(TIM1_UP_TIM10_IRQn, 2);
-    NVIC_EnableIRQ(TIM1_UP_TIM10_IRQn);
+    const auto irqn = FindUpdateIrq(timer_);
+    NVIC_SetVector(irqn, reinterpret_cast<uint32_t>(&Impl::GlobalInterrupt));
+    NVIC_SetPriority(irqn, 2);
+    NVIC_EnableIRQ(irqn);
 
     // Reinitialize the counter and update all registers.
-    tim1_->EGR |= TIM_EGR_UG;
+    timer_->EGR |= TIM_EGR_UG;
 
-    // Finally, enable TIM1.
-    tim1_->CR1 |= TIM_CR1_CEN;
+    // Finally, enable the timer.
+    timer_->CR1 |= TIM_CR1_CEN;
   }
 
   void ConfigureADC() {
@@ -125,9 +176,22 @@ class Stm32F466BldcFoc::Impl {
     // inputs.
 
     // Set sample times to 15 cycles across the board
-    ADC1->SMPR1 = 0x01;  // PC_0 is channel 0 for ADC1
-    ADC2->SMPR1 = 0x08;  // PC_1 is channel 1 for ADC2
-    ADC3->SMPR2 = 0x01;  // PA_0 is channel 0 for ADC3
+    constexpr uint32_t kAll15Cycles =
+        (0x1 << 0) |
+        (0x1 << 3) |
+        (0x1 << 6) |
+        (0x1 << 9) |
+        (0x1 << 12) |
+        (0x1 << 15) |
+        (0x1 << 18) |
+        (0x1 << 21) |
+        (0x1 << 24);
+    ADC1->SMPR1 = kAll15Cycles;
+    ADC1->SMPR2 = kAll15Cycles;
+    ADC2->SMPR1 = kAll15Cycles;
+    ADC2->SMPR2 = kAll15Cycles;
+    ADC3->SMPR1 = kAll15Cycles;
+    ADC3->SMPR2 = kAll15Cycles;
   }
 
   // CALLED IN INTERRUPT CONTEXT.
@@ -139,7 +203,7 @@ class Stm32F466BldcFoc::Impl {
   void HandleTimer() {
     debug_out_ = 1;
 
-    if (tim1_->SR & TIM_SR_UIF) {
+    if (timer_->SR & TIM_SR_UIF) {
       // Start conversion.
       ADC1->CR2 |= ADC_CR2_SWSTART;
 
@@ -155,27 +219,32 @@ class Stm32F466BldcFoc::Impl {
     }
 
     // Reset the status register.
-    tim1_->SR = 0x00;
+    timer_->SR = 0x00;
 
     debug_out_ = 0;
   }
 
+  const Options options_;
   const Config config_;
-  TIM_TypeDef* const tim1_ = TIM1;
+  TIM_TypeDef* timer_ = nullptr;
   ADC_TypeDef* const adc1_ = ADC1;
 
   // We create these to initialize our pins as output and PWM mode,
   // but otherwise don't use them.
-  PwmOut pa8_{PA_8};
-  PwmOut pa9_{PA_9};
-  PwmOut pa10_{PA_10};
+  PwmOut pwm1_;
+  PwmOut pwm2_;
+  PwmOut pwm3_;
 
-  AnalogIn current1_{PC_0};
-  AnalogIn current2_{PC_1};
-  AnalogIn current3_{PA_0};
+  volatile uint32_t* pwm1_ccr_ = nullptr;
+  volatile uint32_t* pwm2_ccr_ = nullptr;
+  volatile uint32_t* pwm3_ccr_ = nullptr;
+
+  AnalogIn current1_;
+  AnalogIn current2_;
+  AnalogIn vsense_;
 
   // This is just for debugging.
-  DigitalOut debug_out_{PB_3};
+  DigitalOut debug_out_;
 
   CommandData data_;
 
@@ -186,9 +255,13 @@ class Stm32F466BldcFoc::Impl {
 
 Stm32F466BldcFoc::Impl* Stm32F466BldcFoc::Impl::g_impl_ = nullptr;
 
-Stm32F466BldcFoc::Stm32F466BldcFoc() : impl_() {}
+Stm32F466BldcFoc::Stm32F466BldcFoc(const Options& options) : impl_(options) {}
 Stm32F466BldcFoc::~Stm32F466BldcFoc() {}
 
 void Stm32F466BldcFoc::Command(const CommandData& data) {
   impl_->Command(data);
+}
+
+Stm32F466BldcFoc::Status Stm32F466BldcFoc::status() const {
+  return impl_->status();
 }

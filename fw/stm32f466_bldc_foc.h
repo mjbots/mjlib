@@ -4,13 +4,32 @@
 
 #include <cstdint>
 
+#include "PinNames.h"
+
 #include "opaque_ptr.h"
 
 /// Commands a BLDC motor.  Pin and peripheral assignments are
 /// hardcoded as: TBD
 class Stm32F466BldcFoc {
  public:
-  Stm32F466BldcFoc();
+  struct Options {
+    // These three pins must be on the same timer, and one that
+    // supports center aligned PWM.
+    PinName pwm1 = NC;
+    PinName pwm2 = NC;
+    PinName pwm3 = NC;
+
+    PinName current1 = NC;  // Must be sample-able from ADC1
+    PinName current2 = NC;  // Must be sample-able from ADC2
+
+    PinName current3 = NC;
+    PinName vsense = NC;
+    PinName vtemp = NC;
+
+    PinName debug_out = NC;
+  };
+
+  Stm32F466BldcFoc(const Options&);
   ~Stm32F466BldcFoc();
 
   struct Config {
@@ -48,6 +67,8 @@ class Stm32F466BldcFoc {
   };
 
   void Command(const CommandData&);
+
+  Status status() const;
 
  private:
   class Impl;
