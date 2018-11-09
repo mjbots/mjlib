@@ -9,3 +9,5 @@ constexpr int kUartOverrunError = 0x300;
 constexpr int kUartFramingError = 0x301;
 constexpr int kUartNoiseError = 0x302;
 constexpr int kUartBufferOverrunError = 0x303;
+
+constexpr int kDelimiterNotFound = 0x401;
