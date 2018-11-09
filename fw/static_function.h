@@ -17,7 +17,7 @@
 #include <array>
 #include <cstring>
 
-#include "mbed_assert.h"
+#include "mj_assert.h"
 
 template <typename Signature, std::size_t Size=8>
 struct StaticFunction;
@@ -77,7 +77,7 @@ struct StaticFunction<R(Args...), Size>
   template <std::size_t OtherSize>
   StaticFunction(const StaticFunction<R(Args...), OtherSize>& rhs) {
     if (rhs.valid()) {
-      MBED_ASSERT(rhs.getImpl().size() <= sizeof(storage_));
+      MJ_ASSERT(rhs.getImpl().size() <= sizeof(storage_));
       rhs.getImpl().clone(data());
     }
   }
@@ -114,7 +114,7 @@ struct StaticFunction<R(Args...), Size>
   }
 
   R operator()(Args... args) const {
-    MBED_ASSERT(valid());
+    MJ_ASSERT(valid());
 
     return getImpl().call(std::forward<Args>(args)...);
   }

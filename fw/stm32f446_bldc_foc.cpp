@@ -6,6 +6,7 @@
 #include "PeripheralPins.h"
 
 #include "irq_callback_table.h"
+#include "mj_assert.h"
 
 // TODO
 //
@@ -30,7 +31,7 @@ IRQn_Type FindUpdateIrq(TIM_TypeDef* timer) {
   } else if (timer == TIM8) {
     return TIM8_UP_TIM13_IRQn;
   } else {
-    MBED_ASSERT(false);
+    MJ_ASSERT(false);
   }
   return TIM1_UP_TIM10_IRQn;
 }
@@ -39,7 +40,7 @@ volatile uint32_t* FindCcr(TIM_TypeDef* timer, PinName pin) {
   const auto function = pinmap_function(pin, PinMap_PWM);
 
   const auto inverted = STM_PIN_INVERTED(function);
-  MBED_ASSERT(!inverted);
+  MJ_ASSERT(!inverted);
 
   const auto channel = STM_PIN_CHANNEL(function);
 
@@ -49,7 +50,7 @@ volatile uint32_t* FindCcr(TIM_TypeDef* timer, PinName pin) {
     case 3: { return &timer->CCR3; }
     case 4: { return &timer->CCR4; }
   }
-  MBED_ASSERT(false);
+  MJ_ASSERT(false);
   return nullptr;
 }
 
@@ -73,7 +74,7 @@ class Stm32F446BldcFoc::Impl {
         vsense_(options.vsense),
         debug_out_(options.debug_out) {
 
-    MBED_ASSERT(!g_impl_);
+    MJ_ASSERT(!g_impl_);
     g_impl_ = this;
 
     ConfigureADC();
@@ -113,7 +114,7 @@ class Stm32F446BldcFoc::Impl {
     const auto pwm3_timer = pinmap_peripheral(options_.pwm3, PinMap_PWM);
 
     // All three must be the same and be valid.
-    MBED_ASSERT(pwm1_timer != 0 &&
+    MJ_ASSERT(pwm1_timer != 0 &&
                 pwm1_timer == pwm2_timer &&
                 pwm2_timer == pwm3_timer);
     timer_ = reinterpret_cast<TIM_TypeDef*>(pwm1_timer);
@@ -185,11 +186,11 @@ class Stm32F446BldcFoc::Impl {
     ADC2->SQR3 = FindSqr(options_.current2);
     ADC3->SQR3 = FindSqr(options_.vsense);
 
-    MBED_ASSERT(reinterpret_cast<uint32_t>(ADC1) ==
+    MJ_ASSERT(reinterpret_cast<uint32_t>(ADC1) ==
                 pinmap_peripheral(options_.current1, PinMap_ADC));
-    MBED_ASSERT(reinterpret_cast<uint32_t>(ADC2) ==
+    MJ_ASSERT(reinterpret_cast<uint32_t>(ADC2) ==
                 pinmap_peripheral(options_.current2, PinMap_ADC));
-    MBED_ASSERT(reinterpret_cast<uint32_t>(ADC3) ==
+    MJ_ASSERT(reinterpret_cast<uint32_t>(ADC3) ==
                 pinmap_peripheral(options_.vsense, PinMap_ADC));
 
     // Set sample times to 15 cycles across the board

@@ -60,6 +60,6 @@ IrqCallbackTable::Callback IrqCallbackTable::MakeFunction(StaticFunction<void()>
     }
   }
 
-  MBED_ASSERT(false);
+  MJ_ASSERT(false);
   return Callback();
 }

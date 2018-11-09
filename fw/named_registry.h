@@ -14,8 +14,7 @@
 
 #pragma once
 
-#include "mbed.h"
-
+#include "mj_assert.h"
 #include "string_view.h"
 
 /// Associates a textual name with a pointer, up to a fixed maximum
@@ -55,19 +54,19 @@ class NamedRegistry {
       case kFindOnly: { break; }
       case kAllowCreate: {
         // Whoops, we ran out of space.
-        MBED_ASSERT(false);
+        MJ_ASSERT(false);
       }
     }
     return nullptr;
   }
 
   Element& operator[](std::size_t index) {
-    MBED_ASSERT(index < Size);
+    MJ_ASSERT(index < Size);
     return elements_[index];
   }
 
   const Element& operator[](std::size_t index) const {
-    MBED_ASSERT(index < Size);
+    MJ_ASSERT(index < Size);
     return elements_[index];
   }
 

@@ -34,7 +34,7 @@ class Emitter {
     printing_ = true;
 
     AsyncWrite(*stream_, string_view::ensure_z(kMessage), [this](ErrorCode ec) {
-        MBED_ASSERT(ec == 0);
+        MJ_ASSERT(ec == 0);
         printf("callback\r\n");
         printing_ = false;
       });

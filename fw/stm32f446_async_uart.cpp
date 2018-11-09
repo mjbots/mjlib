@@ -9,6 +9,7 @@
 
 #include "error.h"
 #include "irq_callback_table.h"
+#include "mj_assert.h"
 
 namespace {
 IRQn_Type FindUartRxIrq(USART_TypeDef* uart) {
@@ -20,7 +21,7 @@ IRQn_Type FindUartRxIrq(USART_TypeDef* uart) {
     case UART_5: return UART5_IRQn;
     case UART_6: return USART6_IRQn;
   }
-  MBED_ASSERT(false);
+  MJ_ASSERT(false);
   return {};
 }
 }
@@ -45,7 +46,7 @@ class Stm32F446AsyncUart::Impl : public RawSerial {
         pinmap_peripheral(options.rx, PinMap_UART_RX));
       return reinterpret_cast<USART_TypeDef*>(pinmap_merge(uart_tx, uart_rx));
     }();
-    MBED_ASSERT(uart_ != nullptr);
+    MJ_ASSERT(uart_ != nullptr);
     uart_rx_irq_ = FindUartRxIrq(uart_);
 
     // TODO(josh.pieper): For now, we will hard-code which stream to
@@ -120,7 +121,7 @@ class Stm32F446AsyncUart::Impl : public RawSerial {
   }
 
   void AsyncReadSome(const string_span& data, const SizeCallback& callback) {
-    MBED_ASSERT(!current_read_callback_.valid());
+    MJ_ASSERT(!current_read_callback_.valid());
 
     // All this does is set our buffer and callback.  We're always
     // reading, and that process will just look to see if we have a
@@ -133,7 +134,7 @@ class Stm32F446AsyncUart::Impl : public RawSerial {
   }
 
   void AsyncWriteSome(const string_view& data, const SizeCallback& callback) {
-    MBED_ASSERT(!current_write_callback_.valid());
+    MJ_ASSERT(!current_write_callback_.valid());
 
     current_write_callback_ = callback;
     tx_size_ = data.size();
@@ -155,7 +156,7 @@ class Stm32F446AsyncUart::Impl : public RawSerial {
     int error_code = 0;
 
     // The enable bit should be 0 at this point.
-    MBED_ASSERT((tx_dma_.stream->CR & DMA_SxCR_EN) == 0);
+    MJ_ASSERT((tx_dma_.stream->CR & DMA_SxCR_EN) == 0);
 
     // Tell the UART to stop requesting DMA.
     uart_->CR3 &= ~(USART_CR3_DMAT);
@@ -172,11 +173,11 @@ class Stm32F446AsyncUart::Impl : public RawSerial {
       *tx_dma_.status_clear |= tx_dma_.status_tcif;
       error_code = 0;
     } else {
-      MBED_ASSERT(false);
+      MJ_ASSERT(false);
     }
 
     const int id = event_queue_->call(this, &Impl::EventHandleTransmit, error_code, amount_sent);
-    MBED_ASSERT(id != 0);
+    MJ_ASSERT(id != 0);
 
     // TODO(jpieper): Verify that USART_CR3_DMAT gets cleared here on
     // its own even if we send back to back quickly.
@@ -184,7 +185,7 @@ class Stm32F446AsyncUart::Impl : public RawSerial {
 
   void EventHandleTransmit(int error_code, ssize_t amount_sent) {
     const int id = event_queue_->call(current_write_callback_, error_code, amount_sent);
-    MBED_ASSERT(id != 0);
+    MJ_ASSERT(id != 0);
     current_write_callback_ = {};
   }
 
@@ -221,11 +222,11 @@ class Stm32F446AsyncUart::Impl : public RawSerial {
     } else if (*rx_dma_.status_register & rx_dma_.status_tcif) {
       *rx_dma_.status_clear |= rx_dma_.status_tcif;
     } else {
-      MBED_ASSERT(false);
+      MJ_ASSERT(false);
     }
 
     const int id = event_queue_->call(this, &Impl::EventProcessData);
-    MBED_ASSERT(id != 0);
+    MJ_ASSERT(id != 0);
   }
 
   // INVOKED FROM INTERRUPT CONTEXT
@@ -238,7 +239,7 @@ class Stm32F446AsyncUart::Impl : public RawSerial {
       (void)tmp;
 
       const int id = event_queue_->call(this, &Impl::EventProcessData);
-      MBED_ASSERT(id != 0);
+      MJ_ASSERT(id != 0);
     }
   }
 
@@ -279,7 +280,7 @@ class Stm32F446AsyncUart::Impl : public RawSerial {
 
     const int id = event_queue_->call(current_read_callback_,
                                       pending_rx_error_, bytes_read);
-    MBED_ASSERT(id != 0);
+    MJ_ASSERT(id != 0);
 
     pending_rx_error_ = 0;
     current_read_callback_ = {};
@@ -346,7 +347,7 @@ class Stm32F446AsyncUart::Impl : public RawSerial {
       case UART_6:
         return { MAKE_UART(DMA2, 6, 5, HI), MAKE_UART(DMA2, 1, 5, LI), };
     }
-    MBED_ASSERT(false);
+    MJ_ASSERT(false);
     return {};
   }
 

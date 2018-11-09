@@ -16,8 +16,7 @@
 
 #include <array>
 
-#include "mbed.h"
-
+#include "mj_assert.h"
 #include "async_types.h"
 #include "static_function.h"
 
@@ -54,12 +53,12 @@ class AsyncExclusive {
     }
 
     // We had too many things trying to send at the same time.
-    MBED_ASSERT(false);
+    MJ_ASSERT(false);
   }
 
  private:
   void MaybeStartQueued() {
-    MBED_ASSERT(!outstanding_);
+    MJ_ASSERT(!outstanding_);
 
     for (auto& item : callbacks_) {
       if (item.valid()) {
