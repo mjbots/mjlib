@@ -48,7 +48,7 @@ class CommandManager {
   using CommandFunction = StaticFunction<void (const string_view&, const Response&)>;
   void Register(const string_view& name, CommandFunction);
 
-  void AsyncStart(ErrorCallback);
+  void AsyncStart();
 
  private:
   class Impl;

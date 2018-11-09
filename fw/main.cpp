@@ -2,11 +2,14 @@
 
 #include <inttypes.h>
 
+#include <functional>
+
 #include "mbed.h"
 #include "mbed_events.h"
 #include "rtos_idle.h"
 
 #include "async_stream.h"
+#include "command_manager.h"
 #include "stm32f446_async_uart.h"
 #include "stm32f446_bldc_foc.h"
 
@@ -16,58 +19,22 @@ static constexpr char kMessage[] = "hello\r\n";
 
 class Emitter {
  public:
-  Emitter(EventQueue* queue, AsyncStream* stream, DigitalOut* led, Stm32F446BldcFoc* bldc)
-      : stream_(stream), led_(led), bldc_(bldc) {
-    queue->call_every(1000, this, &Emitter::Emit);
+  Emitter(DigitalOut* led) : led_(led) {}
 
-    StartRead();
-  }
-
-  void Emit() {
-    *led_ = !(*led_);
-
-    const auto& status = bldc_->status();
-    printf("Emit %" PRIu32 " %d  %d %d\r\n", count_++, printing_,
-           status.adc1_raw, status.adc2_raw);
-
-    if (printing_) { return; }
-    printing_ = true;
-
-    AsyncWrite(*stream_, string_view::ensure_z(kMessage), [this](ErrorCode ec) {
-        MJ_ASSERT(ec == 0);
-        printf("callback\r\n");
-        printing_ = false;
-      });
-  }
-
-  void StartRead() {
-    stream_->AsyncReadSome(string_span(readbuf_, sizeof(readbuf_) - 1),
-                           [this](ErrorCode ec, size_t amount) {
-                             this->HandleRead(ec, amount);
-                           });
+  void HandleCommand(const string_view& command, const CommandManager::Response& response) {
+    if (command == string_view::ensure_z("on")) {
+      *led_ = 1;
+    } else if (command == string_view::ensure_z("off")) {
+      *led_ = 0;
+    } else {
+      AsyncWrite(*response.stream, string_view::ensure_z("UNKNOWN\r\n"), response.callback);
+      return;
+    }
+    AsyncWrite(*response.stream, string_view::ensure_z("OK\r\n"), response.callback);
   }
 
  private:
-  void HandleRead(ErrorCode ec, size_t amount) {
-    if (ec != 0) {
-      printf("got err: %x\r\n", ec);
-    }
-
-    readbuf_[amount] = 0;
-    const int int_amount = static_cast<int>(amount);
-    printf("read %d bytes: '%s'\r\n", int_amount, readbuf_);
-
-    StartRead();
-  }
-
-  AsyncStream* const stream_;
   DigitalOut* const led_;
-  Stm32F446BldcFoc* const bldc_;
-
-  bool printing_ = false;
-  uint32_t count_ = 0;
-
-  char readbuf_[16] = {};
 };
 
 void new_idle_loop() {
@@ -81,13 +48,16 @@ int main(void) {
 
   EventQueue queue(4096);
 
-  DigitalOut led(LED1);
+  DigitalOut led(LED2);
 
   Stm32F446AsyncUart::Options pc_options;
   pc_options.tx = PC_10;
   pc_options.rx = PC_11;
   pc_options.baud_rate = 9600;
   Stm32F446AsyncUart pc(&queue, pc_options);
+
+  AsyncExclusive<AsyncWriteStream> exclusive_write(&pc);
+  CommandManager command_manager(&queue, &pc, &exclusive_write);
 
   Stm32F446BldcFoc::Options bldc_options;
   bldc_options.pwm1 = PA_0;
@@ -109,8 +79,13 @@ int main(void) {
 
   bldc.Command(bldc_command);
 
-  Emitter emitter(&queue, &pc, &led, &bldc);
+  Emitter emitter(&led);
 
+  command_manager.Register(string_view::ensure_z("led"),
+                           std::bind(&Emitter::HandleCommand, &emitter,
+                                     std::placeholders::_1, std::placeholders::_2));
+
+  command_manager.AsyncStart();
   queue.dispatch_forever();
 
   return 0;

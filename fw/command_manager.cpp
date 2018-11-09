@@ -112,10 +112,14 @@ class CommandManager::Impl {
           auto args = this->group_arguments_;
           this->group_arguments_ = string_span();
 
+          this->done_callback_ = done_callback;
+
           Response context{actual_write_stream,
-                [this, final_done=done_callback.shrink<4>()](int) {
+                [this](int) {
               this->write_outstanding_ = false;
-              final_done();
+              auto done = this->done_callback_;
+              this->done_callback_ = {};
+              done();
             }
           };
           callback(args, context);
@@ -144,6 +148,7 @@ class CommandManager::Impl {
 
   string_span group_arguments_;
   CommandFunction current_command_;
+  VoidCallback done_callback_;
 
   AsyncReadUntilContext read_until_context_;
 };
@@ -163,8 +168,6 @@ void CommandManager::Register(const string_view& name,
   item->command_function = command_function;
 }
 
-void CommandManager::AsyncStart(ErrorCallback callback) {
+void CommandManager::AsyncStart() {
   impl_->StartRead();
-
-  impl_->event_queue_->call([callback]() { callback(0); });
 }
