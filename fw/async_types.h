@@ -17,5 +17,7 @@
 #include "static_function.h"
 
 typedef int ErrorCode;
-typedef StaticFunction<void (ErrorCode)> ErrorCallback;
-typedef StaticFunction<void (ErrorCode, ssize_t)> SizeCallback;
+
+using VoidCallback = StaticFunction<void (void)>;
+using ErrorCallback = StaticFunction<void (ErrorCode)>;
+using SizeCallback = StaticFunction<void (ErrorCode, ssize_t)>;
