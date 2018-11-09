@@ -14,15 +14,16 @@
 
 #pragma once
 
-#include <assert.h>
 #include <cstring>
+#include <limits>
 
 #include "async_stream.h"
+#include "mj_assert.h"
 #include "error.h"
 
 struct AsyncReadUntilContext {
   AsyncReadStream* stream = nullptr;
-  gsl::string_span buffer;
+  string_span buffer;
   SizeCallback callback;
   const char* delimiters = nullptr;
 };
@@ -46,7 +47,7 @@ inline void AsyncReadUntilHelper(AsyncReadUntilContext& context,
 
     if (position + 1 == static_cast<int>(ctx->buffer.size())) {
       // We overfilled our buffer without getting a terminator.
-      ctx->callback(kDelimeterNotFound, position);
+      ctx->callback(kDelimiterNotFound, position);
       return;
     }
 
@@ -60,7 +61,7 @@ inline void AsyncReadUntilHelper(AsyncReadUntilContext& context,
 }
 
 inline void AsyncReadUntil(AsyncReadUntilContext& context) {
-  assert(context.buffer.size() < std::numeric_limits<uint16_t>::max());
+  MJ_ASSERT(context.buffer.size() < std::numeric_limits<uint16_t>::max());
   detail::AsyncReadUntilHelper(context, 0);
 }
 

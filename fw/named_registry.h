@@ -17,14 +17,14 @@
 #include "mj_assert.h"
 #include "string_view.h"
 
-/// Associates a textual name with a pointer, up to a fixed maximum
+/// Associates a textual name with a value, up to a fixed maximum
 /// number of elements.
 template <typename T, std::size_t Size>
 class NamedRegistry {
  public:
   struct Element {
     string_view name;
-    T* ptr = nullptr;
+    T value{};
   };
 
   enum CreateMode {
@@ -32,21 +32,20 @@ class NamedRegistry {
     kFindOnly,
   };
 
-  Element* FindOrCreate(const gsl::cstring_span& name,
-                        CreateMode create_mode) {
+  T* FindOrCreate(const string_view& name, CreateMode create_mode) {
     for (auto& element: elements_) {
       if (element.name.size() == 0) {
         switch (create_mode) {
           case kAllowCreate: {
             element.name = name;
-            return &element;
+            return &element.value;
           }
           case kFindOnly: {
             return nullptr;
           }
         }
       } else if (element.name == name) {
-        return &element;
+        return &element.value;
       }
     }
 
@@ -60,14 +59,14 @@ class NamedRegistry {
     return nullptr;
   }
 
-  Element& operator[](std::size_t index) {
+  T& operator[](std::size_t index) {
     MJ_ASSERT(index < Size);
-    return elements_[index];
+    return elements_[index].value;
   }
 
-  const Element& operator[](std::size_t index) const {
+  const T& operator[](std::size_t index) const {
     MJ_ASSERT(index < Size);
-    return elements_[index];
+    return elements_[index].value;
   }
 
   std::size_t size() const { return Size; }

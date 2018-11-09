@@ -23,6 +23,9 @@ class string_span {
   constexpr string_span(pointer ptr, index_type size) : ptr_(ptr), size_(size) {}
   constexpr string_span(iterator begin, iterator end) : ptr_(begin), size_(end - begin) {}
 
+  template <std::size_t Size>
+  constexpr string_span(char (&array)[Size]) : ptr_(array), size_(Size) {}
+
   constexpr reference operator[](index_type index) const { return ptr_[index]; }
   constexpr reference operator()(index_type index) const { return ptr_[index]; }
 

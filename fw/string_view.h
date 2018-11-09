@@ -5,6 +5,8 @@
 #include <cstddef>
 #include <cstring>
 
+#include "string_span.h"
+
 /// A very simple 'char' only implementation of string_view.
 class string_view {
  public:
@@ -23,6 +25,8 @@ class string_view {
   constexpr string_view(const_pointer ptr, index_type size) : ptr_(ptr), size_(size) {}
   constexpr string_view(iterator begin, iterator end) : ptr_(begin), size_(end - begin) {}
 
+  constexpr string_view(const string_span& rhs) : ptr_(rhs.data()), size_(rhs.size()) {}
+
   constexpr const_reference operator[](index_type index) const { return ptr_[index]; }
   constexpr const_reference operator()(index_type index) const { return ptr_[index]; }
 
@@ -40,6 +44,18 @@ class string_view {
 
   static string_view ensure_z(const char* str) {
     return string_view(str, std::strlen(str));
+  }
+
+  bool operator==(const string_view& rhs) const noexcept {
+    if (size() != rhs.size()) {
+      return false;
+    }
+
+    return std::memcmp(data(), rhs.data(), size()) == 0;
+  }
+
+  bool operator!=(const string_view& rhs) const noexcept {
+    return !(*this == rhs);
   }
 
  private:

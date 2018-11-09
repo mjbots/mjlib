@@ -45,7 +45,7 @@ class Tokenizer {
     return string_view(start, next);
   }
 
-  gsl::cstring_span remaining() const {
+  string_view remaining() const {
     return string_view(position_, source_.end());
   }
 
