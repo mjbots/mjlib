@@ -14,15 +14,16 @@
 
 #pragma once
 
-#include "EventQueue.h"
+#include <string_view>
 
-#include "async_exclusive.h"
-#include "async_stream.h"
-#include "async_types.h"
-#include "opaque_ptr.h"
-#include "static_function.h"
-#include "string_span.h"
-#include "string_view.h"
+#include "mjlib/micro/async_exclusive.h"
+#include "mjlib/micro/async_stream.h"
+#include "mjlib/micro/async_types.h"
+#include "mjlib/micro/pool_ptr.h"
+#include "mjlib/micro/static_function.h"
+
+namespace mjlib {
+namespace micro {
 
 /// This class presents a cmdline interface over an AsyncStream,
 /// allowing multiple modules to register commands.
@@ -31,7 +32,7 @@ class CommandManager {
   /// @param queue is used to enqueue callbacks
   /// @param read_stream commands are read from this stream
   /// @param write_stream responses are written to this stream
-  CommandManager(events::EventQueue* queue,
+  CommandManager(Pool* pool,
                  AsyncReadStream* read_stream,
                  AsyncExclusive<AsyncWriteStream>* write_stream);
   ~CommandManager();
@@ -45,12 +46,16 @@ class CommandManager {
     Response() {}
   };
 
-  using CommandFunction = StaticFunction<void (const string_view&, const Response&)>;
-  void Register(const string_view& name, CommandFunction);
+  using CommandFunction = StaticFunction<
+    void (const std::string_view&, const Response&)>;
+  void Register(const std::string_view& name, CommandFunction);
 
   void AsyncStart();
 
  private:
   class Impl;
-  OpaquePtr<Impl, 1024> impl_;
+  PoolPtr<Impl> impl_;
 };
+
+}
+}

@@ -12,12 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "command_manager.h"
+#include "mjlib/micro/command_manager.h"
 
-#include "async_read.h"
-#include "named_registry.h"
-#include "string_span.h"
-#include "tokenizer.h"
+#include "mjlib/base/string_span.h"
+#include "mjlib/base/tokenizer.h"
+
+#include "mjlib/micro/async_read.h"
+#include "mjlib/micro/named_registry.h"
+
+namespace mjlib {
+namespace micro {
 
 namespace {
 constexpr size_t kMaxLineLength = 100;
@@ -25,27 +29,25 @@ constexpr size_t kMaxLineLength = 100;
 
 class CommandManager::Impl {
  public:
-  Impl(events::EventQueue* event_queue,
-       AsyncReadStream* read_stream,
+  Impl(AsyncReadStream* read_stream,
        AsyncExclusive<AsyncWriteStream>* write_stream)
-      : event_queue_(event_queue),
-        read_stream_(read_stream),
+      : read_stream_(read_stream),
         write_stream_(write_stream) {
   }
 
   void StartRead() {
     read_until_context_.stream = read_stream_;
-    read_until_context_.buffer = string_span(line_buffer_);
+    read_until_context_.buffer = base::string_span(line_buffer_);
     read_until_context_.delimiters = "\r\n";
     read_until_context_.callback =
-        [this](int error, int size) {
+        [this](base::error_code error, int size) {
       this->HandleRead(error, size);
     };
 
     AsyncReadUntil(read_until_context_);
   }
 
-  void HandleRead(int error, int size) {
+  void HandleRead(base::error_code error, int size) {
     if (error) {
       // Well, not much we can do, but ignore everything until we get
       // another newline and try again.
@@ -53,9 +55,9 @@ class CommandManager::Impl {
       // TODO jpieper: Once we have an error system, log this error.
 
       read_until_context_.stream = read_stream_;
-      read_until_context_.buffer = string_span(line_buffer_);
+      read_until_context_.buffer = base::string_span(line_buffer_);
       read_until_context_.delimiters = "\r\n";
-      read_until_context_.callback = [this](int error, int size) {
+      read_until_context_.callback = [this](base::error_code, int) {
         this->StartRead();
       };
       AsyncIgnoreUntil(read_until_context_);
@@ -74,17 +76,17 @@ class CommandManager::Impl {
 
     // Make our command, minus whatever the delimeter was that ended
     // it.
-    const string_view line(line_buffer_, size - 1);
+    const std::string_view line(line_buffer_, size - 1);
 
-    Tokenizer tokenizer(line, " ");
+    base::Tokenizer tokenizer(line, " ");
     auto cmd = tokenizer.next();
     if (cmd.size() == 0) { return; }
 
-    auto* element = registry_.FindOrCreate(cmd, Registry::kFindOnly);
+    auto* element = registry_.FindOrCreate(cmd, kFindOnly);
 
     CommandFunction command;
     if (element == nullptr) {
-      command = [this](const string_view&, const Response& response) {
+      command = [this](const std::string_view&, const Response& response) {
         this->UnknownGroup(response);
       };
     } else {
@@ -98,7 +100,7 @@ class CommandManager::Impl {
     // fill it in with our new stuff.
     std::memset(arguments_, 0, sizeof(arguments_));
     std::memcpy(arguments_, args.data(), args.size());
-    group_arguments_ = string_span(arguments_, args.size());
+    group_arguments_ = base::string_span(arguments_, args.size());
 
     // We're done with line_buffer_ now, so clear it out to make
     // debugging easier.
@@ -109,13 +111,14 @@ class CommandManager::Impl {
         [this](AsyncWriteStream* actual_write_stream, VoidCallback done_callback) {
           auto callback = this->current_command_;
           this->current_command_ = CommandFunction();
-          auto args = this->group_arguments_;
-          this->group_arguments_ = string_span();
+          auto args = std::string_view(this->group_arguments_.data(),
+                                       this->group_arguments_.size());
+          this->group_arguments_ = base::string_span();
 
           this->done_callback_ = done_callback;
 
           Response context{actual_write_stream,
-                [this](int) {
+                [this](base::error_code) {
               this->write_outstanding_ = false;
               auto done = this->done_callback_;
               this->done_callback_ = {};
@@ -127,7 +130,8 @@ class CommandManager::Impl {
   }
 
   void UnknownGroup(const Response& response) {
-    AsyncWrite(*response.stream, string_view::ensure_z("unknown command\r\n"),
+    AsyncWrite(*response.stream,
+               std::string_view("unknown command\r\n"),
                response.callback);
   }
 
@@ -135,7 +139,6 @@ class CommandManager::Impl {
     CommandFunction command_function;
   };
 
-  events::EventQueue* const event_queue_;
   AsyncReadStream* const read_stream_;
   AsyncExclusive<AsyncWriteStream>* const write_stream_;
 
@@ -146,7 +149,7 @@ class CommandManager::Impl {
   char line_buffer_[kMaxLineLength] = {};
   char arguments_[kMaxLineLength] = {};
 
-  string_span group_arguments_;
+  base::string_span group_arguments_;
   CommandFunction current_command_;
   VoidCallback done_callback_;
 
@@ -154,20 +157,22 @@ class CommandManager::Impl {
 };
 
 CommandManager::CommandManager(
-    events::EventQueue* event_queue,
+    Pool* pool,
     AsyncReadStream* read_stream,
     AsyncExclusive<AsyncWriteStream>* write_stream)
-    : impl_(event_queue, read_stream, write_stream) {}
+    : impl_(pool, read_stream, write_stream) {}
 
 CommandManager::~CommandManager() {}
 
-void CommandManager::Register(const string_view& name,
+void CommandManager::Register(const std::string_view& name,
                               CommandFunction command_function) {
-  auto* item = impl_->registry_.FindOrCreate(
-      name, Impl::Registry::kAllowCreate);
+  auto* item = impl_->registry_.FindOrCreate(name, kAllowCreate);
   item->command_function = command_function;
 }
 
 void CommandManager::AsyncStart() {
   impl_->StartRead();
+}
+
+}
 }

@@ -14,16 +14,16 @@
 
 #pragma once
 
+#include "mjlib/base/system_error.h"
+
 #include "mjlib/micro/static_function.h"
 
 namespace mjlib {
 namespace micro {
 
-typedef int ErrorCode;
-
 using VoidCallback = StaticFunction<void (void)>;
-using ErrorCallback = StaticFunction<void (ErrorCode)>;
-using SizeCallback = StaticFunction<void (ErrorCode, ssize_t)>;
+using ErrorCallback = StaticFunction<void (const base::error_code&)>;
+using SizeCallback = StaticFunction<void (const base::error_code&, ssize_t)>;
 
 }
 }

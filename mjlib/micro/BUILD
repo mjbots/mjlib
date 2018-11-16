@@ -25,6 +25,10 @@ cc_library(
 cc_library(
     name = "async_types",
     hdrs = ["async_types.h"],
+    deps = [
+        ":static_function",
+        "//mjlib/base:system_error",
+    ],
 )
 
 cc_library(
@@ -45,6 +49,27 @@ cc_library(
         ":static_function",
         "//mjlib/base:noncopyable",
         "//mjlib/base:string_span",
+        "//mjlib/base:system_error",
+    ],
+)
+
+cc_library(
+    name = "error",
+    hdrs = ["error.h"],
+    srcs = ["error.cc"],
+    deps = [
+        "//mjlib/base:system_error",
+    ],
+)
+
+cc_library(
+    name = "async_read",
+    hdrs = ["async_read.h"],
+    deps = [
+        ":async_stream",
+        ":error",
+        "//mjlib/base:assert",
+        "//mjlib/base:string_span",
     ],
 )
 
@@ -59,6 +84,23 @@ cc_library(
     hdrs = ["pool_ptr.h"],
     srcs = ["pool_ptr.cc"],
     deps = ["//mjlib/base:assert"],
+)
+
+cc_library(
+    name = "command_manager",
+    hdrs = ["command_manager.h"],
+    srcs = ["command_manager.cc"],
+    deps = [
+        ":async_exclusive",
+        ":async_read",
+        ":async_stream",
+        ":async_types",
+        ":named_registry",
+        ":pool_ptr",
+        ":static_function",
+        "//mjlib/base:string_span",
+        "//mjlib/base:tokenizer",
+    ],
 )
 
 cc_test(

@@ -12,26 +12,31 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#pragma once
-
-#include <type_traits>
-
-#include "mjlib/base/system_error.h"
+#include "mjlib/micro/error.h"
 
 namespace mjlib {
 namespace micro {
 
-enum class errc {
-  kDelimiterNotFound = 1,
+namespace {
+struct MicroErrorCategory : base::error_category {
+  const char* name() const noexcept override { return "mjlib.micro"; }
+  std::string_view message(int condition) const override {
+    switch (static_cast<errc>(condition)) {
+      case errc::kDelimiterNotFound: return "delimiter not found";
+    }
+    return "unknown";
+  }
 };
 
-base::error_code make_error_code(errc);
+const base::error_category& micro_error_category() {
+  static MicroErrorCategory result;
+  return result;
+}
 }
 
-namespace base {
-
-template <>
-struct is_error_code_enum<mjlib::micro::errc> : std::true_type {};
+base::error_code make_error_code(errc err) {
+  return base::error_code(static_cast<int>(err), micro_error_category());
+}
 
 }
 }

@@ -53,26 +53,26 @@ BOOST_AUTO_TEST_CASE(BasicAsyncStream) {
     BOOST_TEST(dut_stream.write_data_.empty() == true);
     BOOST_TEST(dut_stream.write_cbk_.valid() == false);
 
-    int write_error = -1;
+    base::error_code write_error;
     AsyncWrite(dut_stream, std::string_view("test of sending"),
-               [&](ErrorCode error) {
+               [&](base::error_code error) {
                  write_error = error;
                });
 
     BOOST_TEST(dut_stream.write_data_.size() == 15);
     BOOST_TEST(dut_stream.write_cbk_.valid() == true);
     BOOST_TEST(dut_stream.write_count_ == 1);
-    BOOST_TEST(write_error == -1);
+    BOOST_TEST(!write_error);
 
-    dut_stream.write_cbk_(0, 2);
+    dut_stream.write_cbk_({}, 2);
     BOOST_TEST(dut_stream.write_data_.size() == 13);
     BOOST_TEST(dut_stream.write_count_ == 2);
-    BOOST_TEST(write_error == -1);
+    BOOST_TEST(!write_error);
 
-    dut_stream.write_cbk_(0, 13);
+    dut_stream.write_cbk_({}, 13);
     BOOST_TEST(dut_stream.write_count_ == 2);
 
-    BOOST_TEST(write_error == 0);
+    BOOST_TEST(!write_error);
   }
 
   {
@@ -81,32 +81,32 @@ BOOST_AUTO_TEST_CASE(BasicAsyncStream) {
 
     char buffer_to_read_into[10] = "";
 
-    int read_error = -1;
+    base::error_code read_error;
     AsyncRead(dut_stream,
               base::string_span(buffer_to_read_into,
                                 sizeof(buffer_to_read_into)),
-               [&](ErrorCode error) {
-                 read_error = error;
-               });
+              [&](base::error_code error) {
+                read_error = error;
+              });
 
     BOOST_TEST(dut_stream.read_data_.size() == 10);
     BOOST_TEST(dut_stream.read_cbk_.valid() == true);
     BOOST_TEST(dut_stream.read_count_ == 1);
-    BOOST_TEST(read_error == -1);
+    BOOST_TEST(!read_error);
 
     dut_stream.read_data_[0] = 'h';
     dut_stream.read_data_[1] = 'i';
-    dut_stream.read_cbk_(0, 2);
+    dut_stream.read_cbk_({}, 2);
     BOOST_TEST(dut_stream.read_data_.size() == 8);
     BOOST_TEST(dut_stream.read_count_ == 2);
-    BOOST_TEST(read_error == -1);
+    BOOST_TEST(!read_error);
 
     dut_stream.read_data_[0] = ' ';
     dut_stream.read_data_[1] = '1';
-    dut_stream.read_cbk_(0, 8);
+    dut_stream.read_cbk_({}, 8);
     BOOST_TEST(dut_stream.read_count_ == 2);
 
-    BOOST_TEST(read_error == 0);
+    BOOST_TEST(!read_error);
     BOOST_TEST(std::strcmp(buffer_to_read_into, "hi 1") == 0);
   }
 }

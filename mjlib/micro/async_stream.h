@@ -15,9 +15,11 @@
 #pragma once
 
 #include <string_view>
+#include <system_error>
 
 #include "mjlib/base/noncopyable.h"
 #include "mjlib/base/string_span.h"
+#include "mjlib/base/system_error.h"
 
 #include "mjlib/micro/async_types.h"
 #include "mjlib/micro/static_function.h"
@@ -48,19 +50,19 @@ template <typename Stream>
 void AsyncWrite(Stream& stream, const std::string_view& data,
                 const ErrorCallback& callback) {
   if (data.empty()) {
-    callback(0);
+    callback({});
     return;
   }
 
   auto continuation = [stream=&stream, data, cbk=callback.shrink<4>()]
-      (ErrorCode error, ssize_t size) {
+      (base::error_code error, ssize_t size) {
     if (error) {
       cbk(error);
       return;
     }
 
     if (static_cast<ssize_t>(data.size()) == size) {
-      cbk(0);
+      cbk({});
       return;
     }
 
@@ -76,18 +78,18 @@ template <typename Stream>
 void AsyncRead(Stream& stream, const base::string_span& data,
                const ErrorCallback& callback) {
   if (data.empty()) {
-    callback(0);
+    callback({});
     return;
   }
 
   auto continuation = [stream=&stream, data, cbk=callback.shrink<4>()]
-      (ErrorCode error, ssize_t size) {
+      (base::error_code error, ssize_t size) {
     if (error) {
       cbk(error);
       return;
     }
     if (data.size() == size) {
-      cbk(0);
+      cbk({});
       return;
     }
 

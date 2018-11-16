@@ -17,13 +17,18 @@
 #include <cstring>
 #include <limits>
 
-#include "async_stream.h"
-#include "mj_assert.h"
-#include "error.h"
+#include "mjlib/base/assert.h"
+#include "mjlib/base/string_span.h"
+
+#include "mjlib/micro/async_stream.h"
+#include "mjlib/micro/error.h"
+
+namespace mjlib {
+namespace micro {
 
 struct AsyncReadUntilContext {
   AsyncReadStream* stream = nullptr;
-  string_span buffer;
+  base::string_span buffer;
   SizeCallback callback;
   const char* delimiters = nullptr;
 };
@@ -33,7 +38,7 @@ inline void AsyncReadUntilHelper(AsyncReadUntilContext& context,
                                  uint16_t position) {
   auto handler =
       [ctx=&context,
-       position] (ErrorCode error, std::size_t size) {
+       position] (base::error_code error, std::size_t size) {
     if (error) {
       ctx->callback(error, position + size);
       return;
@@ -41,13 +46,13 @@ inline void AsyncReadUntilHelper(AsyncReadUntilContext& context,
 
     if (std::strchr(ctx->delimiters,
                     ctx->buffer.data()[position]) != nullptr) {
-      ctx->callback(0, position + size);
+      ctx->callback({}, position + size);
       return;
     }
 
     if (position + 1 == static_cast<int>(ctx->buffer.size())) {
       // We overfilled our buffer without getting a terminator.
-      ctx->callback(kDelimiterNotFound, position);
+      ctx->callback(errc::kDelimiterNotFound, position);
       return;
     }
 
@@ -55,8 +60,8 @@ inline void AsyncReadUntilHelper(AsyncReadUntilContext& context,
   };
 
   context.stream->AsyncReadSome(
-      string_span(context.buffer.data() + position,
-                  context.buffer.data() + position + 1), handler);
+      base::string_span(context.buffer.data() + position,
+                        context.buffer.data() + position + 1), handler);
 }
 }
 
@@ -67,8 +72,8 @@ inline void AsyncReadUntil(AsyncReadUntilContext& context) {
 
 inline void AsyncIgnoreUntil(AsyncReadUntilContext& context) {
   context.stream->AsyncReadSome(
-      string_span(context.buffer.data(), context.buffer.data() + 1),
-      [ctx=&context](int error, std::size_t size) {
+      base::string_span(context.buffer.data(), context.buffer.data() + 1),
+      [ctx=&context](base::error_code error, std::size_t) {
         if (error) {
           ctx->callback(error, 0);
           return;
@@ -76,10 +81,13 @@ inline void AsyncIgnoreUntil(AsyncReadUntilContext& context) {
 
         if (std::strchr(ctx->delimiters,
                         ctx->buffer.data()[0]) != nullptr) {
-          ctx->callback(0, 0);
+          ctx->callback({}, 0);
           return;
         }
 
         AsyncIgnoreUntil(*ctx);
       });
+}
+
+}
 }
