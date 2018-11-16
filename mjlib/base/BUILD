@@ -59,14 +59,21 @@ cc_library(
     hdrs = ["noncopyable.h"],
 )
 
+cc_library(
+    name = "tokenizer",
+    hdrs = ["tokenizer.h"],
+)
+
 cc_test(
     name = "base_test",
     srcs = [
         "test/string_span_test.cc",
+        "test/tokenizer_test.cc",
         "test/test_main.cc",
     ],
     deps = [
         ":string_span",
+        ":tokenizer",
         "@boost//:test",
     ],
 )
