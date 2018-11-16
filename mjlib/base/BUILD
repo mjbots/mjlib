@@ -64,15 +64,23 @@ cc_library(
     hdrs = ["tokenizer.h"],
 )
 
+cc_library(
+    name = "system_error",
+    hdrs = ["system_error.h"],
+    srcs = ["system_error.cc"],
+)
+
 cc_test(
     name = "base_test",
     srcs = [
         "test/string_span_test.cc",
+        "test/system_error_test.cc",
         "test/tokenizer_test.cc",
         "test/test_main.cc",
     ],
     deps = [
         ":string_span",
+        ":system_error",
         ":tokenizer",
         "@boost//:test",
     ],
