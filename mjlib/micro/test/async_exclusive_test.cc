@@ -14,9 +14,44 @@
 
 #include "mjlib/micro/async_exclusive.h"
 
+#include <optional>
+
 #include <boost/test/auto_unit_test.hpp>
+
+using namespace mjlib::micro;
 
 BOOST_AUTO_TEST_CASE(BasicAsyncExclusive) {
   int value = 0;
-  mjlib::micro::AsyncExclusive<int> dut{&value};
+  AsyncExclusive<int> dut{&value};
+
+  std::optional<VoidCallback> do_release1;
+
+  dut.AsyncStart([&](int* resource, VoidCallback release) {
+      BOOST_ASSERT(resource == &value);
+      do_release1 = release;
+    });
+
+  // This was the first thing, so it should be invoked right away.
+  BOOST_TEST(!!do_release1);
+
+  std::optional<VoidCallback> do_release2;
+  dut.AsyncStart([&](int* resource, VoidCallback release) {
+      BOOST_ASSERT(resource == &value);
+      do_release2 = release;
+    });
+
+  // This one should not be invoked until we finish our first
+  // operation.
+  BOOST_TEST(!do_release2);
+
+  (*do_release1)();
+  do_release1 = {};
+
+  // And now our second callback has been invoked.
+  BOOST_TEST(!!do_release2);
+
+  // Just to make sure nothing crashes, release our resource a final
+  // time.
+  (*do_release2)();
+  do_release2 = {};
 }
