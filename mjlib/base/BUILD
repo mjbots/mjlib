@@ -34,6 +34,11 @@ cc_library(
 )
 
 cc_library(
+    name = "string_span",
+    hdrs = ["string_span.h"],
+)
+
+cc_library(
     name = "visitor",
     hdrs = ["visitor.h"],
 )
@@ -47,4 +52,16 @@ cc_library(
     name = "recording_stream",
     hdrs = ["recording_stream.h"],
     deps = [":stream", ":fast_stream"],
+)
+
+cc_test(
+    name = "base_test",
+    srcs = [
+        "test/string_span_test.cc",
+        "test/test_main.cc",
+    ],
+    deps = [
+        ":string_span",
+        "@boost//:test",
+    ],
 )

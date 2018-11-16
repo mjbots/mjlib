@@ -17,6 +17,9 @@
 #include <cstddef>
 #include <cstring>
 
+namespace mjlib {
+namespace base {
+
 /// A very simple 'char' only implementation of string_span.
 class string_span {
  public:
@@ -61,3 +64,6 @@ class string_span {
   char* ptr_ = nullptr;
   index_type size_ = 0;
 };
+
+}
+}
