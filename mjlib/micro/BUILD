@@ -68,11 +68,13 @@ cc_test(
         "test/async_exclusive_test.cc",
         "test/async_stream_test.cc",
         "test/named_registry_test.cc",
+        "test/pool_ptr_test.cc",
     ],
     deps = [
         ":async_exclusive",
         ":async_stream",
         ":named_registry",
+        ":pool_ptr",
         "@boost//:test",
     ],
 )
