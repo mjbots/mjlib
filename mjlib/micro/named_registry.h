@@ -14,8 +14,17 @@
 
 #pragma once
 
-#include "mj_assert.h"
-#include "string_view.h"
+#include <string_view>
+
+#include "mjlib/base/assert.h"
+
+namespace mjlib {
+namespace micro {
+
+enum CreateMode {
+  kAllowCreate,
+  kFindOnly,
+};
 
 /// Associates a textual name with a value, up to a fixed maximum
 /// number of elements.
@@ -23,16 +32,13 @@ template <typename T, std::size_t Size>
 class NamedRegistry {
  public:
   struct Element {
-    string_view name;
+    std::string_view name;
     T value{};
   };
 
-  enum CreateMode {
-    kAllowCreate,
-    kFindOnly,
-  };
-
-  T* FindOrCreate(const string_view& name, CreateMode create_mode) {
+  // When create_mode == kAllowCreate, name is aliased internally and
+  // must remain valid for the life of this instance.
+  T* FindOrCreate(const std::string_view& name, CreateMode create_mode) {
     for (auto& element: elements_) {
       if (element.name.size() == 0) {
         switch (create_mode) {
@@ -73,3 +79,6 @@ class NamedRegistry {
 
   std::array<Element, Size> elements_;
 };
+
+}
+}

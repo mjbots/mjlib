@@ -48,16 +48,31 @@ cc_library(
     ],
 )
 
+cc_library(
+    name = "named_registry",
+    hdrs = ["named_registry.h"],
+    deps = ["//mjlib/base:assert"],
+)
+
+cc_library(
+    name = "pool_ptr",
+    hdrs = ["pool_ptr.h"],
+    srcs = ["pool_ptr.cc"],
+    deps = ["//mjlib/base:assert"],
+)
+
 cc_test(
     name = "micro_test",
     srcs = [
         "test/test_main.cc",
         "test/async_exclusive_test.cc",
         "test/async_stream_test.cc",
+        "test/named_registry_test.cc",
     ],
     deps = [
         ":async_exclusive",
         ":async_stream",
+        ":named_registry",
         "@boost//:test",
     ],
 )
