@@ -17,6 +17,12 @@
 package(default_visibility = ["//visibility:public"])
 
 cc_library(
+    name = "assert",
+    hdrs = ["assert.h"],
+    srcs = ["assert.cc"],
+)
+
+cc_library(
     name = "stream",
     hdrs = ["stream.h"],
 )

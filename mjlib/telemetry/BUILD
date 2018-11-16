@@ -40,6 +40,7 @@ cc_library(
     name = "telemetry_util",
     hdrs = ["telemetry_util.h"],
     deps = [
+        "//mjlib/base:assert",
         "//mjlib/base:recording_stream",
         "@fmt",
     ],

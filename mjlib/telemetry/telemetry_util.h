@@ -14,10 +14,9 @@
 
 #pragma once
 
-#include <cassert>
-
 #include <fmt/format.h>
 
+#include "mjlib/base/assert.h"
 #include "mjlib/base/fast_stream.h"
 #include "mjlib/base/recording_stream.h"
 
@@ -91,7 +90,7 @@ class TelemetrySchemaReader {
   }
 
   void DoPrimitiveData(TF::FieldType type) {
-    BOOST_ASSERT(data_);
+    MJ_ASSERT(data_);
 
     typedef TF::FieldType FT;
 
@@ -131,7 +130,7 @@ class TelemetrySchemaReader {
       case FT::kObject:
       case FT::kOptional:
       case FT::kEnum: {
-        BOOST_ASSERT(false);
+        MJ_ASSERT(false);
       }
     }
   }
@@ -186,7 +185,7 @@ class TelemetrySchemaReader {
 
     switch (field_type) {
       case TF::FieldType::kFinal: {
-        BOOST_ASSERT(false);
+        MJ_ASSERT(false);
       }
       case TF::FieldType::kBool:
       case TF::FieldType::kInt8:
@@ -287,7 +286,7 @@ class TelemetrySchemaReader {
         break;
       }
       default: {
-        BOOST_ASSERT(false);
+        MJ_ASSERT(false);
       }
     }
 
@@ -349,7 +348,7 @@ class TelemetrySchemaReader {
       case TF::FieldType::kOptional: { return "kOptional"; }
       case TF::FieldType::kEnum: { return "kEnum"; }
     }
-    BOOST_ASSERT(false);
+    MJ_ASSERT(false);
     return "";
   }
 
