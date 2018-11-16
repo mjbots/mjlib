@@ -16,9 +16,13 @@
 
 #include <array>
 
-#include "mj_assert.h"
-#include "async_types.h"
-#include "static_function.h"
+#include "mjlib/base/assert.h"
+
+#include "mjlib/micro/async_types.h"
+#include "mjlib/micro/static_function.h"
+
+namespace mjlib {
+namespace micro {
 
 /// This class manages exclusive ownership of a resource with
 /// asynchronous semantics.
@@ -79,3 +83,6 @@ class AsyncExclusive {
   bool outstanding_ = false;
   std::array<Operation, MaxLockers> callbacks_;
 };
+
+}
+}

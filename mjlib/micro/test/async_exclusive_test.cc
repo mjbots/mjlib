@@ -12,19 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#pragma once
+#include "mjlib/micro/async_exclusive.h"
 
-namespace mjlib {
-namespace base {
+#include <boost/test/auto_unit_test.hpp>
 
-class NonCopyable {
- public:
-  NonCopyable() = default;
-  ~NonCopyable() = default;
-
-  NonCopyable(const NonCopyable&) = delete;
-  NonCopyable& operator=(const NonCopyable&) = delete;
-};
-
-}
+BOOST_AUTO_TEST_CASE(BasicAsyncExclusive) {
+  int value = 0;
+  mjlib::micro::AsyncExclusive<int> dut{&value};
 }

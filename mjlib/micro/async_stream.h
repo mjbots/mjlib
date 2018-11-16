@@ -14,25 +14,29 @@
 
 #pragma once
 
-#include "NonCopyable.h"
+#include <string_view>
 
-#include "async_types.h"
-#include "static_function.h"
-#include "string_span.h"
-#include "string_view.h"
+#include "mjlib/base/noncopyable.h"
+#include "mjlib/base/string_span.h"
 
-class AsyncReadStream : mbed::NonCopyable<AsyncReadStream> {
+#include "mjlib/micro/async_types.h"
+#include "mjlib/micro/static_function.h"
+
+namespace mjlib {
+namespace micro {
+
+class AsyncReadStream : base::NonCopyable {
  public:
   virtual ~AsyncReadStream() {}
 
-  virtual void AsyncReadSome(const string_span&, const SizeCallback&) = 0;
+  virtual void AsyncReadSome(const base::string_span&, const SizeCallback&) = 0;
 };
 
-class AsyncWriteStream : mbed::NonCopyable<AsyncWriteStream> {
+class AsyncWriteStream : base::NonCopyable {
  public:
   virtual ~AsyncWriteStream() {}
 
-  virtual void AsyncWriteSome(const string_view&, const SizeCallback&) = 0;
+  virtual void AsyncWriteSome(const std::string_view&, const SizeCallback&) = 0;
 };
 
 class AsyncStream : public AsyncReadStream, public AsyncWriteStream {
@@ -41,7 +45,8 @@ class AsyncStream : public AsyncReadStream, public AsyncWriteStream {
 };
 
 template <typename Stream>
-void AsyncWrite(Stream& stream, const string_view& data, const ErrorCallback& callback) {
+void AsyncWrite(Stream& stream, const std::string_view& data,
+                const ErrorCallback& callback) {
   if (data.empty()) {
     callback(0);
     return;
@@ -54,19 +59,22 @@ void AsyncWrite(Stream& stream, const string_view& data, const ErrorCallback& ca
       return;
     }
 
-    if (data.size() == size) {
+    if (static_cast<ssize_t>(data.size()) == size) {
       cbk(0);
       return;
     }
 
-    AsyncWrite(*stream, string_view(data.begin() + size, data.end()), cbk);
+    AsyncWrite(*stream,
+               std::string_view(data.begin() + size, data.size() - size),
+               cbk);
   };
 
   stream.AsyncWriteSome(data, continuation);
 }
 
 template <typename Stream>
-void AsyncRead(Stream& stream, const string_span& data, const ErrorCallback& callback) {
+void AsyncRead(Stream& stream, const base::string_span& data,
+               const ErrorCallback& callback) {
   if (data.empty()) {
     callback(0);
     return;
@@ -83,8 +91,13 @@ void AsyncRead(Stream& stream, const string_span& data, const ErrorCallback& cal
       return;
     }
 
-    AsyncRead(*stream, string_span(data.begin() + size, data.end()), cbk);
+    AsyncRead(*stream,
+              base::string_span(data.begin() + size, data.end()),
+              cbk);
   };
 
   stream.AsyncReadSome(data, continuation);
+}
+
+}
 }

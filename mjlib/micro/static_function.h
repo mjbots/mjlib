@@ -1,4 +1,4 @@
-// Copyright 2015 Josh Pieper, jjp@pobox.com.  All rights reserved.
+// Copyright 2015-2018 Josh Pieper, jjp@pobox.com.  All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,7 +17,10 @@
 #include <array>
 #include <cstring>
 
-#include "mj_assert.h"
+#include "mjlib/base/assert.h"
+
+namespace mjlib {
+namespace micro {
 
 template <typename Signature, std::size_t Size=8>
 struct StaticFunction;
@@ -154,3 +157,6 @@ struct StaticFunction<R(Args...), Size>
   using Storage = std::array<long, Size>;
   Storage storage_;
 };
+
+}
+}

@@ -17,56 +17,47 @@
 package(default_visibility = ["//visibility:public"])
 
 cc_library(
-    name = "assert",
-    hdrs = ["assert.h"],
-    srcs = ["assert.cc"],
+    name = "static_function",
+    hdrs = ["static_function.h"],
+    deps = ["//mjlib/base:assert"],
 )
 
 cc_library(
-    name = "stream",
-    hdrs = ["stream.h"],
+    name = "async_types",
+    hdrs = ["async_types.h"],
 )
 
 cc_library(
-    name = "fast_stream",
-    hdrs = ["fast_stream.h"],
-    deps = [":stream"],
+    name = "async_exclusive",
+    hdrs = ["async_exclusive.h"],
+    deps = [
+        ":async_types",
+        ":static_function",
+        "//mjlib/base:assert",
+    ],
 )
 
 cc_library(
-    name = "string_span",
-    hdrs = ["string_span.h"],
-)
-
-cc_library(
-    name = "visitor",
-    hdrs = ["visitor.h"],
-)
-
-cc_library(
-    name = "visit_archive",
-    hdrs = ["visit_archive.h"],
-)
-
-cc_library(
-    name = "recording_stream",
-    hdrs = ["recording_stream.h"],
-    deps = [":stream", ":fast_stream"],
-)
-
-cc_library(
-    name = "noncopyable",
-    hdrs = ["noncopyable.h"],
+    name = "async_stream",
+    hdrs = ["async_stream.h"],
+    deps = [
+        ":async_types",
+        ":static_function",
+        "//mjlib/base:noncopyable",
+        "//mjlib/base:string_span",
+    ],
 )
 
 cc_test(
-    name = "base_test",
+    name = "micro_test",
     srcs = [
-        "test/string_span_test.cc",
         "test/test_main.cc",
+        "test/async_exclusive_test.cc",
+        "test/async_stream_test.cc",
     ],
     deps = [
-        ":string_span",
+        ":async_exclusive",
+        ":async_stream",
         "@boost//:test",
     ],
 )

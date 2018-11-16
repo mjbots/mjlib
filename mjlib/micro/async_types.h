@@ -1,4 +1,4 @@
-// Copyright 2015 Josh Pieper, jjp@pobox.com.  All rights reserved.
+// Copyright 2015-2018 Josh Pieper, jjp@pobox.com.  All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,10 +14,16 @@
 
 #pragma once
 
-#include "static_function.h"
+#include "mjlib/micro/static_function.h"
+
+namespace mjlib {
+namespace micro {
 
 typedef int ErrorCode;
 
 using VoidCallback = StaticFunction<void (void)>;
 using ErrorCallback = StaticFunction<void (ErrorCode)>;
 using SizeCallback = StaticFunction<void (ErrorCode, ssize_t)>;
+
+}
+}
