@@ -110,6 +110,12 @@ cc_library(
 )
 
 cc_library(
+    name = "event_queue",
+    hdrs = ["event_queue.h"],
+    deps = ["event"],
+)
+
+cc_library(
     name = "stream_pipe",
     hdrs = ["stream_pipe.h"],
     srcs = ["stream_pipe.cc"],
@@ -126,6 +132,7 @@ cc_test(
         "test/test_main.cc",
         "test/async_exclusive_test.cc",
         "test/async_stream_test.cc",
+        "test/command_manager_test.cc",
         "test/named_registry_test.cc",
         "test/pool_ptr_test.cc",
         "test/stream_pipe_test.cc",
@@ -133,9 +140,12 @@ cc_test(
     deps = [
         ":async_exclusive",
         ":async_stream",
+        ":command_manager",
+        ":event_queue",
         ":named_registry",
         ":pool_ptr",
         ":stream_pipe",
         "@boost//:test",
+        "@fmt",
     ],
 )

@@ -50,9 +50,11 @@ class StreamPipe {
 
     base::string_span outstanding_read_buffer_;
     SizeCallback outstanding_read_callback_;
+    SizeCallback pending_read_callback_;
 
     std::string_view outstanding_write_buffer_;
     SizeCallback outstanding_write_callback_;
+    SizeCallback pending_write_callback_;
   };
 
   Side side_a_;

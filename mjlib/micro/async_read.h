@@ -44,6 +44,8 @@ inline void AsyncReadUntilHelper(AsyncReadUntilContext& context,
       return;
     }
 
+    MJ_ASSERT(size == 0 || size == 1);
+
     if (std::strchr(ctx->delimiters,
                     ctx->buffer.data()[position]) != nullptr) {
       ctx->callback({}, position + size);

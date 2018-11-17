@@ -29,15 +29,19 @@ void StreamPipe::Side::AsyncReadSome(
         buffer.size(), other_->outstanding_write_buffer_.size());
     std::memcpy(buffer.data(), other_->outstanding_write_buffer_.data(),
                 to_copy);
-    parent_->poster_([to_copy, cbk = callback.shrink<4>()]() {
-        cbk({}, to_copy);
+    pending_read_callback_ = callback;
+
+    parent_->poster_([this, to_copy]() {
+        auto read_cbk = this->pending_read_callback_;
+        this->pending_read_callback_ = {};
+
+        auto write_cbk = other_->outstanding_write_callback_;
+        other_->outstanding_write_callback_ = {};
+        other_->outstanding_write_buffer_ = {};
+
+        read_cbk({}, to_copy);
+        write_cbk({}, to_copy);
       });
-    parent_->poster_(
-        [to_copy, cbk = other_->outstanding_write_callback_.shrink<4>()]() {
-          cbk({}, to_copy);
-        });
-    other_->outstanding_write_buffer_ = {};
-    other_->outstanding_write_callback_ = {};
   } else {
     // Our other side has no write outstanding.
 
@@ -48,7 +52,10 @@ void StreamPipe::Side::AsyncReadSome(
 
     // If this is a zero byte read, fulfill it immediately.
     if (buffer.size() == 0) {
-      parent_->poster_([cbk = callback.shrink<2>()]() {
+      pending_read_callback_ = callback;
+      parent_->poster_([this]() {
+          auto cbk = pending_read_callback_;
+          pending_read_callback_ = {};
           cbk({}, 0);
         });
     } else {
@@ -67,15 +74,18 @@ void StreamPipe::Side::AsyncWriteSome(
         buffer.size(), other_->outstanding_read_buffer_.size());
     std::memcpy(other_->outstanding_read_buffer_.data(), buffer.data(),
                 to_copy);
-    parent_->poster_([to_copy, cbk = callback.shrink<4>()]() {
-        cbk({}, to_copy);
+    pending_write_callback_ = callback;
+    parent_->poster_([this, to_copy]() {
+        auto write_cbk = this->pending_write_callback_;
+        this->pending_write_callback_ = {};
+
+        auto read_cbk = other_->outstanding_read_callback_;
+        other_->outstanding_read_callback_ = {};
+        other_->outstanding_read_buffer_ = {};
+
+        write_cbk({}, to_copy);
+        read_cbk({}, to_copy);
       });
-    parent_->poster_(
-        [to_copy, cbk = other_->outstanding_read_callback_.shrink<2>()]() {
-          cbk({}, to_copy);
-        });
-    other_->outstanding_write_buffer_ = {};
-    other_->outstanding_write_callback_ = {};
   } else {
     // Our other side has no read outstanding.
 
@@ -86,7 +96,10 @@ void StreamPipe::Side::AsyncWriteSome(
 
     // If this is a zero byte write, fulfill it immediately.
     if (buffer.size() == 0) {
-      parent_->poster_([cbk = callback.shrink<2>()]() {
+      pending_write_callback_ = callback;
+      parent_->poster_([this]() {
+          auto cbk = pending_write_callback_;
+          pending_write_callback_ = {};
           cbk({}, 0);
         });
     } else {

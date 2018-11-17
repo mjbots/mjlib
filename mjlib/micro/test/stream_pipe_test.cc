@@ -18,14 +18,16 @@
 
 #include <boost/test/auto_unit_test.hpp>
 
+#include <fmt/format.h>
+
+#include "mjlib/micro/event_queue.h"
+
 using namespace mjlib::micro;
 namespace base = mjlib::base;
 
 BOOST_AUTO_TEST_CASE(BasicStreamPipe) {
-  std::deque<VoidCallback> events;
-  auto poster = [&](VoidCallback cbk) { events.push_back(cbk); };
-
-  StreamPipe dut(poster);
+  EventQueue event_queue;
+  StreamPipe dut(event_queue.MakePoster());
 
   const char data_to_send[] = "stuff to send";
   char data_to_receive[4] = {};
@@ -42,7 +44,7 @@ BOOST_AUTO_TEST_CASE(BasicStreamPipe) {
       });
 
   BOOST_TEST(write_complete == 0);
-  BOOST_TEST(events.empty());
+  BOOST_TEST(event_queue.empty());
 
   int read_complete = 0;
   ssize_t read_size = 0;
@@ -57,14 +59,96 @@ BOOST_AUTO_TEST_CASE(BasicStreamPipe) {
 
   BOOST_TEST(write_complete == 0);
   BOOST_TEST(read_complete == 0);
-  BOOST_TEST(!events.empty());
+  BOOST_TEST(!event_queue.empty());
 
-  while (!events.empty()) {
-    events.front()();
-    events.pop_front();
-  }
+  event_queue.Poll();
 
   BOOST_TEST(write_complete == 1);
   BOOST_TEST(read_complete == 1);
   BOOST_TEST(std::string_view(data_to_receive, 4) == "stuf");
+}
+
+namespace {
+class Writer {
+ public:
+  Writer(AsyncWriteStream* stream) : stream_(stream) {
+    StartWrite(0);
+  }
+
+  int count() const { return count_; }
+
+ private:
+  void StartWrite(ssize_t size) {
+    count_++;
+    std::strncpy(buf_, fmt::format("{} bytes\n", size).c_str(),
+                 sizeof(buf_) - 1);
+
+    stream_->AsyncWriteSome(
+        buf_,
+        [this](base::error_code ec, ssize_t size) {
+          BOOST_TEST(!ec);
+          this->StartWrite(size);
+        });
+  }
+
+  AsyncWriteStream* const stream_;
+  char buf_[50] = {};
+  int count_ = 0;
+};
+}
+
+BOOST_AUTO_TEST_CASE(StreamPipeWriteEnqueue) {
+  // Start a new write from within a write callback.
+  EventQueue event_queue;
+  StreamPipe dut(event_queue.MakePoster());
+  Writer writer(dut.side_a());
+
+  BOOST_TEST(writer.count() == 1);
+
+  event_queue.Poll();
+  BOOST_TEST(writer.count() == 1);
+
+  // The writer always has something outstanding, and each incremental
+  // write starts at the beginning of a packet.
+  char to_receive[30] = {};
+  int receive_count = 0;
+  dut.side_b()->AsyncReadSome(
+      base::string_span(to_receive, sizeof(to_receive)),
+      [&](base::error_code ec, ssize_t size) {
+        BOOST_TEST(!ec);
+        BOOST_TEST(size == 8);
+        BOOST_TEST(std::string(to_receive, size) == "0 bytes\n");
+        receive_count++;
+      });
+
+  BOOST_TEST(receive_count == 0);
+  event_queue.Poll();
+  BOOST_TEST(receive_count == 1);
+
+  dut.side_b()->AsyncReadSome(
+      base::string_span(to_receive, 1),
+      [&](base::error_code ec, ssize_t size) {
+        BOOST_TEST(!ec);
+        BOOST_TEST(size == 1);
+        BOOST_TEST(std::string(to_receive, size) == "8");
+        receive_count++;
+      });
+
+  BOOST_TEST(receive_count == 1);
+  event_queue.Poll();
+  BOOST_TEST(receive_count == 2);
+
+  // Finally, read another slightly larger piece.
+  dut.side_b()->AsyncReadSome(
+      base::string_span(to_receive, 3),
+      [&](base::error_code ec, ssize_t size) {
+        BOOST_TEST(!ec);
+        BOOST_TEST(size == 3);
+        BOOST_TEST(std::string(to_receive, size) == "1 b");
+        receive_count++;
+      });
+
+  BOOST_TEST(receive_count == 2);
+  event_queue.Poll();
+  BOOST_TEST(receive_count == 3);
 }
