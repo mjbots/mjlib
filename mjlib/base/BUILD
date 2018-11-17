@@ -20,6 +20,7 @@ cc_library(
     name = "assert",
     hdrs = ["assert.h"],
     srcs = ["assert.cc"],
+    alwayslink = True,
 )
 
 cc_library(

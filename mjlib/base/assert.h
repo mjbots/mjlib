@@ -21,7 +21,7 @@
 
 namespace mjlib {
 namespace base {
-void assertion_failed(const char* expression, const char* filename, int line) __attribute__((weak));
+void __attribute__((weak)) assertion_failed(const char* expression, const char* filename, int line);
 }
 }
 
