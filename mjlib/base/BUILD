@@ -35,6 +35,12 @@ cc_library(
 )
 
 cc_library(
+    name = "buffer_stream",
+    hdrs = ["buffer_stream.h"],
+    deps = [":stream"],
+)
+
+cc_library(
     name = "string_span",
     hdrs = ["string_span.h"],
 )
