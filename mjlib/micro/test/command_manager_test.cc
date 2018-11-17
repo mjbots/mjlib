@@ -23,31 +23,12 @@
 #include "mjlib/micro/pool_ptr.h"
 #include "mjlib/micro/stream_pipe.h"
 
+#include "mjlib/micro/test/reader.h"
+
 using namespace mjlib::micro;
 namespace base = mjlib::base;
 
-namespace {
-class Reader {
- public:
-  Reader(AsyncReadStream* stream) : stream_(stream) {
-    StartRead();
-  }
-
-  void StartRead() {
-    stream_->AsyncReadSome(
-        base::string_span(buffer_, buffer_ + sizeof(buffer_)),
-        [this](base::error_code ec, ssize_t size) {
-          BOOST_TEST(!ec);
-          data_.write(buffer_, size);
-          this->StartRead();
-        });
-  }
-
-  AsyncReadStream* const stream_;
-  std::ostringstream data_;
-  char buffer_[10] = {};
-};
-}
+using test::Reader;
 
 BOOST_AUTO_TEST_CASE(BasicCommandManager) {
   SizedPool<> pool;

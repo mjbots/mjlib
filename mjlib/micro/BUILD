@@ -126,6 +126,23 @@ cc_library(
     ],
 )
 
+cc_library(
+    name = "serializable_handler",
+    hdrs = [
+        "serializable_handler.h",
+        "serializable_handler_detail.h",
+    ],
+    deps = [
+        ":async_stream",
+        ":async_types",
+        "//mjlib/base:stream",
+        "//mjlib/base:string_span",
+        "//mjlib/base:tokenizer",
+        "//mjlib/base:visit_archive",
+        "//mjlib/telemetry:telemetry_archive",
+    ],
+)
+
 cc_test(
     name = "micro_test",
     srcs = [
@@ -135,6 +152,8 @@ cc_test(
         "test/command_manager_test.cc",
         "test/named_registry_test.cc",
         "test/pool_ptr_test.cc",
+        "test/reader.h",
+        "test/serializable_handler_test.cc",
         "test/stream_pipe_test.cc",
     ],
     deps = [
@@ -144,7 +163,9 @@ cc_test(
         ":event_queue",
         ":named_registry",
         ":pool_ptr",
+        ":serializable_handler",
         ":stream_pipe",
+        "//mjlib/base:buffer_stream",
         "@boost//:test",
         "@fmt",
     ],
