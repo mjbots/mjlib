@@ -103,6 +103,23 @@ cc_library(
     ],
 )
 
+cc_library(
+    name = "event",
+    hdrs = ["event.h"],
+    deps = [":static_function"],
+)
+
+cc_library(
+    name = "stream_pipe",
+    hdrs = ["stream_pipe.h"],
+    srcs = ["stream_pipe.cc"],
+    deps = [
+        ":async_stream",
+        ":event",
+        "//mjlib/base:assert",
+    ],
+)
+
 cc_test(
     name = "micro_test",
     srcs = [
@@ -111,12 +128,14 @@ cc_test(
         "test/async_stream_test.cc",
         "test/named_registry_test.cc",
         "test/pool_ptr_test.cc",
+        "test/stream_pipe_test.cc",
     ],
     deps = [
         ":async_exclusive",
         ":async_stream",
         ":named_registry",
         ":pool_ptr",
+        ":stream_pipe",
         "@boost//:test",
     ],
 )
