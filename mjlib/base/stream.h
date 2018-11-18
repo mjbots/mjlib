@@ -15,19 +15,22 @@
 #pragma once
 
 #include <ios>
+#include <string_view>
+
+#include "mjlib/base/string_span.h"
 
 namespace mjlib {
 namespace base {
 
 class WriteStream {
  public:
-  virtual void write(const char*, std::streamsize) = 0;
+  virtual void write(const std::string_view&) = 0;
 };
 
 class ReadStream {
  public:
   virtual void ignore(std::streamsize) = 0;
-  virtual void read(char*, std::streamsize) = 0;
+  virtual void read(const string_span&) = 0;
   virtual std::streamsize gcount() const = 0;
 };
 

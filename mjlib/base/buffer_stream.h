@@ -27,11 +27,11 @@ class BufferWriteStream : public WriteStream {
  public:
   BufferWriteStream(const string_span& buffer) : buffer_(buffer) {}
 
-  void write(const char* data, std::streamsize amount) override  {
-    MJ_ASSERT((offset_ + amount) <=
-              static_cast<std::streamsize>(buffer_.size()));
-    std::memcpy(&buffer_[offset_], data, amount);
-    offset_ += amount;
+  void write(const std::string_view& data) override  {
+    MJ_ASSERT(static_cast<std::streamsize>(offset_ + data.size()) <=
+              buffer_.size());
+    std::memcpy(&buffer_[offset_], data.data(), data.size());
+    offset_ += data.size();
   }
 
   void skip(std::streamsize amount) {
@@ -60,11 +60,11 @@ class BufferReadStream : public ReadStream {
     offset_ += last_read_;
   }
 
-  void read(char* buffer, std::streamsize amount) override {
-    MJ_ASSERT((offset_ + amount) <=
+  void read(const string_span& buffer) override {
+    MJ_ASSERT((offset_ + buffer.size()) <=
               static_cast<std::streamsize>(buffer_.size()));
-    last_read_ = amount;
-    std::memcpy(buffer, &buffer_[offset_], amount);
+    last_read_ = buffer.size();
+    std::memcpy(buffer.data(), &buffer_[offset_], last_read_);
     offset_ += last_read_;
   }
 

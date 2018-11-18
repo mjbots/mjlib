@@ -353,7 +353,7 @@ class TelemetrySchemaReader {
   }
 
   void Write(const std::string& data) {
-    out_.write(&data[0], data.size());
+    out_.write({&data[0], data.size()});
   }
 
   template <typename T>

@@ -286,7 +286,7 @@ class TelemetryWriteStream {
   }
 
   void RawWrite(const char* data, uint32_t size) {
-    ostr_.write(data, size);
+    ostr_.write({data, size});
   }
 
  private:
@@ -309,9 +309,9 @@ class TelemetryReadStream {
   TelemetryReadStream(base::ReadStream& istr) : istr_(istr) {}
   base::ReadStream& stream() { return istr_; }
 
-  void Ignore(size_t size) {
+  void Ignore(std::streamsize size) {
     istr_.ignore(size);
-    if (static_cast<std::size_t>(istr_.gcount()) != size) {
+    if (istr_.gcount() != size) {
 #ifdef MJMECH_ENABLE_BOOST
       throw SystemError(boost::system::error_code(boost::asio::error::eof));
 #else
@@ -360,9 +360,9 @@ class TelemetryReadStream {
     return result;
   }
 
-  void RawRead(char* out, std::size_t size) {
-    istr_.read(out, size);
-    if (static_cast<std::size_t>(istr_.gcount()) != size) {
+  void RawRead(char* out, std::streamsize size) {
+    istr_.read({out, size});
+    if (istr_.gcount() != size) {
 #ifdef MJMECH_ENABLE_BOOST
       throw SystemError(boost::system::error_code(boost::asio::error::eof));
 #else

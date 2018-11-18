@@ -26,18 +26,18 @@ class RecordingStream : public ReadStream {
  public:
   RecordingStream(ReadStream& istr) : istr_(istr) {}
 
-  void read(char* s, std::streamsize n) override {
-    istr_.read(s, n);
+  void read(const string_span& buffer) override {
+    istr_.read(buffer);
     std::streamsize result = istr_.gcount();
-    ostr_.write(s, result);
+    ostr_.write(std::string_view(buffer.data(), result));
   }
 
   void ignore(std::streamsize size) override {
     if (static_cast<std::streamsize>(ignore_buffer_.size()) < size) {
       ignore_buffer_.resize(size);
     }
-    istr_.read(&ignore_buffer_[0], size);
-    ostr_.write(&ignore_buffer_[0], istr_.gcount());
+    istr_.read({&ignore_buffer_[0], size});
+    ostr_.write(std::string_view(&ignore_buffer_[0], istr_.gcount()));
   }
 
   std::streamsize gcount() const override {

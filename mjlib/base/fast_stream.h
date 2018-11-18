@@ -26,10 +26,10 @@ namespace base {
 /// A very simple std::ostringstream replacement for binary data only.
 class FastOStringStream : public WriteStream {
  public:
-  void write(const char* data, std::streamsize amount) override {
+  void write(const std::string_view& data) override {
     std::size_t old_size = data_.size();
-    data_.resize(data_.size() + amount);
-    std::memcpy(&data_[old_size], data, amount);
+    data_.resize(data_.size() + data.size());
+    std::memcpy(&data_[old_size], data.data(), data.size());
   }
 
   std::string str() const { return std::string(&data_[0], data_.size()); }
@@ -79,9 +79,9 @@ class FastIStringStream : public ReadStream {
     offset_ += last_read_;
   }
 
-  void read(char* buffer, std::streamsize length) override {
-    last_read_ = std::min<std::streamsize>(data_.size() - offset_, length);
-    std::memcpy(buffer, &data_[offset_], last_read_);
+  void read(const string_span& buffer) override {
+    last_read_ = std::min<std::streamsize>(data_.size() - offset_, buffer.size());
+    std::memcpy(buffer.data(), &data_[offset_], last_read_);
     offset_ += last_read_;
   }
 

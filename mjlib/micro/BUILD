@@ -143,6 +143,24 @@ cc_library(
     ],
 )
 
+cc_library(
+    name = "telemetry_manager",
+    hdrs = ["telemetry_manager.h"],
+    srcs = ["telemetry_manager.cc"],
+    deps = [
+        ":async_exclusive",
+        ":async_stream",
+        ":command_manager",
+        ":pool_map",
+        ":pool_ptr",
+        ":serializable_handler",
+        ":static_function",
+        "//mjlib/base:buffer_stream",
+        "//mjlib/base:stream",
+        "//mjlib/base:tokenizer",
+    ],
+)
+
 cc_test(
     name = "micro_test",
     srcs = [
@@ -155,6 +173,7 @@ cc_test(
         "test/reader.h",
         "test/serializable_handler_test.cc",
         "test/stream_pipe_test.cc",
+        "test/telemetry_manager_test.cc",
     ],
     deps = [
         ":async_exclusive",
@@ -165,6 +184,7 @@ cc_test(
         ":pool_ptr",
         ":serializable_handler",
         ":stream_pipe",
+        ":telemetry_manager",
         "//mjlib/base:buffer_stream",
         "@boost//:test",
         "@fmt",

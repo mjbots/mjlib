@@ -26,6 +26,7 @@ cc_library(
 cc_library(
     name = "stream",
     hdrs = ["stream.h"],
+    deps = [":string_span"],
 )
 
 cc_library(
