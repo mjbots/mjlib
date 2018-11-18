@@ -25,6 +25,15 @@
 namespace mjlib {
 namespace micro {
 
+namespace {
+// Rates requested faster than this will result in a message being
+// emitted per-update.
+constexpr int kMinRateMs = 10;
+
+// TODO(jpieper): Expose this as a constructor time option.
+constexpr size_t kMaxElements = 16;
+}
+
 class TelemetryManager::Impl {
  public:
   struct Element {
@@ -42,7 +51,7 @@ class TelemetryManager::Impl {
        AsyncExclusive<AsyncWriteStream>* write_stream)
       : pool_(pool),
         write_stream_(write_stream),
-        elements_(pool, 16) {
+        elements_(pool, kMaxElements) {
     command_manager->Register("tel", [this](auto&& name, auto&& response) {
         this->Command(name, response);
       });
@@ -110,12 +119,14 @@ class TelemetryManager::Impl {
         write_stream_->AsyncStart(
             [this, eptr = &element]
             (AsyncWriteStream* stream, VoidCallback release) {
-              ErrorCallback actual_release =
-                  [this, cbk=release.shrink()](base::error_code) {
+              this->write_release_ = release;
+              ErrorCallback actual_release = [this](base::error_code) {
                 // TODO(jpieper): When we have logging or something,
                 // report the error from here.
                 this->outstanding_write_ = false;
-                cbk();
+                auto copy = this->write_release_;
+                this->write_release_ = {};
+                copy();
               };
               CommandManager::Response response{stream, actual_release};
               this->EmitData(eptr, response);
@@ -271,7 +282,7 @@ class TelemetryManager::Impl {
     element.rate = rate;
     if (rate == 0) {
       element.next = 1;
-    } else if (rate < 10) {
+    } else if (rate < kMinRateMs) {
       element.rate = 1;
       element.next = 1;
     } else {
@@ -349,6 +360,7 @@ class TelemetryManager::Impl {
   detail::EnumerateArchive::Context enumerate_context_;
 
   bool outstanding_write_ = false;
+  VoidCallback write_release_;
 };
 
 TelemetryManager::TelemetryManager(

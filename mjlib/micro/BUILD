@@ -161,6 +161,12 @@ cc_library(
     ],
 )
 
+cc_library(
+    name = "required_success",
+    hdrs = ["required_success.h"],
+    deps = [":async_types"],
+)
+
 cc_test(
     name = "micro_test",
     srcs = [
@@ -182,6 +188,7 @@ cc_test(
         ":event_queue",
         ":pool_map",
         ":pool_ptr",
+        ":required_success",
         ":serializable_handler",
         ":stream_pipe",
         ":telemetry_manager",
