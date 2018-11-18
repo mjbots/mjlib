@@ -18,7 +18,7 @@
 #include "mjlib/base/tokenizer.h"
 
 #include "mjlib/micro/async_read.h"
-#include "mjlib/micro/named_registry.h"
+#include "mjlib/micro/pool_map.h"
 
 namespace mjlib {
 namespace micro {
@@ -29,11 +29,12 @@ constexpr size_t kMaxLineLength = 100;
 
 class CommandManager::Impl {
  public:
-  Impl(AsyncReadStream* read_stream,
+  Impl(Pool* pool,
+       AsyncReadStream* read_stream,
        AsyncExclusive<AsyncWriteStream>* write_stream)
       : read_stream_(read_stream),
-        write_stream_(write_stream) {
-  }
+        write_stream_(write_stream),
+        registry_(pool, 16) {}
 
   void StartRead() {
     read_until_context_.stream = read_stream_;
@@ -82,15 +83,15 @@ class CommandManager::Impl {
     auto cmd = tokenizer.next();
     if (cmd.size() == 0) { return; }
 
-    auto* element = registry_.FindOrCreate(cmd, kFindOnly);
+    const auto it = registry_.find(cmd);
 
     CommandFunction command;
-    if (element == nullptr) {
+    if (it == registry_.end()) {
       command = [this](const std::string_view&, const Response& response) {
         this->UnknownGroup(response);
       };
     } else {
-      command = element->command_function;
+      command = it->second.command_function;
     }
 
     current_command_ = command;
@@ -142,7 +143,7 @@ class CommandManager::Impl {
   AsyncReadStream* const read_stream_;
   AsyncExclusive<AsyncWriteStream>* const write_stream_;
 
-  using Registry = NamedRegistry<Item, 16>;
+  using Registry = PoolMap<std::string_view, Item>;
   Registry registry_;
   bool write_outstanding_ = false;
 
@@ -160,14 +161,16 @@ CommandManager::CommandManager(
     Pool* pool,
     AsyncReadStream* read_stream,
     AsyncExclusive<AsyncWriteStream>* write_stream)
-    : impl_(pool, read_stream, write_stream) {}
+    : impl_(pool, pool, read_stream, write_stream) {}
 
 CommandManager::~CommandManager() {}
 
 void CommandManager::Register(const std::string_view& name,
                               CommandFunction command_function) {
-  auto* item = impl_->registry_.FindOrCreate(name, kAllowCreate);
-  item->command_function = command_function;
+  const auto result = impl_->registry_.insert(
+      {name, Impl::Item{command_function}});
+  // We do not allow duplicate names.
+  MJ_ASSERT(result.second == true);
 }
 
 void CommandManager::AsyncStart() {

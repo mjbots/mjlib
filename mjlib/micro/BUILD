@@ -74,16 +74,16 @@ cc_library(
 )
 
 cc_library(
-    name = "named_registry",
-    hdrs = ["named_registry.h"],
-    deps = ["//mjlib/base:assert"],
-)
-
-cc_library(
     name = "pool_ptr",
     hdrs = ["pool_ptr.h"],
     srcs = ["pool_ptr.cc"],
     deps = ["//mjlib/base:assert"],
+)
+
+cc_library(
+    name = "pool_map",
+    hdrs = ["pool_map.h"],
+    deps = [":pool_ptr"],
 )
 
 cc_library(
@@ -95,7 +95,7 @@ cc_library(
         ":async_read",
         ":async_stream",
         ":async_types",
-        ":named_registry",
+        ":pool_map",
         ":pool_ptr",
         ":static_function",
         "//mjlib/base:string_span",
@@ -150,7 +150,7 @@ cc_test(
         "test/async_exclusive_test.cc",
         "test/async_stream_test.cc",
         "test/command_manager_test.cc",
-        "test/named_registry_test.cc",
+        "test/pool_map_test.cc",
         "test/pool_ptr_test.cc",
         "test/reader.h",
         "test/serializable_handler_test.cc",
@@ -161,7 +161,7 @@ cc_test(
         ":async_stream",
         ":command_manager",
         ":event_queue",
-        ":named_registry",
+        ":pool_map",
         ":pool_ptr",
         ":serializable_handler",
         ":stream_pipe",
