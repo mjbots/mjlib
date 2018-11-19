@@ -14,6 +14,7 @@
 
 #pragma once
 
+#include "mjlib/base/noncopyable.h"
 #include "mjlib/base/stream.h"
 
 namespace mjlib {

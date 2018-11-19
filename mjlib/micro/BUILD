@@ -183,6 +183,7 @@ cc_library(
         "//mjlib/base:assert",
         "//mjlib/base:buffer_stream",
         "//mjlib/base:crc",
+        "//mjlib/base:noncopyable",
         "//mjlib/base:tokenizer",
     ],
 )
