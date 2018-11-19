@@ -120,7 +120,7 @@ class TelemetrySchemaReader {
         break;
       }
       case FT::kPtime: {
-        assert(false);
+        MJ_ASSERT(false);
         break;
       }
       case FT::kFinal:

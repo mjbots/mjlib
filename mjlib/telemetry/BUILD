@@ -19,6 +19,7 @@ package(default_visibility = ["//visibility:public"])
 cc_library(
     name = "telemetry_format",
     hdrs = ["telemetry_format.h"],
+    deps = ["//mjlib/base:assert"],
 )
 
 cc_library(

@@ -18,6 +18,7 @@
 #include <cstddef>
 #include <string_view>
 
+#include "mjlib/base/assert.h"
 #include "mjlib/base/stream.h"
 
 /// @file
@@ -253,7 +254,7 @@ class TelemetryWriteStream {
 #ifdef MJMECH_ENABLE_BOOST
       throw SystemError::einval("invalid pstring size");
 #else
-      assert(false);
+      MJ_ASSERT(false);
 #endif
     }
     Write(static_cast<uint32_t>(data.size()));
@@ -315,7 +316,7 @@ class TelemetryReadStream {
 #ifdef MJMECH_ENABLE_BOOST
       throw SystemError(boost::system::error_code(boost::asio::error::eof));
 #else
-      assert(false);
+      MJ_ASSERT(false);
 #endif
     }
   }
@@ -331,7 +332,7 @@ class TelemetryReadStream {
 #ifdef MJMECH_ENABLE_BOOST
       throw SystemError::einval("corrupt pstring");
 #else
-      assert(false);
+      MJ_ASSERT(false);
 #endif
     }
     std::string result(size, static_cast<char>(0));
@@ -366,7 +367,7 @@ class TelemetryReadStream {
 #ifdef MJMECH_ENABLE_BOOST
       throw SystemError(boost::system::error_code(boost::asio::error::eof));
 #else
-      assert(false);
+      MJ_ASSERT(false);
 #endif
     }
   }
