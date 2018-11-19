@@ -21,12 +21,8 @@
 
 namespace mjlib {
 namespace base {
-void __attribute__((weak)) assertion_failed(const char* expression, const char* filename, int line);
+void assertion_failed(const char* expression, const char* filename, int line);
 }
 }
 
-#ifndef NDEBUG
 #define MJ_ASSERT(expr) !!(expr) ? ((void) 0) : ::mjlib::base::assertion_failed(#expr, __FILE__, __LINE__)
-#else
-#define MJ_ASSERT(expr)
-#endif

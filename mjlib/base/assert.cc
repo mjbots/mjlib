@@ -18,7 +18,7 @@
 namespace mjlib {
 namespace base {
 
-void assertion_failed(const char* expression, const char* filename, int line) {
+void __attribute__((weak)) assertion_failed(const char* expression, const char* filename, int line) {
   ::fprintf(stderr, "\n");
   ::fprintf(stderr, "Assertion Failed: %s:%d %s\n", filename, line, expression);
   ::fflush(stderr);

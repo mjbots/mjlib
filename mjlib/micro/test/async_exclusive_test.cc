@@ -18,6 +18,8 @@
 
 #include <boost/test/auto_unit_test.hpp>
 
+#include "mjlib/base/assert.h"
+
 using namespace mjlib::micro;
 
 BOOST_AUTO_TEST_CASE(BasicAsyncExclusive) {
@@ -27,7 +29,7 @@ BOOST_AUTO_TEST_CASE(BasicAsyncExclusive) {
   std::optional<VoidCallback> do_release1;
 
   dut.AsyncStart([&](int* resource, VoidCallback release) {
-      BOOST_ASSERT(resource == &value);
+      MJ_ASSERT(resource == &value);
       do_release1 = release;
     });
 
@@ -36,7 +38,7 @@ BOOST_AUTO_TEST_CASE(BasicAsyncExclusive) {
 
   std::optional<VoidCallback> do_release2;
   dut.AsyncStart([&](int* resource, VoidCallback release) {
-      BOOST_ASSERT(resource == &value);
+      MJ_ASSERT(resource == &value);
       do_release2 = release;
     });
 
