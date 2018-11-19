@@ -78,6 +78,13 @@ cc_library(
     srcs = ["system_error.cc"],
 )
 
+cc_library(
+    name = "crc",
+    hdrs = ["crc.h"],
+    srcs = ["crc.cc"],
+    deps = ["@boost"],
+)
+
 cc_test(
     name = "base_test",
     srcs = [

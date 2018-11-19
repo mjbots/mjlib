@@ -71,6 +71,7 @@ class BufferReadStream : public ReadStream {
   std::streamsize gcount() const override { return last_read_; }
 
   std::streamsize offset() const noexcept { return offset_; }
+  const char* position() const noexcept { return &buffer_[offset_]; }
   std::streamsize remaining() const noexcept { return buffer_.size() - offset_; }
   std::streamsize size() const noexcept { return buffer_.size(); }
 

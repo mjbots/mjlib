@@ -16,81 +16,21 @@
 
 #include <boost/test/auto_unit_test.hpp>
 
-#include "mjlib/base/visitor.h"
-
-#include "mjlib/micro/async_exclusive.h"
-#include "mjlib/micro/command_manager.h"
-#include "mjlib/micro/event_queue.h"
-#include "mjlib/micro/pool_ptr.h"
-#include "mjlib/micro/required_success.h"
-#include "mjlib/micro/stream_pipe.h"
-
-#include "mjlib/micro/test/reader.h"
+#include "mjlib/micro/test/command_manager_fixture.h"
 
 using namespace mjlib::micro;
 
+using test::str;
+
 namespace {
-struct MyData {
-  int32_t value = 0;
-
-  template <typename Archive>
-  void Serialize(Archive* a) {
-    a->Visit(MJ_NVP(value));
-  }
-};
-
-struct OtherData {
-  int16_t stuff = 0;
-
-  template <typename Archive>
-  void Serialize(Archive* a) {
-    a->Visit(MJ_NVP(stuff));
-  }
-};
-
-struct Fixture {
-  SizedPool<> pool;
-  EventQueue event_queue;
-  StreamPipe pipe{event_queue.MakePoster()};
-  test::Reader reader{pipe.side_b()};
-  AsyncExclusive<AsyncWriteStream> write_stream{pipe.side_a()};
-  CommandManager command_manager{&pool, pipe.side_a(), &write_stream};
+struct Fixture : test::CommandManagerFixture {
   TelemetryManager dut{&pool, &command_manager, &write_stream};
-  MyData my_data;
-  OtherData other_data;
-
-  VoidCallback my_data_update;
-  VoidCallback other_data_update;
 
   Fixture() {
     my_data_update = dut.Register("my_data", &my_data);
     other_data_update = dut.Register("other_data", &other_data);
-    command_manager.AsyncStart();
-  }
-
-  void ExpectResponse(const std::string_view& message) {
-    BOOST_TEST(reader.data_.str() == message);
-    reader.data_.str("");
-  }
-
-  void ExpectResponsePrefix(const std::string_view& message) {
-    BOOST_TEST(reader.data_.str().substr(0, message.size()) == message);
-    reader.data_.str("");
-  }
-
-  void Command(const std::string_view& message) {
-    RequiredSuccess required_success;
-    AsyncWrite(*pipe.side_b(), message, required_success.Make());
-    event_queue.Poll();
   }
 };
-
-/// Turn a string literal into a std::string_view, including any
-/// embedded null characters.
-template <typename Array>
-std::string_view str(const Array& array) {
-  return std::string_view(array, sizeof(array) - 1);
-}
 }
 
 BOOST_FIXTURE_TEST_CASE(TelemetryManagerGetUnknown, Fixture) {

@@ -167,13 +167,35 @@ cc_library(
     deps = [":async_types"],
 )
 
+cc_library(
+    name = "persistent_config",
+    hdrs = [
+        "flash.h",
+        "persistent_config.h",
+    ],
+    srcs = ["persistent_config.cc"],
+    deps = [
+        ":async_stream",
+        ":command_manager",
+        ":pool_map",
+        ":pool_ptr",
+        ":serializable_handler",
+        "//mjlib/base:assert",
+        "//mjlib/base:buffer_stream",
+        "//mjlib/base:crc",
+        "//mjlib/base:tokenizer",
+    ],
+)
+
 cc_test(
     name = "micro_test",
     srcs = [
         "test/test_main.cc",
         "test/async_exclusive_test.cc",
         "test/async_stream_test.cc",
+        "test/command_manager_fixture.h",
         "test/command_manager_test.cc",
+        "test/persistent_config_test.cc",
         "test/pool_map_test.cc",
         "test/pool_ptr_test.cc",
         "test/reader.h",
@@ -186,6 +208,7 @@ cc_test(
         ":async_stream",
         ":command_manager",
         ":event_queue",
+        ":persistent_config",
         ":pool_map",
         ":pool_ptr",
         ":required_success",
