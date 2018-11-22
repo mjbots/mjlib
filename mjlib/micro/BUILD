@@ -189,7 +189,7 @@ cc_library(
 )
 
 cc_test(
-    name = "micro_test",
+    name = "test",
     srcs = [
         "test/test_main.cc",
         "test/async_exclusive_test.cc",

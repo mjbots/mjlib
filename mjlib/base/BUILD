@@ -86,7 +86,7 @@ cc_library(
 )
 
 cc_test(
-    name = "base_test",
+    name = "test",
     srcs = [
         "test/string_span_test.cc",
         "test/system_error_test.cc",

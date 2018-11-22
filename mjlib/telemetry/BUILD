@@ -48,7 +48,7 @@ cc_library(
 )
 
 cc_test(
-    name = "telemetry_test",
+    name = "test",
     srcs = [
         "test/telemetry_archive_test.cc",
         "test/test_main.cc",
