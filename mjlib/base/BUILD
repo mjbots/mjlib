@@ -85,15 +85,23 @@ cc_library(
     deps = ["@boost"],
 )
 
+cc_library(
+    name = "pid",
+    hdrs = ["pid.h"],
+    deps = [":visitor"],
+)
+
 cc_test(
     name = "test",
     srcs = [
+        "test/pid_test.cc",
         "test/string_span_test.cc",
         "test/system_error_test.cc",
         "test/tokenizer_test.cc",
         "test/test_main.cc",
     ],
     deps = [
+        ":pid",
         ":string_span",
         ":system_error",
         ":tokenizer",
