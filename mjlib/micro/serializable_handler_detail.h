@@ -209,7 +209,7 @@ struct SetArchive : public ItemArchive<SetArchive> {
 
 template <>
 inline float SetArchive::ParseValue<float>(const std::string_view& value) const {
-  return std::strtod(&*value.begin(), nullptr);
+  return std::strtof(&*value.begin(), nullptr);
 }
 
 template <>
