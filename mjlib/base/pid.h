@@ -16,6 +16,9 @@
 
 #include "mjlib/base/visitor.h"
 
+namespace mjlib {
+namespace base {
+
 class PID {
  public:
   struct Config {
@@ -112,3 +115,6 @@ class PID {
   const Config* const config_;
   State* const state_;
 };
+
+}
+}
