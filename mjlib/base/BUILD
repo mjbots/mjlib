@@ -91,6 +91,11 @@ cc_library(
     deps = [":visitor"],
 )
 
+cc_library(
+    name = "windowed_average",
+    hdrs = ["windowed_average.h"],
+)
+
 cc_test(
     name = "test",
     srcs = [
@@ -99,12 +104,14 @@ cc_test(
         "test/system_error_test.cc",
         "test/tokenizer_test.cc",
         "test/test_main.cc",
+        "test/windowed_average_test.cc",
     ],
     deps = [
         ":pid",
         ":string_span",
         ":system_error",
         ":tokenizer",
+        ":windowed_average",
         "@boost//:test",
     ],
 )
