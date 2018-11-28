@@ -120,6 +120,9 @@
 /// In response to receiving a frame with the 0x40 subframe, the slave
 /// should respond with a 0x41 subframe whether or not it currently
 /// has data.
+///
+/// A frame that contains a tunneled stream subframe may contain
+/// exactly 1 subframe total.
 
 #include <cstdint>
 #include <variant>
@@ -206,6 +209,14 @@ class MultiplexProtocolServer : public MultiplexProtocol {
   AsyncStream* MakeTunnel(uint32_t id);
 
   void Start();
+
+  // Exposed mostly for debugging and unit testing.
+  struct Stats {
+    int wrong_id = 0;
+    int checksum_mismatch = 0;
+  };
+
+  const Stats* stats() const;
 
  private:
   class Impl;

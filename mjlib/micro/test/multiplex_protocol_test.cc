@@ -68,26 +68,39 @@ const uint8_t kClientToServer[] = {
   0x00,  // null terminator
 };
 
-const uint8_t kClientToServerMultiple[] = {
+const uint8_t kClientToServer2[] = {
   0x54, 0xab,  // header
   0x82,  // source id
+  0x02,  // destination id
+  0x0b,  // payload size
+    0x40,  // client->server data
+      0x09,  // channel 9
+      0x08,  // data len
+      't', 'e', 's', 't', ' ', 'a', 'n', 'd',
+  0xa8, 0xf9,  // CRC
+  0x00,  // null terminator
+};
+
+const uint8_t kClientToServerMultiple[] = {
+  0x54, 0xab,  // header
+  0x02,  // source id
   0x01,  // destination id
   0x0b,  // payload size
     0x40,  // client->server data
       0x09,  // channel 9
       0x08,  // data len
       'f', 'i', 'r', 's', 't', ' ', 'f', 'm',
-  0xd2, 0x1c,  // CRC
+  0x53, 0x5c,  // CRC
 
   0x54, 0xab,  // header
-  0x82,  // source id
+  0x02,  // source id
   0x01,  // destination id
   0x09,  // payload size
     0x40,  // client->server data
       0x09,  // channel 9
       0x06,  // data len
       'm', 'o', 'r', 'e', 's', 't',
-  0x85, 0xb9,  // CRC
+  0x87, 0xc7,  // CRC
   0x00,  // null terminator
 };
 }
@@ -119,6 +132,28 @@ BOOST_FIXTURE_TEST_CASE(MultiplexProtocolServerTest, Fixture) {
     BOOST_TEST(read_size == 8);
     BOOST_TEST(std::string_view(read_buffer, 8) == "test and");
   }
+}
+
+BOOST_FIXTURE_TEST_CASE(ServerWrongId, Fixture) {
+  char read_buffer[100] = {};
+  int read_count = 0;
+  tunnel->AsyncReadSome(read_buffer, [&](base::error_code, ssize_t) {
+      read_count++;
+    });
+
+  event_queue.Poll();
+  BOOST_TEST(read_count == 0);
+
+  int write_count = 0;
+  AsyncWrite(*dut_stream.side_a(), str(kClientToServer2),
+             [&](base::error_code ec) {
+               BOOST_TEST(!ec);
+               write_count++;
+             });
+  event_queue.Poll();
+  BOOST_TEST(write_count == 1);
+  BOOST_TEST(read_count == 0);
+  BOOST_TEST(dut.stats()->wrong_id == 1);
 }
 
 BOOST_FIXTURE_TEST_CASE(ServerTestReadSecond, Fixture) {

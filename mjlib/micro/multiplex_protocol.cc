@@ -179,6 +179,8 @@ class MultiplexProtocolServer::Impl {
     MaybeStartReadFrame();
   }
 
+  const Stats* stats() const { return &stats_; }
+
  private:
   void MaybeStartReadFrame() {
     if (read_outstanding_) { return; }
@@ -307,11 +309,13 @@ class MultiplexProtocolServer::Impl {
       // Whoops, we should log this checksum mismatch somewhere.
       // Assume that we are no longer synchronized and start from the
       // next header possibility.
+      stats_.checksum_mismatch++;
       Consume(2);
       return true;
     }
 
     if (*maybe_dest_id != config_.id) {
+      stats_.wrong_id++;
       Consume(read_stream.base()->position() - read_buffer_);
       return true;
     }
@@ -413,6 +417,7 @@ class MultiplexProtocolServer::Impl {
   ssize_t outstanding_consume_ = 0;
 
   TunnelStream tunnels_[1] = {};
+  Stats stats_;
 };
 
 MultiplexProtocolServer::MultiplexProtocolServer(
@@ -431,6 +436,10 @@ AsyncStream* MultiplexProtocolServer::MakeTunnel(uint32_t id) {
 
 void MultiplexProtocolServer::Start() {
   impl_->Start();
+}
+
+const MultiplexProtocolServer::Stats* MultiplexProtocolServer::stats() const {
+  return impl_->stats();
 }
 
 }
