@@ -188,6 +188,20 @@ cc_library(
     ],
 )
 
+cc_library(
+    name = "multiplex_protocol",
+    hdrs = ["multiplex_protocol.h"],
+    srcs = ["multiplex_protocol.cc"],
+    deps = [
+        ":async_stream",
+        ":persistent_config",
+        ":pool_ptr",
+        "//mjlib/base:assert",
+        "//mjlib/base:buffer_stream",
+        "//mjlib/base:visitor",
+    ],
+)
+
 cc_test(
     name = "test",
     srcs = [
@@ -196,11 +210,14 @@ cc_test(
         "test/async_stream_test.cc",
         "test/command_manager_fixture.h",
         "test/command_manager_test.cc",
+        "test/multiplex_protocol_test.cc",
+        "test/persistent_config_fixture.h",
         "test/persistent_config_test.cc",
         "test/pool_map_test.cc",
         "test/pool_ptr_test.cc",
         "test/reader.h",
         "test/serializable_handler_test.cc",
+        "test/str.h",
         "test/stream_pipe_test.cc",
         "test/telemetry_manager_test.cc",
     ],
@@ -209,6 +226,7 @@ cc_test(
         ":async_stream",
         ":command_manager",
         ":event_queue",
+        ":multiplex_protocol",
         ":persistent_config",
         ":pool_map",
         ":pool_ptr",

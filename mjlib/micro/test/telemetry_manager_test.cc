@@ -17,6 +17,7 @@
 #include <boost/test/auto_unit_test.hpp>
 
 #include "mjlib/micro/test/command_manager_fixture.h"
+#include "mjlib/micro/test/str.h"
 
 using namespace mjlib::micro;
 

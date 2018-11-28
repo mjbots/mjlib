@@ -16,45 +16,16 @@
 
 #include <boost/test/auto_unit_test.hpp>
 
-#include "mjlib/micro/test/command_manager_fixture.h"
+#include "mjlib/micro/test/persistent_config_fixture.h"
+#include "mjlib/micro/test/str.h"
 
 using namespace mjlib::micro;
 
 using test::str;
 
 namespace {
-class StubFlash : public FlashInterface {
- public:
-  Info GetInfo() override {
-    return {buffer_, buffer_ + sizeof(buffer_)};
-  }
-
-  void Erase() override {
-    std::memset(buffer_, 0, sizeof(buffer_));
-  }
-
-  void Unlock() override {
-    BOOST_TEST(locked_);
-    locked_ = false;
-  }
-
-  void Lock() override {
-    BOOST_TEST(!locked_);
-    locked_ = true;
-  }
-
-  void ProgramByte(char* ptr, uint8_t value) override {
-    BOOST_TEST(!locked_);
-    *ptr = value;
-  }
-
-  char buffer_[4096] = {};
-  bool locked_ = true;
-};
-
-struct Fixture : test::CommandManagerFixture {
-  StubFlash flash;
-  PersistentConfig dut{pool, command_manager, flash};
+struct Fixture : test::PersistentConfigFixture {
+  PersistentConfig& dut = persistent_config;
 
   int my_data_count = 0;
   int other_data_count = 0;

@@ -83,13 +83,6 @@ struct CommandManagerFixture {
   }
 };
 
-/// Turn a string literal into a std::string_view, including any
-/// embedded null characters.
-template <typename Array>
-std::string_view str(const Array& array) {
-  return std::string_view(array, sizeof(array) - 1);
-}
-
 }
 }
 }
