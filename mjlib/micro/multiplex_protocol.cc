@@ -33,6 +33,15 @@ struct Config {
   }
 };
 
+int GetVaruintSize(uint32_t value) {
+  int result = 0;
+  do {
+    value >>= 7;
+    result++;
+  } while (value);
+  return result;
+}
+
 class ProtocolReadStream {
  public:
   ProtocolReadStream(base::BufferReadStream& istr) : istr_(istr) {}
@@ -81,6 +90,36 @@ class ProtocolReadStream {
   base::BufferReadStream& istr_;
 };
 
+class ProtocolWriteStream {
+ public:
+  ProtocolWriteStream(base::BufferWriteStream& ostr) : ostr_(ostr) {}
+  base::BufferWriteStream* base() { return &ostr_; }
+
+  template <typename T>
+  void Write(T value) {
+    WriteScalar<T>(value);
+  }
+
+  void WriteVaruint(uint32_t value) {
+    do {
+      uint8_t this_byte = value & 0x7f;
+      value >>= 7;
+      this_byte |= value ? 0x80 : 0x00;
+      Write(this_byte);
+    } while (value);
+  }
+
+ private:
+  template <typename T>
+  void WriteScalar(T value) {
+    MJ_ASSERT(ostr_.remaining() >= static_cast<std::streamsize>(sizeof(T)));
+
+    ostr_.write({reinterpret_cast<const char*>(&value), sizeof(value)});
+  }
+
+  base::BufferWriteStream& ostr_;
+};
+
 }
 
 class MultiplexProtocolServer::Impl {
@@ -97,6 +136,9 @@ class MultiplexProtocolServer::Impl {
       read_buffer_ = buffer;
       read_callback_ = callback;
 
+      // TODO: Return immediately for size 0 reads (may need an event
+      // queue).
+
       const bool complete = DoReadTransfer();
       if (complete) {
         // Consume the packet and try to process more.
@@ -108,7 +150,14 @@ class MultiplexProtocolServer::Impl {
       }
     }
 
-    void AsyncWriteSome(const std::string_view&, const SizeCallback&) override {
+    void AsyncWriteSome(const std::string_view& buffer,
+                        const SizeCallback& callback) override {
+      MJ_ASSERT(write_buffer_.empty());
+      write_buffer_ = buffer;
+      write_callback_ = callback;
+
+      // TODO: Return immediately for size 0 writes (may need an event
+      // queue).
     }
 
     bool DoReadTransfer() {
@@ -153,7 +202,9 @@ class MultiplexProtocolServer::Impl {
       : options_(options),
         stream_(stream),
         read_buffer_(static_cast<char*>(
-                         pool->Allocate(options.buffer_size, 1))) {
+                         pool->Allocate(options.buffer_size, 1))),
+        write_buffer_(static_cast<char*>(
+                          pool->Allocate(options.buffer_size, 1))) {
     persistent_config->Register("protocol", &config_, [](){});
 
     for (auto& tunnel : tunnels_) {
@@ -250,7 +301,9 @@ class MultiplexProtocolServer::Impl {
     }
 
     // We need at least 7 bytes to have a minimal frame.
-    if (read_start_ < 7) { return true; }
+    if (read_start_ < (kHeaderSize + kCrcSize + kMinVaruintSize)) {
+      return true;
+    }
 
     // See if we have enough data to have a valid varuint for size.
     base::BufferReadStream data({&read_buffer_[2],
@@ -258,9 +311,7 @@ class MultiplexProtocolServer::Impl {
     ProtocolReadStream read_stream{data};
 
     const auto maybe_source_id = read_stream.Read<uint8_t>();
-    (void)maybe_source_id;
     const auto maybe_dest_id = read_stream.Read<uint8_t>();
-    (void)maybe_dest_id;
     const auto maybe_size = read_stream.ReadVaruint();
 
     if (!maybe_size) {
@@ -320,9 +371,15 @@ class MultiplexProtocolServer::Impl {
       return true;
     }
 
-    // Wow, everything checked out.  Now we we can process our subframes.
+    base::BufferWriteStream buffer_write_stream{
+      base::string_span(write_buffer_, options_.buffer_size)};
+    ProtocolWriteStream write_stream{buffer_write_stream};
+    const bool need_response = ((*maybe_source_id) & 0x80) != 0;
+
+    // Everything checked out.  Now we we can process our subframes.
     const bool complete = ProcessSubframes(
-        std::string_view(payload_start, payload_size));
+        std::string_view(payload_start, payload_size),
+        need_response ? &write_stream : nullptr);
     const auto to_consume = crc_location - read_buffer_ + 2;
     if (!complete) {
       outstanding_consume_ = to_consume;
@@ -330,6 +387,11 @@ class MultiplexProtocolServer::Impl {
       outstanding_consume_ = 0;
       Consume(to_consume);
     }
+
+    if (need_response) {
+      WriteResponse(*maybe_source_id & 0x7f, buffer_write_stream.offset());
+    }
+
     return complete;
   }
 
@@ -340,7 +402,51 @@ class MultiplexProtocolServer::Impl {
     read_start_ -= size;
   }
 
-  bool ProcessSubframes(const std::string_view& subframes) {
+  void WriteResponse(uint8_t client_id, std::streamsize response_size) {
+    MJ_ASSERT(!write_outstanding_);
+
+    // First, figure out how big our size varuint will end up being.
+    const auto header_size =
+        2 + // kHeader
+        1 + // source id
+        1 + // dest_id
+        GetVaruintSize(response_size);
+    std::memmove(&write_buffer_[header_size], &write_buffer_[0], response_size);
+
+    {
+      base::BufferWriteStream header_buffer_stream(
+          base::string_span(write_buffer_, header_size));
+      ProtocolWriteStream header_stream(header_buffer_stream);
+      header_stream.Write(kHeader);
+      header_stream.Write(config_.id);
+      header_stream.Write(client_id);
+      header_stream.WriteVaruint(response_size);
+    }
+
+    // Now figure out the checksum.
+    const auto crc_location = header_size + response_size;
+    boost::crc_16_type crc;
+    crc.process_bytes(write_buffer_, crc_location);
+    const uint16_t actual_crc = crc.checksum();
+
+    {
+      base::BufferWriteStream crc_buffer_stream(
+          base::string_span(&write_buffer_[crc_location], 2));
+      ProtocolWriteStream crc_stream(crc_buffer_stream);
+      crc_stream.Write(actual_crc);
+    }
+
+    write_outstanding_ = true;
+    AsyncWrite(*stream_, std::string_view(write_buffer_, crc_location + 2),
+               std::bind(&Impl::HandleWrite, this, std::placeholders::_1));
+  }
+
+  void HandleWrite(base::error_code) {
+    write_outstanding_ = false;
+  }
+
+  bool ProcessSubframes(const std::string_view& subframes,
+                        ProtocolWriteStream* response_stream) {
     base::BufferReadStream buffer_stream(subframes);
     ProtocolReadStream str(buffer_stream);
 
@@ -353,9 +459,10 @@ class MultiplexProtocolServer::Impl {
 
       const auto subframe_type = *maybe_subframe_type;
 
-      if (subframe_type == 0x40) {
+      if (subframe_type == static_cast<uint8_t>(Subframe::kClientToServer)) {
         // The client sent us some data.
-        const auto error = ProcessSubframeClientToServer(str);
+        const auto error = ProcessSubframeClientToServer(str, response_stream);
+
         switch (error) {
           case kSuccess: { break; }
           case kError: { return true; }
@@ -377,7 +484,8 @@ class MultiplexProtocolServer::Impl {
     kError,
   };
 
-  ClientToServerResult ProcessSubframeClientToServer(ProtocolReadStream& str) {
+  ClientToServerResult ProcessSubframeClientToServer(
+      ProtocolReadStream& str, ProtocolWriteStream* response_stream) {
     const auto maybe_channel = str.ReadVaruint();
     const auto maybe_bytes = str.ReadVaruint();
     if (!maybe_channel || !maybe_bytes ||
@@ -396,6 +504,27 @@ class MultiplexProtocolServer::Impl {
         std::string_view(str.base()->position(), *maybe_bytes);
 
     const bool complete = tunnel.DoReadTransfer();
+
+    // No matter the above, we still need to send our response.
+    if (response_stream) {
+      response_stream->Write(Subframe::kServerToClient);
+      response_stream->WriteVaruint(*maybe_channel);
+
+      const auto to_copy =
+          std::min<std::streamsize>(
+              tunnel.write_buffer_.size(),
+              options_.buffer_size - (kHeaderSize - kMaxVaruintSize - kCrcSize));
+      response_stream->WriteVaruint(to_copy);
+      if (to_copy) {
+        response_stream->base()->write(tunnel.write_buffer_.substr(0, to_copy));
+
+        tunnel.write_buffer_ = {};
+        auto cbk = tunnel.write_callback_;
+        tunnel.write_callback_ = {};
+        cbk({}, to_copy);
+      }
+    }
+
     return complete ? kSuccess : kIncomplete;
   }
 
@@ -415,6 +544,9 @@ class MultiplexProtocolServer::Impl {
   char* const read_buffer_ = {};
   bool read_outstanding_ = false;
   ssize_t outstanding_consume_ = 0;
+
+  char* const write_buffer_ = {};
+  bool write_outstanding_ = false;
 
   TunnelStream tunnels_[1] = {};
   Stats stats_;

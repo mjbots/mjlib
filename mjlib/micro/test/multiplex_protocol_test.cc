@@ -228,3 +228,70 @@ BOOST_FIXTURE_TEST_CASE(ServerTestFragment, Fixture) {
   BOOST_TEST(read_size == 3);
   BOOST_TEST(std::string_view(read_buffer, 3) == "tes");
 }
+
+namespace {
+const uint8_t kClientToServerEmpty[] = {
+  0x54, 0xab,  // header
+  0x82,  // source id
+  0x01,  // destination id
+  0x03,  // payload size
+    0x40,  // client->server data
+      0x09,  // channel 9
+      0x00,  // data len
+  0x3a, 0x27,  // CRC
+  0x00,  // null terminator
+};
+}
+
+BOOST_FIXTURE_TEST_CASE(ServerSendTest, Fixture) {
+  int write_count = 0;
+  ssize_t write_size = 0;
+  tunnel->AsyncWriteSome(
+      "stuff to test",
+      [&](base::error_code ec, ssize_t size) {
+        BOOST_TEST(!ec);
+        write_count++;
+        write_size = size;
+      });
+
+  event_queue.Poll();
+  BOOST_TEST(write_count == 0);
+
+  char receive_buffer[256] = {};
+  int read_count = 0;
+  ssize_t read_size = 0;
+  dut_stream.side_a()->AsyncReadSome(
+      receive_buffer, [&](base::error_code ec, ssize_t size) {
+        BOOST_TEST(!ec);
+        read_count++;
+        read_size = size;
+      });
+
+  event_queue.Poll();
+  BOOST_TEST(write_count == 0);
+  BOOST_TEST(read_count == 0);
+
+  AsyncWrite(*dut_stream.side_a(), str(kClientToServerEmpty),
+             [](base::error_code ec) { BOOST_TEST(!ec); });
+
+  event_queue.Poll();
+
+  BOOST_TEST(write_count == 1);
+  BOOST_TEST(read_count == 1);
+
+  const uint8_t kExpectedResponse[] = {
+    0x54, 0xab,
+    0x01,  // source id
+    0x02,  // dest id
+    0x10,  // payload size
+     0x41,  // server->client
+      0x09,  // channel 9
+      0x0d,  // 13 bytes of data
+      's', 't', 'u', 'f', 'f', ' ', 't', 'o', ' ', 't', 'e', 's', 't',
+    0xc1, 0x0a,  // CRC
+    0x00,  // null terminator
+  };
+
+  BOOST_TEST(std::string_view(receive_buffer, read_size) ==
+             str(kExpectedResponse));
+}

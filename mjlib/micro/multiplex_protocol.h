@@ -136,8 +136,12 @@ namespace micro {
 
 struct MultiplexProtocol {
   static constexpr uint16_t kHeader = 0xab54;
+  static constexpr int kHeaderSize = 4;
+  static constexpr int kMaxVaruintSize = 5;
+  static constexpr int kMinVaruintSize = 1;
+  static constexpr int kCrcSize = 2;
 
-  enum class Subframe {
+  enum class Subframe : uint8_t {
     // # Register RPC #
     kWriteSingleMask = 0x10,
     kWriteSingleInt8 = 0x10,
