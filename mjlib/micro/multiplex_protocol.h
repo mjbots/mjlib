@@ -127,6 +127,7 @@
 #include <cstdint>
 #include <variant>
 
+#include "mjlib/base/visitor.h"
 #include "mjlib/micro/async_stream.h"
 #include "mjlib/micro/persistent_config.h"
 #include "mjlib/micro/pool_ptr.h"
@@ -204,8 +205,7 @@ class MultiplexProtocolServer : public MultiplexProtocol {
     int max_tunnel_streams = 1;
   };
 
-  MultiplexProtocolServer(Pool*, PersistentConfig*, AsyncStream*, Server*,
-                          const Options&);
+  MultiplexProtocolServer(Pool*, AsyncStream*, Server*, const Options&);
   ~MultiplexProtocolServer();
 
   /// Allocate a "tunnel", where an AsyncStream is tunneled over the
@@ -218,9 +218,21 @@ class MultiplexProtocolServer : public MultiplexProtocol {
   struct Stats {
     int wrong_id = 0;
     int checksum_mismatch = 0;
+    int receive_overrun = 0;
   };
 
   const Stats* stats() const;
+
+  struct Config {
+    uint8_t id = 1;
+
+    template <typename Archive>
+    void Serialize(Archive* a) {
+      a->Visit(MJ_NVP(id));
+    }
+  };
+
+  Config* config();
 
  private:
   class Impl;

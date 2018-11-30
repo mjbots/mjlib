@@ -42,8 +42,7 @@ struct Fixture : test::PersistentConfigFixture {
   StreamPipe dut_stream{event_queue.MakePoster()};
 
   Server server;
-  MultiplexProtocolServer dut{&pool, &persistent_config,
-        dut_stream.side_b(), &server, []() {
+  MultiplexProtocolServer dut{&pool, dut_stream.side_b(), &server, []() {
       return MultiplexProtocolServer::Options();
     }()};
 
@@ -64,7 +63,7 @@ const uint8_t kClientToServer[] = {
       0x09,  // channel 9
       0x08,  // data len
       't', 'e', 's', 't', ' ', 'a', 'n', 'd',
-  0xad, 0x3a,  // CRC
+  0x62, 0x0f,  // CRC
   0x00,  // null terminator
 };
 
@@ -77,7 +76,7 @@ const uint8_t kClientToServer2[] = {
       0x09,  // channel 9
       0x08,  // data len
       't', 'e', 's', 't', ' ', 'a', 'n', 'd',
-  0xa8, 0xf9,  // CRC
+  0xc7, 0xc0,  // CRC
   0x00,  // null terminator
 };
 
@@ -90,7 +89,7 @@ const uint8_t kClientToServerMultiple[] = {
       0x09,  // channel 9
       0x08,  // data len
       'f', 'i', 'r', 's', 't', ' ', 'f', 'm',
-  0x53, 0x5c,  // CRC
+  0xc6, 0x17,  // CRC
 
   0x54, 0xab,  // header
   0x02,  // source id
@@ -100,7 +99,7 @@ const uint8_t kClientToServerMultiple[] = {
       0x09,  // channel 9
       0x06,  // data len
       'm', 'o', 'r', 'e', 's', 't',
-  0x87, 0xc7,  // CRC
+  0x09, 0x68,  // CRC
   0x00,  // null terminator
 };
 }
@@ -203,9 +202,9 @@ BOOST_FIXTURE_TEST_CASE(ServerTestFragment, Fixture) {
   };
   read("fir");
   read("st ");
-  read("fm");
-  read("mor");
-  read("est");
+  read("fmm");
+  read("ore");
+  read("st");
 
   // Now kick off a read that should stall until more data comes in.
   int read_count = 0;
@@ -238,7 +237,7 @@ const uint8_t kClientToServerEmpty[] = {
     0x40,  // client->server data
       0x09,  // channel 9
       0x00,  // data len
-  0x3a, 0x27,  // CRC
+  0xcf, 0xb2,  // CRC
   0x00,  // null terminator
 };
 }
@@ -288,7 +287,7 @@ BOOST_FIXTURE_TEST_CASE(ServerSendTest, Fixture) {
       0x09,  // channel 9
       0x0d,  // 13 bytes of data
       's', 't', 'u', 'f', 'f', ' ', 't', 'o', ' ', 't', 'e', 's', 't',
-    0xc1, 0x0a,  // CRC
+    0x9d, 0xd2,  // CRC
     0x00,  // null terminator
   };
 
