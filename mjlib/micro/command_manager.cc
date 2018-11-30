@@ -36,7 +36,9 @@ class CommandManager::Impl {
         write_stream_(write_stream),
         registry_(pool, 16) {}
 
-  void StartRead() {
+  void MaybeStartRead() {
+    if (write_outstanding_) { return; }
+
     read_until_context_.stream = read_stream_;
     read_until_context_.buffer = base::string_span(line_buffer_);
     read_until_context_.delimiters = "\r\n";
@@ -59,7 +61,7 @@ class CommandManager::Impl {
       read_until_context_.buffer = base::string_span(line_buffer_);
       read_until_context_.delimiters = "\r\n";
       read_until_context_.callback = [this](base::error_code, int) {
-        this->StartRead();
+        this->MaybeStartRead();
       };
       AsyncIgnoreUntil(read_until_context_);
       return;
@@ -67,13 +69,11 @@ class CommandManager::Impl {
 
     HandleCommand(size);
 
-    StartRead();
+    MaybeStartRead();
   }
 
   void HandleCommand(int size) {
-    // If we haven't managed to emit our last message yet, just ignore
-    // this command entirely. :(
-    if (write_outstanding_) { return; }
+    MJ_ASSERT(!write_outstanding_);
 
     // Make our command, minus whatever the delimeter was that ended
     // it.
@@ -124,6 +124,8 @@ class CommandManager::Impl {
               auto done = this->done_callback_;
               this->done_callback_ = {};
               done();
+
+              this->MaybeStartRead();
             }
           };
           callback(args, context);
@@ -174,7 +176,7 @@ void CommandManager::Register(const std::string_view& name,
 }
 
 void CommandManager::AsyncStart() {
-  impl_->StartRead();
+  impl_->MaybeStartRead();
 }
 
 }

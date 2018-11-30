@@ -86,4 +86,18 @@ BOOST_AUTO_TEST_CASE(BasicCommandManager) {
   BOOST_TEST(write_done == 1);
   BOOST_TEST(cmd1_count == 1);
   BOOST_TEST(reader.data_.str() == "size: 14\n");
+  reader.data_.str("");
+
+  // Send more than one command in a single buffer.
+  AsyncWrite(*pipe.side_b(), std::string_view("cmd1 things\ncmd1 a\n"),
+             [&](base::error_code ec) {
+               BOOST_TEST(!ec);
+               write_done++;
+             });
+
+  poll();
+
+  BOOST_TEST(write_done == 2);
+  BOOST_TEST(cmd1_count == 3);
+  BOOST_TEST(reader.data_.str() == "size: 6\nsize: 1\n");
 }
