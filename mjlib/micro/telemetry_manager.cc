@@ -355,7 +355,7 @@ class TelemetryManager::Impl {
   PoolMap<std::string_view, Element> elements_;
 
   CommandManager::Response current_response_;
-  char send_buffer_[1024] = {};
+  char send_buffer_[2048] = {};
   std::size_t current_list_index_ = 0;
   detail::EnumerateArchive::Context enumerate_context_;
 
