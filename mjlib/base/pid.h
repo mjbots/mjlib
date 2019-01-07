@@ -70,9 +70,17 @@ class PID {
   PID(const Config* config, State* state)
       : config_(config), state_(state) {}
 
+  struct ApplyOptions {
+    float kp_scale = 1.0f;
+    float kd_scale = 1.0f;
+
+    ApplyOptions() {}
+  };
+
   float Apply(float measured, float desired,
               float measured_rate, float desired_rate,
-              int rate_hz) {
+              int rate_hz,
+              ApplyOptions apply_options = {}) {
     state_->error = measured - desired;
     state_->error_rate = measured_rate - desired_rate;
 
@@ -94,8 +102,8 @@ class PID {
       state_->integral = -config_->ilimit;
     }
 
-    state_->p = config_->kp * state_->error;
-    state_->d = config_->kd * state_->error_rate;
+    state_->p = apply_options.kp_scale * config_->kp * state_->error;
+    state_->d = apply_options.kd_scale * config_->kd * state_->error_rate;
     state_->pd = state_->p + state_->d;
 
     if (config_->kpkd_limit >= 0.0) {
