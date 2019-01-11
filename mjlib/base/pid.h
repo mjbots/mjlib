@@ -14,8 +14,6 @@
 
 #pragma once
 
-#include <cmath>
-
 #include "mjlib/base/visitor.h"
 
 namespace mjlib {
@@ -32,10 +30,6 @@ class PID {
     float kpkd_limit = -1.0f;
     int8_t sign = 1;
 
-    // MS error will be calculated such that the time constant is as
-    // follows in seconds.
-    float ms_weight_s = 0.25f;
-
     template <typename Archive>
     void Serialize(Archive* a) {
       a->Visit(MJ_NVP(kp));
@@ -45,7 +39,6 @@ class PID {
       a->Visit(MJ_NVP(ilimit));
       a->Visit(MJ_NVP(kpkd_limit));
       a->Visit(MJ_NVP(sign));
-      a->Visit(MJ_NVP(ms_weight_s));
     }
   };
 
@@ -62,8 +55,6 @@ class PID {
     float pd = 0.0f;
     float command = 0.0f;
 
-    float ms_error = 0.0f;
-
     template <typename Archive>
     void Serialize(Archive* a) {
       a->Visit(MJ_NVP(integral));
@@ -73,7 +64,6 @@ class PID {
       a->Visit(MJ_NVP(d));
       a->Visit(MJ_NVP(pd));
       a->Visit(MJ_NVP(command));
-      a->Visit(MJ_NVP(ms_error));
     }
   };
 
@@ -92,11 +82,6 @@ class PID {
               int rate_hz,
               ApplyOptions apply_options = {}) {
     state_->error = measured - desired;
-
-    const float alpha = 1.0f / (config_->ms_weight_s * rate_hz);
-    state_->ms_error =
-            (1.0f - alpha) * state_->ms_error +
-            alpha * state_->error * state_->error;
     state_->error_rate = measured_rate - desired_rate;
 
     const float max_i_update = config_->iratelimit / rate_hz;
