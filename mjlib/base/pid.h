@@ -1,4 +1,4 @@
-// Copyright 2015-2018 Josh Pieper, jjp@pobox.com.  All rights reserved.
+// Copyright 2015-2019 Josh Pieper, jjp@pobox.com.  All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,6 +14,10 @@
 
 #pragma once
 
+#include <cmath>
+#include <limits>
+
+#include "mjlib/base/limit.h"
 #include "mjlib/base/visitor.h"
 
 namespace mjlib {
@@ -28,6 +32,7 @@ class PID {
     float iratelimit = -1.0f;
     float ilimit = 0.0f;
     float kpkd_limit = -1.0f;
+    float max_desired_rate = 0.0f;  // 0 is unlimited
     int8_t sign = 1;
 
     template <typename Archive>
@@ -38,12 +43,18 @@ class PID {
       a->Visit(MJ_NVP(iratelimit));
       a->Visit(MJ_NVP(ilimit));
       a->Visit(MJ_NVP(kpkd_limit));
+      a->Visit(MJ_NVP(max_desired_rate));
       a->Visit(MJ_NVP(sign));
     }
   };
 
   struct State {
     float integral = 0.0f;
+    // When starting with desired rate limits in place, we by default
+    // always accept the first desired command with no limiting (users
+    // can of course override this value if they want to start from
+    // some predetermined value).
+    float desired = std::numeric_limits<float>::quiet_NaN();
 
     // The following are not actually part of the "state", but are
     // present for purposes of being logged with it.
@@ -58,6 +69,7 @@ class PID {
     template <typename Archive>
     void Serialize(Archive* a) {
       a->Visit(MJ_NVP(integral));
+      a->Visit(MJ_NVP(desired));
       a->Visit(MJ_NVP(error));
       a->Visit(MJ_NVP(error_rate));
       a->Visit(MJ_NVP(p));
@@ -77,10 +89,28 @@ class PID {
     ApplyOptions() {}
   };
 
-  float Apply(float measured, float desired,
-              float measured_rate, float desired_rate,
+  float Apply(float measured, float input_desired,
+              float measured_rate, float input_desired_rate,
               int rate_hz,
               ApplyOptions apply_options = {}) {
+    float desired = {};
+    float desired_rate = {};
+
+    // First apply max_desired_rate
+    if (config_->max_desired_rate != 0.0f &&
+        std::isfinite(state_->desired)) {
+      const float max_step = config_->max_desired_rate / rate_hz;
+      const float proposed_step = input_desired - state_->desired;
+      const float actual_step = Limit(proposed_step, -max_step, max_step);
+      desired = state_->desired + actual_step;
+      desired_rate = Limit(input_desired_rate, -config_->max_desired_rate,
+                           config_->max_desired_rate);
+    } else {
+      desired = input_desired;
+      desired_rate = input_desired_rate;
+    }
+
+    state_->desired = desired;
     state_->error = measured - desired;
     state_->error_rate = measured_rate - desired_rate;
 

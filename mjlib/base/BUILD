@@ -86,9 +86,17 @@ cc_library(
 )
 
 cc_library(
+    name = "limit",
+    hdrs = ["limit.h"],
+)
+
+cc_library(
     name = "pid",
     hdrs = ["pid.h"],
-    deps = [":visitor"],
+    deps = [
+        ":limit",
+        ":visitor",
+    ],
 )
 
 cc_library(
