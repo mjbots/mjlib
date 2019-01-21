@@ -76,6 +76,7 @@ class EnumerationNameValuePair {
   void set_value(uint32_t value) const {
     *value_ = static_cast<RawEnumeration>(value);
   }
+  RawEnumeration* value() const { return value_; }
   const char* name() const { return name_; }
 
   const NameMapGetter enumeration_mapper;

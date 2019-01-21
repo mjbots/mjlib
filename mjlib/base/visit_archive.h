@@ -30,7 +30,7 @@ struct VisitArchive {
 
   template <typename NameValuePair>
   void Visit(const NameValuePair& pair) {
-    VisitHelper(pair, 0);
+    VisitHelper(pair, pair.value(), 0);
   }
 
   template <typename NameValuePair>
@@ -38,23 +38,34 @@ struct VisitArchive {
     static_cast<Derived*>(this)->VisitScalar(pair);
   }
 
- private:
   template <typename NameValuePair>
-  auto VisitHelper(const NameValuePair& pair, int) ->
+  void VisitArray(const NameValuePair& pair) {
+    static_cast<Derived*>(this)->VisitScalar(pair);
+  }
+
+ private:
+  template <typename NameValuePair, typename T>
+  auto VisitHelper(const NameValuePair& pair, T*, int) ->
       decltype(pair.value()->Serialize(
                    static_cast<Derived*>(nullptr))) {
     static_cast<Derived*>(this)->VisitSerializable(pair);
   }
 
-  template <typename NameValuePair>
-  auto VisitHelper(const NameValuePair& pair, int) ->
+  template <typename NameValuePair, typename T>
+  auto VisitHelper(const NameValuePair& pair, T*, int) ->
       decltype(pair.enumeration_mapper) {
     static_cast<Derived*>(this)->VisitEnumeration(pair);
     return pair.enumeration_mapper;
   }
 
-  template <typename NameValuePair>
-  void VisitHelper(const NameValuePair& pair, long) {
+  template <typename NameValuePair, typename T, size_t N>
+  int VisitHelper(const NameValuePair& pair, std::array<T, N>*, int)  {
+    static_cast<Derived*>(this)->VisitArray(pair);
+    return 0;
+  }
+
+  template <typename NameValuePair, typename T>
+  void VisitHelper(const NameValuePair& pair, T*, long) {
     static_cast<Derived*>(this)->VisitScalar(pair);
   }
 };

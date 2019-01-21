@@ -14,11 +14,13 @@
 
 #pragma once
 
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <type_traits>
 
 #include "mjlib/base/visit_archive.h"
+#include "mjlib/base/visitor.h"
 #include "mjlib/base/tokenizer.h"
 
 #include "mjlib/micro/async_stream.h"
@@ -56,6 +58,11 @@ struct EnumerateArchive : public mjlib::base::VisitArchive<EnumerateArchive> {
 
   template <typename NameValuePair>
   void VisitScalar(const NameValuePair& pair) {
+    this->VisitHelper(pair, pair.value(), 0);
+  }
+
+  template <typename NameValuePair, typename T>
+  void VisitHelper(const NameValuePair& pair, T*, long) {
     auto old_index = *current_index_;
     (*current_index_)++;
 
@@ -79,6 +86,21 @@ struct EnumerateArchive : public mjlib::base::VisitArchive<EnumerateArchive> {
             // callback, we are done.
           }
         });
+    }
+  }
+
+  template <typename NameValuePair, typename T, std::size_t N>
+  void VisitHelper(const NameValuePair& pair,
+                   std::array<T, N>*,
+                   int) {
+    auto value = pair.value();
+    for (int i = 0; i < static_cast<int>(N); i++) {
+      char number[6] = {};
+      ::snprintf(number, sizeof(number), "%d", i);
+      EnumerateArchive(
+          context_, pair.name(), current_index_, done_, this).
+          Visit(base::ReferenceNameValuePair<T>(
+                    &(*value)[i], number));
     }
   }
 
@@ -173,6 +195,24 @@ struct ItemArchive : public mjlib::base::VisitArchive<Derived> {
     mjlib::base::VisitArchive<Derived>::Visit(pair);
   }
 
+  template <typename NameValuePair>
+  void VisitSerializable(const NameValuePair& pair) {
+    static_cast<Derived*>(this)->Make(remaining_key_).Accept(pair.value());
+  }
+
+  template <typename NameValuePair>
+  void VisitArray(const NameValuePair& pair) {
+    base::Tokenizer tokenizer(remaining_key_, ".");
+    const auto index_str = tokenizer.next();
+    const auto index =
+        std::max<ssize_t>(
+            0,
+            std::min<ssize_t>(pair.value()->size() - 1,
+                              std::strtol(index_str.data(), nullptr, 0)));
+    static_cast<Derived*>(this)->Make(tokenizer.remaining()).Visit(
+        base::ReferenceNameValuePair(&(*pair.value())[index], ""));
+  }
+
   bool found() const { return found_; }
 
   std::string_view my_key_;
@@ -193,9 +233,8 @@ struct SetArchive : public ItemArchive<SetArchive> {
     pair.set_value(ParseValue<T>(value_));
   }
 
-  template <typename NameValuePair>
-  void VisitSerializable(const NameValuePair& pair) {
-    SetArchive(remaining_key_, value_).Accept(pair.value());
+  SetArchive Make(const std::string_view& key) {
+    return SetArchive(key, value_);
   }
 
  private:
@@ -235,10 +274,8 @@ struct ReadArchive : public ItemArchive<ReadArchive> {
     AsyncWrite(stream_, out_buffer, callback_);
   }
 
-  template <typename NameValuePair>
-  void VisitSerializable(const NameValuePair& pair) {
-    ReadArchive(remaining_key_, buffer_, stream_, callback_).
-        Accept(pair.value());
+  ReadArchive Make(const std::string_view& key) {
+    return ReadArchive(key, buffer_, stream_, callback_);
   }
 
   template <typename T>

@@ -42,6 +42,7 @@ struct MyStruct {
   float float_value = 2.0;
   bool bool_value = false;
   SubStruct sub_value;
+  std::array<float, 3> array_value = {6.0, 7.0, 8.0};
 
   template <typename Archive>
   void Serialize(Archive* a) {
@@ -49,6 +50,7 @@ struct MyStruct {
     a->Visit(MJ_NVP(float_value));
     a->Visit(MJ_NVP(bool_value));
     a->Visit(MJ_NVP(sub_value));
+    a->Visit(MJ_NVP(array_value));
   }
 };
 }
@@ -62,12 +64,12 @@ BOOST_AUTO_TEST_CASE(BasicSerializableHandler) {
     char buffer[100] = {};
     base::BufferWriteStream write_stream{buffer};
     dut.WriteBinary(write_stream);
-    BOOST_TEST(write_stream.offset() == 13);
+    BOOST_TEST(write_stream.offset() == 25);
 
     my_struct.int_value = 20;
     BOOST_TEST(my_struct.int_value == 20);
 
-    base::BufferReadStream read_stream{{buffer, 13}};
+    base::BufferReadStream read_stream{{buffer, 25}};
     dut.ReadBinary(read_stream);
     BOOST_TEST(my_struct.int_value == 10);
   }
@@ -76,13 +78,17 @@ BOOST_AUTO_TEST_CASE(BasicSerializableHandler) {
     char buffer[1000] = {};
     base::BufferWriteStream write_stream{buffer};
     dut.WriteSchema(write_stream);
-    BOOST_TEST(write_stream.offset() == 143);
+    BOOST_TEST(write_stream.offset() == 174);
   }
 
   {
     BOOST_TEST(my_struct.float_value == 2.0);
     dut.Set("float_value", "3.0");
     BOOST_TEST(my_struct.float_value == 3.0);
+
+    BOOST_TEST(my_struct.array_value[2] == 8.0);
+    dut.Set("array_value.2", "2.0");
+    BOOST_TEST(my_struct.array_value[2] == 2.0);
   }
 
   {
@@ -92,18 +98,36 @@ BOOST_AUTO_TEST_CASE(BasicSerializableHandler) {
     test::Reader reader{stream_pipe.side_b()};
 
     int complete_count = 0;
-    const int result =
-        dut.Read("sub_value.detailed", buffer, *stream_pipe.side_a(),
-                 [&](base::error_code ec) {
-                   BOOST_TEST(!ec);
-                   complete_count++;
+    {
+      const int result =
+          dut.Read("sub_value.detailed", buffer, *stream_pipe.side_a(),
+                   [&](base::error_code ec) {
+                     BOOST_TEST(!ec);
+                     complete_count++;
                  });
-    BOOST_TEST(result == 0);
+      BOOST_TEST(result == 0);
+    }
     BOOST_TEST(complete_count == 0);
 
     event_queue.Poll();
     BOOST_TEST(complete_count == 1);
     BOOST_TEST(reader.data_.str() == "23");
+    reader.data_.str("");
+
+    {
+      const int result =
+          dut.Read("array_value.1", buffer, *stream_pipe.side_a(),
+                   [&](base::error_code ec) {
+                     BOOST_TEST(!ec);
+                     complete_count++;
+                   });
+      BOOST_TEST(result == 0);
+    }
+
+    event_queue.Poll();
+    BOOST_TEST(complete_count == 2);
+
+    BOOST_TEST(reader.data_.str() == "7.000000");
   }
 
   {
@@ -111,4 +135,45 @@ BOOST_AUTO_TEST_CASE(BasicSerializableHandler) {
     dut.SetDefault();
     BOOST_TEST(my_struct.float_value == 2.0);
   }
+}
+
+BOOST_AUTO_TEST_CASE(EnumerateTest) {
+  EventQueue event_queue;
+  StreamPipe stream_pipe{event_queue.MakePoster()};
+  test::Reader reader{stream_pipe.side_b()};
+
+  char buffer[100] = {};
+
+  MyStruct my_struct;
+
+  SerializableHandler<MyStruct> dut(&my_struct);
+  detail::EnumerateArchive::Context context;
+
+  int done_count = 0;
+  base::error_code done_ec;
+
+  dut.Enumerate(&context,
+                buffer,
+                "prefix",
+                *stream_pipe.side_a(),
+                [&](base::error_code ec) {
+                  done_count++;
+                  done_ec = ec;
+                });
+
+  BOOST_TEST(done_count == 0);
+  event_queue.Poll();
+  BOOST_TEST(done_count == 1);
+  BOOST_TEST(done_ec == base::error_code());
+  const std::string expected =
+      "prefix.int_value 10\r\n"
+      "prefix.float_value 2.000000\r\n"
+      "prefix.bool_value 0\r\n"
+      "prefix.sub_value.detailed 23\r\n"
+      "prefix.array_value.0 6.000000\r\n"
+      "prefix.array_value.1 7.000000\r\n"
+      "prefix.array_value.2 8.000000\r\n"
+      ;
+
+  BOOST_TEST(reader.data_.str() == expected);
 }
