@@ -62,7 +62,7 @@ class MultiplexProtocolTest(unittest.TestCase):
                 2)  # crc
 
             # Then write a response.
-            await pipe.side_b.write(bytes([
+            pipe.side_b.write(bytes([
                 0x54, 0xab,
                 0x05,
                 0x00,
@@ -73,6 +73,8 @@ class MultiplexProtocolTest(unittest.TestCase):
                 ord('t'), ord('e'), ord('s'), ord('t'),
                 0x00, 0x00,
             ]))
+
+            await pipe.side_b.drain()
 
         async def client():
             return await mc1.read(4)
@@ -102,7 +104,8 @@ class MultiplexProtocolTest(unittest.TestCase):
             return data
 
         async def client():
-            await mc1.write(b'test')
+            mc1.write(b'test')
+            await mc1.drain()
 
         results = await asyncio.gather(server(), client())
         self.assertEqual(results[0], bytes([

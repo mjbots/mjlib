@@ -240,20 +240,37 @@ cc_test(
     ],
 )
 
+# Now for the python pieces.
+
+
 py_library(
     name = "py_stream_helpers",
     srcs = ["stream_helpers.py"],
 )
 
-py_test(
-    name = "py_stream_helpers_test",
-    srcs = ["test/py_stream_helpers_test.py"],
+py_library(
+    name = "py_multiplex_protocol",
+    srcs = ["multiplex_protocol.py"],
     deps = [":py_stream_helpers"],
 )
 
 py_library(
-    name = "py_multiplex_protocol",
-    srcs = ["multiplex_protocol.py"],
+    name = "aioserial",
+    srcs = ["aioserial.py"],
+)
+
+py_binary(
+    name = "mp_console",
+    srcs = ["mp_console.py"],
+    deps = [
+        ":py_multiplex_protocol",
+        ":aioserial",
+    ],
+)
+
+py_test(
+    name = "py_stream_helpers_test",
+    srcs = ["test/py_stream_helpers_test.py"],
     deps = [":py_stream_helpers"],
 )
 

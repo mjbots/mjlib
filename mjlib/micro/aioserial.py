@@ -13,7 +13,7 @@ from typing import List, Optional, Union
 import serial
 
 
-class AioSerial(serial.Serial):
+class AioSerial:
 
     def __init__(
             self,
@@ -31,7 +31,7 @@ class AioSerial(serial.Serial):
             exclusive: Optional[bool] = None,
             loop: Optional[asyncio.AbstractEventLoop] = None,
             **kwargs):
-        super().__init__(
+        self.serial = serial.Serial(
             port=port,
             baudrate=baudrate,
             bytesize=bytesize,
@@ -50,45 +50,25 @@ class AioSerial(serial.Serial):
             concurrent.futures.ThreadPoolExecutor(max_workers=1)
         self._write_executor = \
             concurrent.futures.ThreadPoolExecutor(max_workers=1)
+        self._write_data = bytearray()
 
     @property
     def loop(self) -> Optional[asyncio.AbstractEventLoop]:
         return self._loop if self._loop else asyncio.get_running_loop() \
-                if sys.version_info > (3, 6) else asyncio.get_event_loop()
+                if sys.version_info >= (3, 7) else asyncio.get_event_loop()
 
     @loop.setter
     def loop(self, value: Optional[asyncio.AbstractEventLoop]):
         self.loop = value
 
-    async def read_async(self, size: int = 1) -> bytes:
+    async def read(self, size: int = 1) -> bytes:
         return await self.loop.run_in_executor(
-            self._read_executor, self.read, size)
+            self._read_executor, self.serial.read, size)
 
-    async def read_until_async(
-            self,
-            expected: bytes = serial.LF,
-            size: Optional[int] = None) -> bytes:
-        return await self.loop.run_in_executor(
-            self._read_executor, self.read_until, expected, size)
+    def write(self, data: Union[bytearray, bytes, memoryview]) -> int:
+        self._write_data += data
 
-    async def readinto_async(self, b: Union[array.array, bytearray]):
+    async def drain(self, ) -> int:
+        to_write, self._write_data = self._write_data, bytearray()
         return await self.loop.run_in_executor(
-            self._read_executor, self.readinto, b)
-
-    async def readline_async(self, size: int = -1) -> bytes:
-        return await self.loop.run_in_executor(
-            self._read_executor, self.readline, size)
-
-    async def readlines_async(self, hint: int = -1) -> List[bytes]:
-        return await self.loop.run_in_executor(
-            self._read_executor, self.readlines, hint)
-
-    async def write_async(
-            self, data: Union[bytearray, bytes, memoryview]) -> int:
-        return await self.loop.run_in_executor(
-            self._write_executor, self.write, data)
-
-    async def writelines_async(
-            self, lines: List[Union[bytearray, bytes, memoryview]]) -> int:
-        return await self.loop.run_in_executor(
-            self._write_executor, self.writelines, lines)
+            self._write_executor, self.serial.write, to_write)

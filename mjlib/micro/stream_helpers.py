@@ -41,8 +41,10 @@ class _PipeSide:
 
         return to_return
 
-    async def write(self, data):
+    def write(self, data):
         self._write.data += data
+
+    async def drain(self):
         async with self._write.cond:
             self._write.cond.notify_all()
             await self._write.cond.wait_for(lambda: len(self._write.data) == 0)
@@ -73,8 +75,11 @@ class AsyncStream:
     async def read(self, size):
         return self._base.read(size)
 
-    async def write(self, data):
+    def write(self, data):
         return self._base.write(size)
+
+    async def drain(self):
+        return
 
     def tell(self):
         return self._base.tell()
@@ -94,7 +99,6 @@ class RecordingStream:
 
     async def read(self, size):
         result = await self._base.read(size)
-
         self._buffer.write(result)
         return result
 

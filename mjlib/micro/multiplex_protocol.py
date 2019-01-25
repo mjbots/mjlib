@@ -59,17 +59,16 @@ class MultiplexManager:
         self.stream = stream
         self.source_id = source_id
         self.lock = asyncio.Lock()
+        self._write_data = bytearray()
 
-        self._write_buffer = bytes()
+    def write(self, data):
+        self._write_data += data
 
-    async def flush(self):
-        to_write, self._write_buffer = self._write_buffer, bytes()
-        await self.stream.write(to_write)
-
-    async def write(self, data, queue=False):
-        self._write_buffer += data
-        if not queue:
-            await self.flush()
+    async def drain(self):
+        async with self.lock:
+            to_write, self._write_data = self._write_data, bytearray()
+            self.stream.write(to_write)
+            await self.stream.drain()
 
 
 class MultiplexClient:
@@ -86,7 +85,7 @@ class MultiplexClient:
         self._poll_rate_s = poll_rate_s
         self._timeout = timeout
 
-    async def write(self, data, **kwargs):
+    def write(self, data, **kwargs):
         header = _FRAME_HEADER_STRUCT.pack(
             _FRAME_HEADER_MAGIC,
             self._manager.source_id,
@@ -103,7 +102,10 @@ class MultiplexClient:
         crc = binascii.crc_hqx(frame_minus_crc, 0xffff)
         frame = frame_minus_crc + struct.pack('<H', crc)
 
-        await self._manager.write(frame, **kwargs)
+        self._manager.write(frame, **kwargs)
+
+    async def drain(self):
+        await self._manager.drain()
 
     async def read(self, size):
         # Poll repeatedly until we get something.
@@ -144,7 +146,8 @@ class MultiplexClient:
         assert self._manager.lock.locked()
 
         frame, _ = self._make_stream_client_to_server(True, b'')
-        await self._manager.stream.write(frame)
+        self._manager.stream.write(frame)
+        await self._manager.stream.drain()
 
         recording_stream = stream_helpers.RecordingStream(self._manager.stream)
 
@@ -159,11 +162,12 @@ class MultiplexClient:
 
         header, source, dest = _FRAME_HEADER_STRUCT.unpack(result_frame_header)
         if header != _FRAME_HEADER_MAGIC:
+            print('multiplex_protocol: re-synchronizing!')
             # We appear to be unsynchronized with one or more
             # receivers.  Try to flush out all possible reads before
             # returning nothing.
             try:
-                asyncio.wait_for(
+                await asyncio.wait_for(
                     self._manager.stream.read(8192), timeout=self._timeout)
             except asyncio.TimeoutError:
                 pass

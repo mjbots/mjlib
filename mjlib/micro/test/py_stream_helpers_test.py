@@ -52,7 +52,8 @@ class PipeStreamTest(unittest.TestCase):
         dut = sh.PipeStream()
 
         async def write(pipe):
-            await pipe.write(bytes([4, 5, 6]))
+            pipe.write(bytes([4, 5, 6]))
+            await pipe.drain()
 
         async def read(pipe):
             return await pipe.read(3)
