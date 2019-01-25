@@ -17,7 +17,6 @@
 '''Connects to a single remote client channel using the
 multiplex_protocol.'''
 
-import aioserial
 import argparse
 import asyncio
 import sys
