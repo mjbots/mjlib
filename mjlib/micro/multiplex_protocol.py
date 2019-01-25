@@ -66,12 +66,10 @@ class MultiplexManager:
         to_write, self._write_buffer = self._write_buffer, bytes()
         await self.stream.write(to_write)
 
-    def queue(self, data):
+    async def write(self, data, queue=False):
         self._write_buffer += data
-
-    async def write(self, data):
-        self._write_buffer += data
-        self.flush()
+        if not queue:
+            await self.flush()
 
 
 class MultiplexClient:
@@ -87,6 +85,25 @@ class MultiplexClient:
         self._channel = channel
         self._poll_rate_s = poll_rate_s
         self._timeout = timeout
+
+    async def write(self, data, **kwargs):
+        header = _FRAME_HEADER_STRUCT.pack(
+            _FRAME_HEADER_MAGIC,
+            self._manager.source_id,
+            self._destination_id)
+
+        assert len(data) < 100
+        payload = struct.pack(
+            '<BBB',
+            _STREAM_CLIENT_TO_SERVER,
+            self._channel,
+            len(data)) + data
+
+        frame_minus_crc = header + struct.pack('<B', len(payload)) + payload
+        crc = binascii.crc_hqx(frame_minus_crc, 0xffff)
+        frame = frame_minus_crc + struct.pack('<H', crc)
+
+        await self._manager.write(frame, **kwargs)
 
     async def read(self, size):
         # Poll repeatedly until we get something.

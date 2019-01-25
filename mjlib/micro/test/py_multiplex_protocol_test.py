@@ -44,7 +44,7 @@ class MultiplexProtocolTest(unittest.TestCase):
             result = _run(run())
             self.assertEqual(result, expected)
 
-    async def async_test_multiplex_client(self):
+    async def async_test_multiplex_client_read(self):
         pipe = sh.PipeStream()
         mm = mp.MultiplexManager(pipe.side_a)
         mc1 = mp.MultiplexClient(mm, 5)
@@ -80,9 +80,44 @@ class MultiplexProtocolTest(unittest.TestCase):
         results = await asyncio.gather(server(), client())
         self.assertEqual(results[1], b'test')
 
+    def test_multiplex_client_read(self):
+        _run(self.async_test_multiplex_client_read())
 
-    def test_multiplex_client(self):
-        _run(self.async_test_multiplex_client())
+    async def async_test_multiplex_client_write(self):
+        pipe = sh.PipeStream()
+        mm = mp.MultiplexManager(pipe.side_a)
+        mc1 = mp.MultiplexClient(mm, 5)
+
+        async def server():
+            data = await pipe.side_b.read(
+                2 +  # magic
+                1 +  # source id
+                1 +  # dest id
+                1 +  # payload size
+                1 +  # subframe type
+                1 +  # channel
+                1 +  # number of bytes
+                4 +  # data
+                2)  # crc
+            return data
+
+        async def client():
+            await mc1.write(b'test')
+
+        results = await asyncio.gather(server(), client())
+        self.assertEqual(results[0], bytes([
+            0x54, 0xab,
+            0x00,
+            0x05,
+            0x07,
+            0x40,
+            0x01,
+            0x04,
+            ord('t'), ord('e'), ord('s'), ord('t'),
+            0x01, 0xa0]))
+
+    def test_multiplex_client_write(self):
+        _run(self.async_test_multiplex_client_write())
 
 
 if __name__ == '__main__':
