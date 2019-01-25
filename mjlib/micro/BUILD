@@ -268,6 +268,15 @@ py_binary(
     ],
 )
 
+py_binary(
+    name = "conf_write",
+    srcs = ["conf_write.py"],
+    deps = [
+        ":py_multiplex_protocol",
+        ":aioserial",
+    ],
+)
+
 py_test(
     name = "py_stream_helpers_test",
     srcs = ["test/py_stream_helpers_test.py"],

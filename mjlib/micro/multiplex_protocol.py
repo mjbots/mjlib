@@ -74,8 +74,8 @@ class MultiplexManager:
 class MultiplexClient:
     def __init__(self, manager, destination_id,
                  channel=1,
-                 poll_rate_s=0.01,
-                 timeout=0.02):
+                 poll_rate_s=0.1,
+                 timeout=0.3):
         '''destination_id - a 7 bit identifier of the remote device to
         communicate with
         '''
@@ -84,6 +84,7 @@ class MultiplexClient:
         self._channel = channel
         self._poll_rate_s = poll_rate_s
         self._timeout = timeout
+        self._read_data = bytearray()
 
     def write(self, data, **kwargs):
         header = _FRAME_HEADER_STRUCT.pack(
@@ -108,16 +109,23 @@ class MultiplexClient:
         await self._manager.drain()
 
     async def read(self, size):
-        # Poll repeatedly until we get something.
-        while True:
+        # Poll repeatedly until we have enough.
+        while len(self._read_data) < size:
             async with self._manager.lock:
-                result = await self._try_one_poll(size)
-                if result:
-                    return result
+                result = await self._try_one_poll()
+                if result is not None:
+                    self._read_data += result
+
+            if len(self._read_data) > size:
+                break
 
             # We didn't get anything, so wait our polling period and
             # try again.
             await asyncio.sleep(self._poll_rate_s)
+
+        to_return, self._read_data = (
+            self._read_data[0:size], self._read_data[size:])
+        return to_return
 
     def _make_stream_client_to_server(self, response, data):
         '''Returns a tuple of (target_message, remaining_data)'''
@@ -142,7 +150,7 @@ class MultiplexClient:
 
         return frame, data[write_size:]
 
-    async def _try_one_poll(self, size):
+    async def _try_one_poll(self):
         assert self._manager.lock.locked()
 
         frame, _ = self._make_stream_client_to_server(True, b'')
@@ -162,7 +170,8 @@ class MultiplexClient:
 
         header, source, dest = _FRAME_HEADER_STRUCT.unpack(result_frame_header)
         if header != _FRAME_HEADER_MAGIC:
-            print('multiplex_protocol: re-synchronizing!')
+            print('multiplex_protocol: re-synchronizing! {:x}'.format(header),
+                  flush=True)
             # We appear to be unsynchronized with one or more
             # receivers.  Try to flush out all possible reads before
             # returning nothing.
