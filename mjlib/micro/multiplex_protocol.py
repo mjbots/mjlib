@@ -75,7 +75,7 @@ class MultiplexClient:
     def __init__(self, manager, destination_id,
                  channel=1,
                  poll_rate_s=0.1,
-                 timeout=0.3):
+                 timeout=0.05):
         '''destination_id - a 7 bit identifier of the remote device to
         communicate with
         '''

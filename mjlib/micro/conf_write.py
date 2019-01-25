@@ -54,6 +54,7 @@ async def main():
     manager = mp.MultiplexManager(serial)
     mc = mp.MultiplexClient(
         manager,
+        timeout=0.3,  # "conf write" can take a long time
         destination_id=args.target,
         channel=args.channel)
 
