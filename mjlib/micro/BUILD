@@ -1,6 +1,6 @@
 # -*- python -*-
 
-# Copyright 2018 Josh Pieper, jjp@pobox.com.
+# Copyright 2018-2019 Josh Pieper, jjp@pobox.com.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -237,5 +237,36 @@ cc_test(
         "//mjlib/base:buffer_stream",
         "@boost//:test",
         "@fmt",
+    ],
+)
+
+py_library(
+    name = "py_stream_helpers",
+    srcs = ["stream_helpers.py"],
+)
+
+py_test(
+    name = "py_stream_helpers_test",
+    srcs = ["test/py_stream_helpers_test.py"],
+    deps = [":py_stream_helpers"],
+)
+
+py_library(
+    name = "py_multiplex_protocol",
+    srcs = ["multiplex_protocol.py"],
+    deps = [":py_stream_helpers"],
+)
+
+py_test(
+    name = "py_multiplex_protocol_test",
+    srcs = ["test/py_multiplex_protocol_test.py"],
+    deps = [":py_multiplex_protocol"],
+)
+
+test_suite(
+    name = "py_test",
+    tests = [
+        "py_stream_helpers_test",
+        "py_multiplex_protocol_test",
     ],
 )

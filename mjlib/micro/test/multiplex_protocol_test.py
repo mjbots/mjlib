@@ -1,6 +1,6 @@
-# -*- python -*-
+#!/usr/bin/python3 -B
 
-# Copyright 2018 Josh Pieper, jjp@pobox.com.
+# Copyright 2019 Josh Pieper, jjp@pobox.com.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,21 +14,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-package(default_visibility = ["//visibility:public"])
+import io
+import unittest
 
-test_suite(
-    name = "host",
-    tests = [
-        "//mjlib/base:test",
-        "//mjlib/telemetry:test",
-        "//mjlib/micro:test",
-        "//mjlib/micro:py_test",
-        "//moteus:test",
-    ],
-)
+import mjlib.micro.multiplex_protocol as mp
 
-py_runtime(
-    name = "system_python3",
-    files = [],
-    interpreter_path = "/usr/bin/python3",
-)
+
+class MultiplexProtocolTest(unittest.TestCase):
+    def test_read_varuint(self):
+        stream = io.BytesIO([0x00])
+        result = mp.read_varuint(stream)
+        self.assertEqual(result, 0)
+
+
+if __name__ == '__main__':
+    unittest.main()
