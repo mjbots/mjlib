@@ -1,4 +1,4 @@
-// Copyright 2018 Josh Pieper, jjp@pobox.com.
+// Copyright 2018-2019 Josh Pieper, jjp@pobox.com.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,22 +19,22 @@
 using namespace mjlib::base;
 
 BOOST_AUTO_TEST_CASE(WindowedAverageTest) {
-  WindowedAverage<float, 4> dut;
-  BOOST_TEST(dut.average() == 0.0f);
+  WindowedAverage<int16_t, 4> dut;
+  BOOST_TEST(dut.average() == 0);
 
-  dut.Add(2.0);
-  BOOST_TEST(dut.average() == 2.0f);
+  dut.Add(2);
+  BOOST_TEST(dut.average() == 2);
 
-  dut.Add(4.0);
-  BOOST_TEST(dut.average() == 3.0f);
+  dut.Add(4);
+  BOOST_TEST(dut.average() == 3);
 
-  dut.Add(6.0);
-  BOOST_TEST(dut.average() == 4.0f);
+  dut.Add(6);
+  BOOST_TEST(dut.average() == 4);
 
-  dut.Add(8.0);
-  BOOST_TEST(dut.average() == 5.0f);
+  dut.Add(8);
+  BOOST_TEST(dut.average() == 5);
 
   // Finally, drop the first element.
-  dut.Add(10.0);
-  BOOST_TEST(dut.average() == 7.0f);
+  dut.Add(10);
+  BOOST_TEST(dut.average() == 7);
 }

@@ -1,4 +1,4 @@
-// Copyright 2018 Josh Pieper, jjp@pobox.com.
+// Copyright 2018-2019 Josh Pieper, jjp@pobox.com.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,25 +23,33 @@ namespace base {
 template <typename T, size_t Size>
 class WindowedAverage {
  public:
+  static_assert(
+      std::is_integral_v<T>,
+      "this will not function with floating point rounding error");
+  static_assert(std::is_signed_v<T>, "this requires a signed type");
+  static_assert(std::numeric_limits<T>::digits <
+                std::numeric_limits<int64_t>::digits);
+
   void Add(T value) {
+    const auto old = data_[pos_];
+    total_ += value;
     data_[pos_] = value;
     pos_ = (pos_ + 1) % Size;
+    const auto old_size = size_;
     size_ = std::min(size_ + 1, Size);
+    if (old_size == size_) {
+      total_ -= old;
+    }
   }
 
   T average() const {
     if (size_ == 0) { return T(); }
-    T total{};
-    size_t place = pos_;
-    for (size_t i = 0; i < size_; i++) {
-      place = (place + Size - 1) % Size;
-      total += data_[place];
-    }
-    return total / static_cast<T>(size_);
+    return total_ / static_cast<T>(size_);
   }
 
  private:
   T data_[Size] = {};
+  int64_t total_ = 0;
   size_t size_ = 0;
   size_t pos_ = 0;
 };
