@@ -97,8 +97,8 @@ class RecordingStream:
         self._base = base
         self._buffer = io.BytesIO()
 
-    async def read(self, size):
-        result = await self._base.read(size)
+    async def read(self, size, **kwargs):
+        result = await self._base.read(size, **kwargs)
         self._buffer.write(result)
         return result
 

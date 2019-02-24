@@ -22,7 +22,6 @@ class AioSerial:
             bytesize: int = serial.EIGHTBITS,
             parity: str = serial.PARITY_NONE,
             stopbits: Union[float, int] = serial.STOPBITS_ONE,
-            timeout: Optional[float] = None,
             xonxoff: bool = False,
             rtscts: bool = False,
             write_timeout: Optional[float] = None,
@@ -37,7 +36,7 @@ class AioSerial:
             bytesize=bytesize,
             parity=parity,
             stopbits=stopbits,
-            timeout=timeout,
+            timeout=0,
             xonxoff=xonxoff,
             rtscts=rtscts,
             write_timeout=write_timeout,
@@ -46,10 +45,10 @@ class AioSerial:
             exclusive=exclusive,
             **kwargs)
         self._loop: Optional[asyncio.AbstractEventLoop] = loop
-        self._read_executor = \
-            concurrent.futures.ThreadPoolExecutor(max_workers=1)
-        self._write_executor = \
-            concurrent.futures.ThreadPoolExecutor(max_workers=1)
+
+        self.loop.add_reader(self.serial.fileno(), self._handle_read)
+        self._read_event = asyncio.Event()
+        self._read_data = bytearray()
         self._write_data = bytearray()
 
     @property
@@ -61,14 +60,31 @@ class AioSerial:
     def loop(self, value: Optional[asyncio.AbstractEventLoop]):
         self.loop = value
 
-    async def read(self, size: int = 1) -> bytes:
-        return await self.loop.run_in_executor(
-            self._read_executor, self.serial.read, size)
+    async def read(self, size: int = 1, block=True) -> bytes:
+        result = bytearray()
+
+        while True:
+            while len(self._read_data) == 0:
+                await self._read_event.wait()
+                self._read_event.clear()
+
+            read_size = min(size - len(result), len(self._read_data))
+            assert read_size > 0
+            to_return, self._read_data = (
+                self._read_data[0:read_size], self._read_data[read_size:])
+
+            result += to_return
+
+            if not block or len(result) == size:
+                return result
 
     def write(self, data: Union[bytearray, bytes, memoryview]) -> int:
         self._write_data += data
 
     async def drain(self, ) -> int:
         to_write, self._write_data = self._write_data, bytearray()
-        return await self.loop.run_in_executor(
-            self._write_executor, self.serial.write, to_write)
+        self.serial.write(to_write)
+
+    def _handle_read(self):
+        self._read_data += self.serial.read(8192)
+        self._read_event.set()

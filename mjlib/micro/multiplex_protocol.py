@@ -116,7 +116,7 @@ class MultiplexClient:
                 if result is not None:
                     self._read_data += result
 
-            if len(self._read_data) > size:
+            if len(self._read_data) >= size:
                 break
 
             # We didn't get anything, so wait our polling period and
@@ -170,16 +170,13 @@ class MultiplexClient:
 
         header, source, dest = _FRAME_HEADER_STRUCT.unpack(result_frame_header)
         if header != _FRAME_HEADER_MAGIC:
-            print('multiplex_protocol: re-synchronizing! {:x}'.format(header),
+            print('multiplex_protocol: re-synchronizing! {:04x}'.format(header),
                   flush=True)
             # We appear to be unsynchronized with one or more
-            # receivers.  Try to flush out all possible reads before
-            # returning nothing.
-            try:
-                await asyncio.wait_for(
-                    self._manager.stream.read(8192), timeout=self._timeout)
-            except asyncio.TimeoutError:
-                pass
+            # receivers.
+            _ = await recording_stream.read(8192, block=False)
+
+            # Return nothing and hope for better next time.
             return
 
         async def read_payload():
