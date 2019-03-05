@@ -50,6 +50,7 @@ class AioSerial:
         self._read_event = asyncio.Event()
         self._read_data = bytearray()
         self._write_data = bytearray()
+        self.fd = self.serial.fileno()
 
     @property
     def loop(self) -> Optional[asyncio.AbstractEventLoop]:
