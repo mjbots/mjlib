@@ -1,4 +1,4 @@
-// Copyright 2018 Josh Pieper, jjp@pobox.com.
+// Copyright 2018-2019 Josh Pieper, jjp@pobox.com.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -140,8 +140,18 @@ BOOST_FIXTURE_TEST_CASE(ServerWrongId, Fixture) {
       read_count++;
     });
 
+  char unknown_buf[100] = {};
+  int unknown_count = 0;
+  ssize_t unknown_size = 0;
+  dut.AsyncReadUnknown(unknown_buf, [&](base::error_code ec, ssize_t size) {
+      BOOST_TEST(!ec);
+      unknown_count++;
+      unknown_size = size;
+    });
+
   event_queue.Poll();
   BOOST_TEST(read_count == 0);
+  BOOST_TEST(unknown_size == 0);
 
   int write_count = 0;
   AsyncWrite(*dut_stream.side_a(), str(kClientToServer2),
@@ -153,6 +163,11 @@ BOOST_FIXTURE_TEST_CASE(ServerWrongId, Fixture) {
   BOOST_TEST(write_count == 1);
   BOOST_TEST(read_count == 0);
   BOOST_TEST(dut.stats()->wrong_id == 1);
+
+  BOOST_TEST(unknown_count == 1);
+  BOOST_TEST(unknown_size == str(kClientToServer2).size());
+  BOOST_TEST(std::string(unknown_buf, unknown_size) ==
+             str(kClientToServer2));
 }
 
 BOOST_FIXTURE_TEST_CASE(ServerTestReadSecond, Fixture) {

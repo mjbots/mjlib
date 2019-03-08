@@ -1,4 +1,4 @@
-// Copyright 2018 Josh Pieper, jjp@pobox.com.
+// Copyright 2018-2019 Josh Pieper, jjp@pobox.com.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -189,6 +189,8 @@ struct MultiplexProtocol {
 /// AsyncStream.  This node's ID is stored in a PersistentConfig.
 class MultiplexProtocolServer : public MultiplexProtocol {
  public:
+  // TODO: This API needs to be updated so that server implementations
+  // can implement atomic updates as necessary.
   class Server {
    public:
     virtual ~Server() {}
@@ -203,6 +205,7 @@ class MultiplexProtocolServer : public MultiplexProtocol {
   struct Options {
     size_t buffer_size = 256;
     int max_tunnel_streams = 1;
+    uint8_t default_id = 1;
   };
 
   MultiplexProtocolServer(Pool*, AsyncStream*, Server*, const Options&);
@@ -213,6 +216,15 @@ class MultiplexProtocolServer : public MultiplexProtocol {
   AsyncStream* MakeTunnel(uint32_t id);
 
   void Start();
+
+  /// Read any data sent to the wrong ID and store it in @p buffer.
+  /// @p callback is invoked upon completion.
+  void AsyncReadUnknown(const base::string_span& buffer,
+                        const SizeCallback& callback);
+
+  /// Write the given raw data back to the master.
+  void AsyncWriteRaw(const std::string_view& buffer,
+                     const ErrorCallback& callback);
 
   // Exposed mostly for debugging and unit testing.
   struct Stats {

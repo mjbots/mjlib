@@ -1,4 +1,4 @@
-// Copyright 2018 Josh Pieper, jjp@pobox.com.
+// Copyright 2018-2019 Josh Pieper, jjp@pobox.com.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -188,6 +188,7 @@ class MultiplexProtocolServer::Impl {
                          pool->Allocate(options.buffer_size, 1))),
         write_buffer_(static_cast<char*>(
                           pool->Allocate(options.buffer_size, 1))) {
+    config_.id = options.default_id;
     for (auto& tunnel : tunnels_) {
       tunnel.set_parent(this);
     }
@@ -209,6 +210,23 @@ class MultiplexProtocolServer::Impl {
 
   void Start() {
     MaybeStartReadFrame();
+  }
+
+  void AsyncReadUnknown(const base::string_span& buffer,
+                        const SizeCallback& callback) {
+    MJ_ASSERT(unknown_buffer_.empty());
+    MJ_ASSERT(!buffer.empty());
+
+    unknown_buffer_ = buffer;
+    unknown_callback_ = callback;
+  }
+
+  void AsyncWriteRaw(const std::string_view& buffer,
+                     const ErrorCallback& callback) {
+    MJ_ASSERT(!write_outstanding_);
+    raw_write_callback_ = callback;
+    AsyncWrite(*stream_, buffer,
+               std::bind(&Impl::HandleWriteRaw, this, std::placeholders::_1));
   }
 
   const Stats* stats() const { return &stats_; }
@@ -348,7 +366,20 @@ class MultiplexProtocolServer::Impl {
 
     if (*maybe_dest_id != config_.id) {
       stats_.wrong_id++;
-      Consume(read_stream.base()->position() - read_buffer_);
+      const auto total_size = read_stream.base()->position() - read_buffer_;
+
+      if (!unknown_buffer_.empty()) {
+        std::memcpy(unknown_buffer_.data(), read_buffer_, total_size);
+        auto callback = unknown_callback_;
+
+        unknown_buffer_ = {};
+        unknown_callback_ = {};
+
+        callback(base::error_code(), total_size);
+      }
+
+      Consume(total_size);
+
       return true;
     }
 
@@ -419,8 +450,17 @@ class MultiplexProtocolServer::Impl {
                std::bind(&Impl::HandleWrite, this, std::placeholders::_1));
   }
 
-  void HandleWrite(base::error_code) {
+  void HandleWrite(base::error_code ec) {
+    MJ_ASSERT(!ec);
     write_outstanding_ = false;
+  }
+
+  void HandleWriteRaw(base::error_code ec) {
+    MJ_ASSERT(!ec);
+    write_outstanding_ = false;
+    auto callback = raw_write_callback_;
+    raw_write_callback_ = {};
+    callback(ec);
   }
 
   void ProcessSubframes(const std::string_view& subframes,
@@ -520,6 +560,11 @@ class MultiplexProtocolServer::Impl {
   char* const write_buffer_ = {};
   bool write_outstanding_ = false;
 
+  base::string_span unknown_buffer_;
+  SizeCallback unknown_callback_;
+
+  ErrorCallback raw_write_callback_;
+
   TunnelStream tunnels_[1];
   Stats stats_;
 };
@@ -539,6 +584,16 @@ AsyncStream* MultiplexProtocolServer::MakeTunnel(uint32_t id) {
 
 void MultiplexProtocolServer::Start() {
   impl_->Start();
+}
+
+void MultiplexProtocolServer::AsyncReadUnknown(const base::string_span& buffer,
+                                               const SizeCallback& callback) {
+  impl_->AsyncReadUnknown(buffer, callback);
+}
+
+void MultiplexProtocolServer::AsyncWriteRaw(const std::string_view& buffer,
+                                            const ErrorCallback& callback) {
+  impl_->AsyncWriteRaw(buffer, callback);
 }
 
 const MultiplexProtocolServer::Stats* MultiplexProtocolServer::stats() const {
