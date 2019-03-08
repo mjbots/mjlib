@@ -67,7 +67,7 @@ class ProtocolReadStream {
   template <typename T>
   std::optional<T> ReadScalar() {
     if (istr_.remaining() < static_cast<std::streamsize>(sizeof(T))) {
-      return {};
+      return std::make_optional<T>();
     }
 
     T result = T{};
@@ -117,6 +117,26 @@ class ProtocolWriteStream {
 
 class MultiplexProtocolServer::Impl {
  public:
+  class RawStream : public AsyncWriteStream {
+   public:
+    RawStream(Impl* parent) : parent_(parent) {}
+
+    ~RawStream() override {}
+
+    void AsyncWriteSome(const std::string_view& buffer,
+                        const SizeCallback& callback) override {
+      MJ_ASSERT(!parent_->write_outstanding_);
+      parent_->raw_write_callback_ = callback;
+      parent_->stream_->AsyncWriteSome(
+          buffer,
+          std::bind(&Impl::HandleWriteRaw, parent_,
+                    std::placeholders::_1, std::placeholders::_2));
+    }
+
+   private:
+    Impl* const parent_;
+  };
+
   class TunnelStream : public AsyncStream {
    public:
     void set_parent(Impl* impl) { parent_ = impl; }
@@ -221,12 +241,8 @@ class MultiplexProtocolServer::Impl {
     unknown_callback_ = callback;
   }
 
-  void AsyncWriteRaw(const std::string_view& buffer,
-                     const ErrorCallback& callback) {
-    MJ_ASSERT(!write_outstanding_);
-    raw_write_callback_ = callback;
-    AsyncWrite(*stream_, buffer,
-               std::bind(&Impl::HandleWriteRaw, this, std::placeholders::_1));
+  AsyncWriteStream* raw_write_stream() {
+    return &raw_write_stream_;
   }
 
   const Stats* stats() const { return &stats_; }
@@ -455,12 +471,12 @@ class MultiplexProtocolServer::Impl {
     write_outstanding_ = false;
   }
 
-  void HandleWriteRaw(base::error_code ec) {
+  void HandleWriteRaw(const base::error_code& ec, size_t size) {
     MJ_ASSERT(!ec);
     write_outstanding_ = false;
     auto callback = raw_write_callback_;
     raw_write_callback_ = {};
-    callback(ec);
+    callback(ec, size);
   }
 
   void ProcessSubframes(const std::string_view& subframes,
@@ -553,6 +569,8 @@ class MultiplexProtocolServer::Impl {
 
   Config config_;
 
+  RawStream raw_write_stream_{this};
+
   std::streamsize read_start_ = 0;
   char* const read_buffer_ = {};
   bool read_outstanding_ = false;
@@ -563,7 +581,7 @@ class MultiplexProtocolServer::Impl {
   base::string_span unknown_buffer_;
   SizeCallback unknown_callback_;
 
-  ErrorCallback raw_write_callback_;
+  SizeCallback raw_write_callback_;
 
   TunnelStream tunnels_[1];
   Stats stats_;
@@ -591,9 +609,8 @@ void MultiplexProtocolServer::AsyncReadUnknown(const base::string_span& buffer,
   impl_->AsyncReadUnknown(buffer, callback);
 }
 
-void MultiplexProtocolServer::AsyncWriteRaw(const std::string_view& buffer,
-                                            const ErrorCallback& callback) {
-  impl_->AsyncWriteRaw(buffer, callback);
+AsyncWriteStream* MultiplexProtocolServer::raw_write_stream() {
+  return impl_->raw_write_stream();
 }
 
 const MultiplexProtocolServer::Stats* MultiplexProtocolServer::stats() const {

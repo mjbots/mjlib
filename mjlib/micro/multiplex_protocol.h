@@ -222,9 +222,9 @@ class MultiplexProtocolServer : public MultiplexProtocol {
   void AsyncReadUnknown(const base::string_span& buffer,
                         const SizeCallback& callback);
 
-  /// Write the given raw data back to the master.
-  void AsyncWriteRaw(const std::string_view& buffer,
-                     const ErrorCallback& callback);
+  /// @return a stream which can be used to write raw data to the
+  /// master.
+  AsyncWriteStream* raw_write_stream();
 
   // Exposed mostly for debugging and unit testing.
   struct Stats {
