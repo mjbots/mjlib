@@ -186,6 +186,7 @@ class TelemetrySchemaReader {
     switch (field_type) {
       case TF::FieldType::kFinal: {
         MJ_ASSERT(false);
+        return false;
       }
       case TF::FieldType::kBool:
       case TF::FieldType::kInt8:

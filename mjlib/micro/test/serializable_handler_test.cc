@@ -29,7 +29,7 @@ namespace base = mjlib::base;
 
 namespace {
 struct SubStruct {
-  int detailed = 23;
+  int32_t detailed = 23;
 
   template <typename Archive>
   void Serialize(Archive* a) {
@@ -38,7 +38,7 @@ struct SubStruct {
 };
 
 struct MyStruct {
-  int int_value = 10;
+  int32_t int_value = 10;
   float float_value = 2.0;
   bool bool_value = false;
   SubStruct sub_value;
