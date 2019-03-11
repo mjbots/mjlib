@@ -1,6 +1,6 @@
 # -*- python -*-
 
-# Copyright 2018-2019 Josh Pieper, jjp@pobox.com.
+# Copyright 2018 Josh Pieper, jjp@pobox.com.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,13 +19,9 @@ package(default_visibility = ["//visibility:public"])
 test_suite(
     name = "host",
     tests = [
-        "//mjlib:host",
-        "//moteus:host",
+        "//mjlib/base:test",
+        "//mjlib/telemetry:test",
+        "//mjlib/micro:test",
+        "//mjlib/micro:py_test",
     ],
-)
-
-py_runtime(
-    name = "system_python3",
-    files = [],
-    interpreter_path = "/usr/bin/python3",
 )
