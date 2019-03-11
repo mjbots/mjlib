@@ -27,15 +27,24 @@ using test::str;
 namespace {
 class Server : public MultiplexProtocolServer::Server {
  public:
-  uint32_t Write(MultiplexProtocol::Register,
-                 const MultiplexProtocol::Value&) override {
-    return 0;
+  uint32_t Write(MultiplexProtocol::Register reg,
+                 const MultiplexProtocol::Value& value) override {
+    writes_.push_back({reg, value});
+    return next_write_error_;
   }
 
   MultiplexProtocol::ReadResult Read(
       MultiplexProtocol::Register, size_t) const override {
     return static_cast<uint32_t>(0);
   }
+
+  struct WriteValue {
+    MultiplexProtocol::Register reg;
+    MultiplexProtocol::Value value;
+  };
+
+  std::vector<WriteValue> writes_;
+  uint32_t next_write_error_ = 0;
 };
 
 struct Fixture : test::PersistentConfigFixture {
@@ -303,6 +312,119 @@ BOOST_FIXTURE_TEST_CASE(ServerSendTest, Fixture) {
       0x0d,  // 13 bytes of data
       's', 't', 'u', 'f', 'f', ' ', 't', 'o', ' ', 't', 'e', 's', 't',
     0x9d, 0xd2,  // CRC
+    0x00,  // null terminator
+  };
+
+  BOOST_TEST(std::string_view(receive_buffer, read_size) ==
+             str(kExpectedResponse));
+}
+
+namespace {
+const uint8_t kWriteSingle[] = {
+  0x54, 0xab,  // header
+  0x82,  // source id
+  0x01,  // destination id
+  0x03,  // payload size
+    0x10,  // write single int8_t
+      0x02,  // register 2
+      0x20,  // value
+  0x99, 0x14,  // CRC
+  0x00,  // null terminator
+};
+}
+
+BOOST_FIXTURE_TEST_CASE(WriteSingleTest, Fixture) {
+  int write_count = 0;
+  AsyncWrite(*dut_stream.side_a(), str(kWriteSingle),
+             [&](base::error_code ec) {
+               BOOST_TEST(!ec);
+               write_count++;
+             });
+
+  event_queue.Poll();
+  BOOST_TEST(write_count == 1);
+
+  BOOST_TEST(server.writes_.size() == 1);
+  BOOST_TEST(server.writes_.at(0).reg == 2);
+  BOOST_TEST(std::get<int8_t>(server.writes_.at(0).value) == 0x20);
+}
+
+namespace {
+const uint8_t kWriteMultiple[] = {
+  0x54, 0xab,  // header
+  0x82,  // source id
+  0x01,  // destination id
+  0x09,  // payload size
+    0x15,  // write multiple int16_t
+      0x05,  // start register
+      0x03,  // 3x registers
+      0x01, 0x03,  // value1
+      0x03, 0x03,  // value1
+      0x05, 0x03,  // value1
+  0xda, 0xa6,  // CRC
+  0x00,  // null terminator
+};
+}
+
+BOOST_FIXTURE_TEST_CASE(WriteMultipleTest, Fixture) {
+  int write_count = 0;
+  AsyncWrite(*dut_stream.side_a(), str(kWriteMultiple),
+             [&](base::error_code ec) {
+               BOOST_TEST(!ec);
+               write_count++;
+             });
+
+  event_queue.Poll();
+  BOOST_TEST(write_count == 1);
+
+  BOOST_TEST(server.writes_.size() == 3);
+  BOOST_TEST(server.writes_.at(0).reg == 5);
+  BOOST_TEST(std::get<int16_t>(server.writes_.at(0).value) == 0x0301);
+
+  BOOST_TEST(server.writes_.at(1).reg == 6);
+  BOOST_TEST(std::get<int16_t>(server.writes_.at(1).value) == 0x0303);
+
+  BOOST_TEST(server.writes_.at(2).reg == 7);
+  BOOST_TEST(std::get<int16_t>(server.writes_.at(2).value) == 0x0305);
+}
+
+BOOST_FIXTURE_TEST_CASE(WriteErrorTest, Fixture) {
+  char receive_buffer[256] = {};
+  int read_count = 0;
+  ssize_t read_size = 0;
+  dut_stream.side_a()->AsyncReadSome(
+      receive_buffer, [&](base::error_code ec, ssize_t size) {
+        BOOST_TEST(!ec);
+        read_count++;
+        read_size = size;
+      });
+
+  event_queue.Poll();
+  BOOST_TEST(read_count == 0);
+
+
+  server.next_write_error_ = 0x76;
+
+  int write_count = 0;
+  AsyncWrite(*dut_stream.side_a(), str(kWriteSingle),
+             [&](base::error_code ec) {
+               BOOST_TEST(!ec);
+               write_count++;
+             });
+
+  event_queue.Poll();
+  BOOST_TEST(write_count == 1);
+  BOOST_TEST(read_count == 1);
+
+  const uint8_t kExpectedResponse[] = {
+    0x54, 0xab,
+    0x01,  // source id
+    0x02,  // dest id
+    0x03,  // payload size
+     0x28,  // write error
+      0x02,  // register
+      0x76,  // error
+    0xbc, 0xb6,  // CRC
     0x00,  // null terminator
   };
 

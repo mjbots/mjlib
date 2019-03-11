@@ -144,32 +144,32 @@ struct MultiplexProtocol {
 
   enum class Subframe : uint8_t {
     // # Register RPC #
-    kWriteSingleMask = 0x10,
+    kWriteSingleBase = 0x10,
     kWriteSingleInt8 = 0x10,
     kWriteSingleInt16 = 0x11,
     kWriteSingleInt32 = 0x12,
     kWriteSingleFloat = 0x13,
 
-    kWriteMultipleMask = 0x14,
+    kWriteMultipleBase = 0x14,
     kWriteMultipleInt8 = 0x14,
     kWriteMultipleInt16 = 0x15,
     kWriteMultipleInt32 = 0x16,
     kWriteMultipleFloat = 0x17,
 
-    kReadSingleMask = 0x18,
+    kReadSingleBase = 0x18,
     kReadSingleInt8 = 0x18,
     kReadSingleInt16 = 0x19,
     kReadSingleInt32 = 0x1a,
     kReadSingleFloat = 0x1b,
 
-    kReadMultipleMask = 0x1c,
+    kReadMultipleBase = 0x1c,
     kReadMultipleInt8 = 0x1c,
     kReadMultipleInt16 = 0x1d,
     kReadMultipleInt32 = 0x1e,
     kReadMultipleFloat = 0x1f,
 
-    kReplySingleMask = 0x20,
-    kReplyMultipleMask = 0x24,
+    kReplySingleBase = 0x20,
+    kReplyMultipleBase = 0x24,
     kWriteError = 0x28,
     kReadError = 0x29,
 
@@ -178,7 +178,7 @@ struct MultiplexProtocol {
     kServerToClient = 0x41,
   };
 
-  using Register = uint16_t;
+  using Register = uint32_t;
 
   using Value = std::variant<int8_t, int16_t, int32_t, float>;
   // Either a Value, or an error code.
@@ -189,12 +189,16 @@ struct MultiplexProtocol {
 /// AsyncStream.  This node's ID is stored in a PersistentConfig.
 class MultiplexProtocolServer : public MultiplexProtocol {
  public:
-  // TODO: This API needs to be updated so that server implementations
-  // can implement atomic updates as necessary.
+  /// Applications implementing the server should provide a concrete
+  /// implementation of this interface.  Within a single frame, all
+  /// calls to Write or Read will take place before returning to the
+  /// event loop.  Applications may use this fact to implement atomic
+  /// updates as necessary.
   class Server {
    public:
     virtual ~Server() {}
 
+    /// Attempt to store the given value.
     virtual uint32_t Write(Register, const Value&) = 0;
 
     /// @param type_index is an index into the Value variant
@@ -228,9 +232,22 @@ class MultiplexProtocolServer : public MultiplexProtocol {
 
   // Exposed mostly for debugging and unit testing.
   struct Stats {
-    int wrong_id = 0;
-    int checksum_mismatch = 0;
-    int receive_overrun = 0;
+    uint32_t wrong_id = 0;
+    uint32_t checksum_mismatch = 0;
+    uint32_t receive_overrun = 0;
+    uint32_t unknown_subframe = 0;
+    uint32_t missing_subframe = 0;
+    uint32_t malformed_subframe = 0;
+
+    template <typename Archive>
+    void Serialize(Archive* a) {
+      a->Visit(MJ_NVP(wrong_id));
+      a->Visit(MJ_NVP(checksum_mismatch));
+      a->Visit(MJ_NVP(receive_overrun));
+      a->Visit(MJ_NVP(unknown_subframe));
+      a->Visit(MJ_NVP(missing_subframe));
+      a->Visit(MJ_NVP(malformed_subframe));
+    }
   };
 
   const Stats* stats() const;

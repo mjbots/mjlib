@@ -63,7 +63,6 @@ class ProtocolReadStream {
     return std::numeric_limits<uint32_t>::max();
   }
 
- private:
   template <typename T>
   std::optional<T> ReadScalar() {
     if (istr_.remaining() < static_cast<std::streamsize>(sizeof(T))) {
@@ -75,6 +74,7 @@ class ProtocolReadStream {
     return result;
   }
 
+ private:
   void RawRead(char* out, std::streamsize size) {
     istr_.read({out, size});
     MJ_ASSERT(istr_.gcount() == size);
@@ -200,10 +200,11 @@ class MultiplexProtocolServer::Impl {
 
   Impl(Pool* pool,
        AsyncStream* stream,
-       Server*,
+       Server* server,
        const Options& options)
       : options_(options),
         stream_(stream),
+        server_(server),
         read_buffer_(static_cast<char*>(
                          pool->Allocate(options.buffer_size, 1))),
         write_buffer_(static_cast<char*>(
@@ -484,39 +485,77 @@ class MultiplexProtocolServer::Impl {
     base::BufferReadStream buffer_stream(subframes);
     ProtocolReadStream str(buffer_stream);
 
+    auto u8 = [](auto value) {
+      return static_cast<uint8_t>(value);
+    };
+
+    struct RegisterHandler {
+      uint8_t base_register = 0;
+      bool (Impl::* handler)(uint8_t, ProtocolReadStream&, ProtocolWriteStream*);
+    };
+
+    constexpr RegisterHandler register_handlers[] = {
+      { u8(Subframe::kWriteSingleBase), &Impl::ProcessSubframeWriteSingle },
+      { u8(Subframe::kWriteMultipleBase), &Impl::ProcessSubframeWriteMultiple },
+      { u8(Subframe::kReadSingleBase), &Impl::ProcessSubframeReadSingle },
+      { u8(Subframe::kReadMultipleBase), &Impl::ProcessSubframeReadMultiple },
+    };
+
     while (buffer_stream.remaining()) {
       const auto maybe_subframe_type = str.ReadVaruint();
       if (!maybe_subframe_type) {
         // The final subframe was malformed.  Guess we'll just ignore it.
+        stats_.missing_subframe++;
         return;
       }
 
       const auto subframe_type = *maybe_subframe_type;
 
-      if (subframe_type == static_cast<uint8_t>(Subframe::kClientToServer)) {
+      if (subframe_type == u8(Subframe::kClientToServer)) {
         // The client sent us some data.
-        ProcessSubframeClientToServer(str, response_stream);
-      } else {
+        if (ProcessSubframeClientToServer(str, response_stream)) {
+          stats_.malformed_subframe++;
+          return;
+        }
+        continue;
+      }
+
+      bool register_handler_found = false;
+      for (const auto& handler : register_handlers) {
+        if ((subframe_type & ~0x03) == handler.base_register) {
+          if ((this->*handler.handler)(
+                  subframe_type & 0x03, str, response_stream)) {
+            stats_.malformed_subframe++;
+            return;
+          }
+          register_handler_found = true;
+          break;
+        }
+      }
+
+      if (!register_handler_found) {
         // An unknown subframe.  Write off the rest of this frame as
         // unusable.
+        stats_.unknown_subframe++;
         return;
       }
     }
   }
 
-  void ProcessSubframeClientToServer(
+  // @return true if malformed
+  bool ProcessSubframeClientToServer(
       ProtocolReadStream& str, ProtocolWriteStream* response_stream) {
     const auto maybe_channel = str.ReadVaruint();
     const auto maybe_bytes = str.ReadVaruint();
     if (!maybe_channel || !maybe_bytes ||
         str.base()->remaining() < static_cast<std::streamsize>(*maybe_bytes)) {
       // Malformed.
-      return;
+      return true;
     }
 
     auto maybe_tunnel = FindTunnel(*maybe_channel);
     if (!maybe_tunnel) {
-      return;
+      return true;
     }
 
     auto& tunnel = *maybe_tunnel;
@@ -555,6 +594,81 @@ class MultiplexProtocolServer::Impl {
         cbk({}, to_copy);
       }
     }
+
+    return false;
+  }
+
+  std::optional<Value> ReadValue(uint8_t type, ProtocolReadStream& str) {
+    if (type == 0) {
+      return str.ReadScalar<int8_t>();
+    } else if (type == 1) {
+      return str.ReadScalar<int16_t>();
+    } else if (type == 2) {
+      return str.ReadScalar<int32_t>();
+    } else if (type == 3) {
+      return str.ReadScalar<float>();
+    }
+    MJ_ASSERT(false);
+    return {};
+  }
+
+  void EmitWriteError(ProtocolWriteStream* response,
+                      Register error_reg, uint32_t error) {
+    response->Write(Subframe::kWriteError);
+    response->WriteVaruint(error_reg);
+    response->WriteVaruint(error);
+  }
+
+  bool ProcessSubframeWriteSingle(uint8_t type, ProtocolReadStream& str,
+                                  ProtocolWriteStream* response) {
+    const auto maybe_register = str.ReadVaruint();
+    if (!maybe_register) { return true; }
+
+    const auto maybe_value = ReadValue(type, str);
+    if (!maybe_value) { return true; }
+
+    const auto error = server_->Write(*maybe_register, *maybe_value);
+    if (error) {
+      EmitWriteError(response, *maybe_register, error);
+    }
+
+    return false;
+  }
+
+  bool ProcessSubframeWriteMultiple(uint8_t type, ProtocolReadStream& str,
+                                    ProtocolWriteStream* response) {
+    const auto start_register = str.ReadVaruint();
+    if (!start_register) { return true; }
+
+    const auto num_registers = str.ReadVaruint();
+    if (!num_registers) { return true; }
+
+    auto current_register = *start_register;
+
+    for (size_t i = 0; i < num_registers; i++) {
+      const auto maybe_value = ReadValue(type, str);
+      if (!maybe_value) { return true; }
+
+      const auto error = server_->Write(current_register, *maybe_value);
+      if (error) {
+        EmitWriteError(response, current_register, error);
+      }
+      current_register++;
+    }
+
+    return false;
+  }
+
+  bool ProcessSubframeReadSingle(uint8_t, ProtocolReadStream&,
+                                 ProtocolWriteStream*) {
+    MJ_ASSERT(false);
+    return true;
+  }
+
+  bool ProcessSubframeReadMultiple(uint8_t, ProtocolReadStream&,
+                                   ProtocolWriteStream*) {
+    MJ_ASSERT(false);
+    return true;
   }
 
   TunnelStream* FindTunnel(uint32_t id) {
@@ -566,6 +680,7 @@ class MultiplexProtocolServer::Impl {
 
   const Options options_;
   AsyncStream* const stream_;
+  Server* const server_;
 
   Config config_;
 
