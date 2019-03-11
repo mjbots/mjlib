@@ -34,8 +34,13 @@ class Server : public MultiplexProtocolServer::Server {
   }
 
   MultiplexProtocol::ReadResult Read(
-      MultiplexProtocol::Register, size_t) const override {
-    return static_cast<uint32_t>(0);
+      MultiplexProtocol::Register reg, size_t type_index) const override {
+    if (type_index == 2) {
+      return MultiplexProtocol::Value(int32_values.at(reg));
+    } else if (type_index == 3) {
+      return MultiplexProtocol::Value(float_values.at(reg));
+    }
+    return static_cast<uint32_t>(1);
   }
 
   struct WriteValue {
@@ -45,6 +50,14 @@ class Server : public MultiplexProtocolServer::Server {
 
   std::vector<WriteValue> writes_;
   uint32_t next_write_error_ = 0;
+
+  std::map<uint32_t, int32_t> int32_values = {
+    { 9, 0x09080706, },
+  };
+  std::map<uint32_t, float> float_values = {
+    { 10, 1.0f },
+    { 11, 2.0f },
+  };
 };
 
 struct Fixture : test::PersistentConfigFixture {
@@ -425,6 +438,116 @@ BOOST_FIXTURE_TEST_CASE(WriteErrorTest, Fixture) {
       0x02,  // register
       0x76,  // error
     0xbc, 0xb6,  // CRC
+    0x00,  // null terminator
+  };
+
+  BOOST_TEST(std::string_view(receive_buffer, read_size) ==
+             str(kExpectedResponse));
+}
+
+namespace {
+const uint8_t kReadSingle[] = {
+  0x54, 0xab,  // header
+  0x82,  // source id
+  0x01,  // destination id
+  0x02,  // payload size
+    0x1a,  // read single int32_t
+      0x09,  // register
+  0x03, 0xfb,  // CRC
+  0x00,  // null terminator
+};
+}
+
+BOOST_FIXTURE_TEST_CASE(ReadSingleTest, Fixture) {
+  char receive_buffer[256] = {};
+  int read_count = 0;
+  ssize_t read_size = 0;
+  dut_stream.side_a()->AsyncReadSome(
+      receive_buffer, [&](base::error_code ec, ssize_t size) {
+        BOOST_TEST(!ec);
+        read_count++;
+        read_size = size;
+      });
+
+  event_queue.Poll();
+
+  int write_count = 0;
+  AsyncWrite(*dut_stream.side_a(), str(kReadSingle),
+             [&](base::error_code ec) {
+               BOOST_TEST(!ec);
+               write_count++;
+             });
+
+  event_queue.Poll();
+  BOOST_TEST(write_count == 1);
+  BOOST_TEST(read_count == 1);
+
+  const uint8_t kExpectedResponse[] = {
+    0x54, 0xab,
+    0x01,  // source id
+    0x02,  // dest id
+    0x06,  // payload size
+     0x22,  // reply single int32_t
+      0x09,  // register
+      0x06, 0x07, 0x08, 0x09,  // value
+    0x00, 0xdb,  // CRC
+    0x00,  // null terminator
+  };
+
+  BOOST_TEST(std::string_view(receive_buffer, read_size) ==
+             str(kExpectedResponse));
+}
+
+namespace {
+const uint8_t kReadMultiple[] = {
+  0x54, 0xab,  // header
+  0x82,  // source id
+  0x01,  // destination id
+  0x03,  // payload size
+    0x1f,  // read multiple float
+      0x0a,  // register
+      0x02,  // two things
+  0x21, 0xb5,  // CRC
+  0x00,  // null terminator
+};
+}
+
+BOOST_FIXTURE_TEST_CASE(ReadMultipleTest, Fixture) {
+  char receive_buffer[256] = {};
+  int read_count = 0;
+  ssize_t read_size = 0;
+  dut_stream.side_a()->AsyncReadSome(
+      receive_buffer, [&](base::error_code ec, ssize_t size) {
+        BOOST_TEST(!ec);
+        read_count++;
+        read_size = size;
+      });
+
+  event_queue.Poll();
+
+  int write_count = 0;
+  AsyncWrite(*dut_stream.side_a(), str(kReadMultiple),
+             [&](base::error_code ec) {
+               BOOST_TEST(!ec);
+               write_count++;
+             });
+
+  event_queue.Poll();
+  BOOST_TEST(write_count == 1);
+  BOOST_TEST(read_count == 1);
+
+  const uint8_t kExpectedResponse[] = {
+    0x54, 0xab,
+    0x01,  // source id
+    0x02,  // dest id
+    0x0c,  // payload size
+     0x23,  // reply single float
+      0x0a,  // register
+      0x00, 0x00, 0x80, 0x3f,  // value
+     0x23,  // reply single float
+      0x0b,
+      0x00, 0x00, 0x00, 0x40,
+    0x31, 0x1b,  // CRC
     0x00,  // null terminator
   };
 

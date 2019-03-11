@@ -575,7 +575,7 @@ class MultiplexProtocolServer::Impl {
 
     // Send our response if necessary.
     if (response_stream) {
-      response_stream->Write(Subframe::kServerToClient);
+      response_stream->WriteVaruint(static_cast<uint8_t>(Subframe::kServerToClient));
       response_stream->WriteVaruint(*maybe_channel);
 
       const ssize_t kExtraPadding = 16;
@@ -614,7 +614,7 @@ class MultiplexProtocolServer::Impl {
 
   void EmitWriteError(ProtocolWriteStream* response,
                       Register error_reg, uint32_t error) {
-    response->Write(Subframe::kWriteError);
+    response->WriteVaruint(static_cast<uint8_t>(Subframe::kWriteError));
     response->WriteVaruint(error_reg);
     response->WriteVaruint(error);
   }
@@ -645,7 +645,7 @@ class MultiplexProtocolServer::Impl {
 
     auto current_register = *start_register;
 
-    for (size_t i = 0; i < num_registers; i++) {
+    for (size_t i = 0; i < *num_registers; i++) {
       const auto maybe_value = ReadValue(type, str);
       if (!maybe_value) { return true; }
 
@@ -659,15 +659,65 @@ class MultiplexProtocolServer::Impl {
     return false;
   }
 
-  bool ProcessSubframeReadSingle(uint8_t, ProtocolReadStream&,
-                                 ProtocolWriteStream*) {
-    MJ_ASSERT(false);
-    return true;
+  void EmitReadResult(ProtocolWriteStream* response,
+                      uint32_t reg,
+                      const Value& value) {
+    const uint8_t subframe_id = 0x20 | value.index();
+    response->WriteVaruint(subframe_id);
+    response->WriteVaruint(reg);
+    std::visit([&](auto actual_value) {
+        response->Write(actual_value);
+      }, value);
   }
 
-  bool ProcessSubframeReadMultiple(uint8_t, ProtocolReadStream&,
-                                   ProtocolWriteStream*) {
-    MJ_ASSERT(false);
+  void EmitReadError(ProtocolWriteStream* response,
+                     uint32_t reg,
+                     uint32_t error) {
+    response->WriteVaruint(static_cast<uint8_t>(Subframe::kReadError));
+    response->WriteVaruint(reg);
+    response->WriteVaruint(error);
+  }
+
+  void EmitRead(ProtocolWriteStream* response,
+                uint32_t reg,
+                const ReadResult& read_result) {
+    if (read_result.index() == 0) {
+      EmitReadResult(response, reg, std::get<0>(read_result));
+    } else {
+      EmitReadError(response, reg, std::get<uint32_t>(read_result));
+    }
+  }
+
+  bool ProcessSubframeReadSingle(uint8_t type, ProtocolReadStream& str,
+                                 ProtocolWriteStream* response) {
+    const auto maybe_register = str.ReadVaruint();
+    if (!maybe_register) { return true; }
+
+    const auto read_result = server_->Read(*maybe_register, type);
+    EmitRead(response, *maybe_register, read_result);
+    return false;
+  }
+
+  bool ProcessSubframeReadMultiple(uint8_t type, ProtocolReadStream& str,
+                                   ProtocolWriteStream* response) {
+    const auto start_register = str.ReadVaruint();
+    if (!start_register) { return true; }
+
+    const auto num_registers = str.ReadVaruint();
+    if (!num_registers) { return true; }
+
+    auto current_register = *start_register;
+
+    for (size_t i = 0; i < *num_registers; i++) {
+      const auto read_result = server_->Read(current_register, type);
+
+      // For now, we will emit reads as individual responses rather
+      // than coalescing them into a kReplyMultiple.
+      EmitRead(response, current_register, read_result);
+
+      current_register++;
+    }
+
     return true;
   }
 
