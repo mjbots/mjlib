@@ -54,6 +54,16 @@ _REGISTER_REPLY_MULTIPLE_I16 = 0x25
 _REGISTER_REPLY_MULTIPLE_I32 = 0x26
 _REGISTER_REPLY_MULTIPLE_FLOAT = 0x27
 
+_REGISTER_WRITE_SINGLE_I8 = 0x10
+_REGISTER_WRITE_SINGLE_I16 = 0x11
+_REGISTER_WRITE_SINGLE_I32 = 0x12
+_REGISTER_WRITE_SINGLE_FLOAT = 0x13
+
+_REGISTER_WRITE_MULTIPLE_I8 = 0x14
+_REGISTER_WRITE_MULTIPLE_I16 = 0x15
+_REGISTER_WRITE_MULTIPLE_I32 = 0x16
+_REGISTER_WRITE_MULTIPLE_FLOAT = 0x17
+
 _REGISTER_WRITE_ERROR = 0x28
 _REGISTER_READ_ERROR = 0x29
 
@@ -279,6 +289,14 @@ class MultiplexClient:
 
             return await ParseRegisterReply(await self._manager.read_frame())
 
+    async def register_write(self, request):
+        async with self._manager.lock:
+            self._manager.write(_pack_frame(
+                self._manager.source_id,
+                self._destination_id,
+                request.data.getbuffer()))
+            await self._manager.drain()
+
 
 class RegisterType(enum.Enum):
     INT8 = 0
@@ -309,6 +327,20 @@ class RegisterRequest:
         write_varuint(self.data, _REGISTER_READ_MULTIPLE_I8 + int(reg_type))
         write_varuint(self.data, register)
         write_varuint(self.data, length)
+
+    def write_single(self, register, reg_value):
+        write_varuint(self.data, _REGISTER_WRITE_SINGLE_I8 + reg_value.reg_type)
+        self.data.write(_TYPE_FORMAT[reg_value.reg_type].pack(reg_value.value))
+
+    def write_multiple(self, start_register, reg_values):
+        assert len(reg_values) > 0
+        same_as_first = [x.reg_type == reg_values[0].reg_type for x in reg_values]
+        assert all(same_as_first)
+
+        write_varuint(self.data, _REGISTER_WRITE_MULTIPLE_I8 + reg_values[0].reg_type)
+        write_varuint(self.data, len(reg_values))
+        for value in reg_values:
+            self.data.write(_TYPE_FORMAT[value.reg_type].pack(reg_value.value))
 
 
 class RegisterValue:

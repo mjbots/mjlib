@@ -613,6 +613,7 @@ class MultiplexProtocolServer::Impl {
 
   void EmitWriteError(ProtocolWriteStream* response,
                       Register error_reg, uint32_t error) {
+    if (!response) { return; }
     response->WriteVaruint(static_cast<uint8_t>(Subframe::kWriteError));
     response->WriteVaruint(error_reg);
     response->WriteVaruint(error);
