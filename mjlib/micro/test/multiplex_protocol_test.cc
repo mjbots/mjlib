@@ -64,14 +64,14 @@ struct Fixture : test::PersistentConfigFixture {
   StreamPipe dut_stream{event_queue.MakePoster()};
 
   Server server;
-  MultiplexProtocolServer dut{&pool, dut_stream.side_b(), &server, []() {
+  MultiplexProtocolServer dut{&pool, dut_stream.side_b(), []() {
       return MultiplexProtocolServer::Options();
     }()};
 
   AsyncStream* tunnel{dut.MakeTunnel(9)};
 
   Fixture() {
-    dut.Start();
+    dut.Start(&server);
   }
 };
 

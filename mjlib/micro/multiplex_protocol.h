@@ -212,14 +212,14 @@ class MultiplexProtocolServer : public MultiplexProtocol {
     uint8_t default_id = 1;
   };
 
-  MultiplexProtocolServer(Pool*, AsyncStream*, Server*, const Options&);
+  MultiplexProtocolServer(Pool*, AsyncStream*, const Options&);
   ~MultiplexProtocolServer();
 
   /// Allocate a "tunnel", where an AsyncStream is tunneled over the
   /// multiplex connection.
   AsyncStream* MakeTunnel(uint32_t id);
 
-  void Start();
+  void Start(Server*);
 
   /// Read any data sent to the wrong ID and store it in @p buffer.
   /// @p callback is invoked upon completion.

@@ -200,11 +200,9 @@ class MultiplexProtocolServer::Impl {
 
   Impl(Pool* pool,
        AsyncStream* stream,
-       Server* server,
        const Options& options)
       : options_(options),
         stream_(stream),
-        server_(server),
         read_buffer_(static_cast<char*>(
                          pool->Allocate(options.buffer_size, 1))),
         write_buffer_(static_cast<char*>(
@@ -229,7 +227,8 @@ class MultiplexProtocolServer::Impl {
     return nullptr;
   }
 
-  void Start() {
+  void Start(Server* server) {
+    server_ = server;
     MaybeStartReadFrame();
   }
 
@@ -730,7 +729,7 @@ class MultiplexProtocolServer::Impl {
 
   const Options options_;
   AsyncStream* const stream_;
-  Server* const server_;
+  Server* server_ = nullptr;
 
   Config config_;
 
@@ -755,9 +754,8 @@ class MultiplexProtocolServer::Impl {
 MultiplexProtocolServer::MultiplexProtocolServer(
     Pool* pool,
     AsyncStream* async_stream,
-    Server* server,
     const Options& options)
-    : impl_(pool, pool, async_stream, server, options) {}
+    : impl_(pool, pool, async_stream, options) {}
 
 MultiplexProtocolServer::~MultiplexProtocolServer() {}
 
@@ -765,8 +763,8 @@ AsyncStream* MultiplexProtocolServer::MakeTunnel(uint32_t id) {
   return impl_->MakeTunnel(id);
 }
 
-void MultiplexProtocolServer::Start() {
-  impl_->Start();
+void MultiplexProtocolServer::Start(Server* server) {
+  impl_->Start(server);
 }
 
 void MultiplexProtocolServer::AsyncReadUnknown(const base::string_span& buffer,
