@@ -88,6 +88,7 @@
 ///     - (int8_t|int16_t|int32_t|float) => value
 ///   0x24, 0x25, 0x26, 0x27 - reply multiple (int8_t|int16_t|int32_t|float)
 ///     - varuint => start register #
+///     - varuint => number of registers
 ///     - N x (int8_t|int16_t|int32_t|float) => values
 ///   0x28 - write error
 ///     - varuint => register #

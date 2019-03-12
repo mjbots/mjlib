@@ -123,5 +123,38 @@ class MultiplexProtocolTest(unittest.TestCase):
         _run(self.async_test_multiplex_client_write())
 
 
+class RegisterTest(unittest.TestCase):
+    async def async_test_simple_parse_register(self):
+        result = await mp.ParseRegisterReply(bytes([0x20, 0x10, 0x08]))
+        self.assertTrue(0x10 in result)
+        self.assertEqual(result[0x10], mp.RegisterValue(0x08, 0))
+        self.assertEqual(len(result), 1)
+
+        result = await mp.ParseRegisterReply(
+            bytes([0x21, 0x10, 0x02, 0x03]))
+        self.assertTrue(0x10 in result)
+        self.assertEqual(result[0x10], mp.RegisterValue(0x0302, 1))
+
+        result = await mp.ParseRegisterReply(
+            bytes([0x22, 0x10, 0x03, 0x04, 0x05, 0x06]))
+        self.assertTrue(0x10 in result)
+        self.assertEqual(result[0x10], mp.RegisterValue(0x06050403, 2))
+
+        result = await mp.ParseRegisterReply(
+            bytes([0x23, 0x10, 0x00, 0x00, 0x00, 0x00]))
+        self.assertTrue(0x10 in result)
+        self.assertEqual(result[0x10], mp.RegisterValue(0.0, 3))
+
+        result = await mp.ParseRegisterReply(
+            bytes([0x24, 0x10, 0x03, 0x04, 0x05, 0x06]))
+        self.assertEqual(result,
+                         { 0x10 : mp.RegisterValue(0x04, 0),
+                           0x11 : mp.RegisterValue(0x05, 0),
+                           0x12 : mp.RegisterValue(0x06, 0) })
+
+    def test_simple_parse_register(self):
+        _run(self.async_test_simple_parse_register())
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -18,6 +18,7 @@
 
 import asyncio
 import binascii
+import enum
 import inspect
 import io
 import struct
@@ -33,12 +34,37 @@ _STREAM_CLIENT_TO_SERVER = 0x40
 _STREAM_SERVER_TO_CLIENT = 0x41
 
 
+_REGISTER_READ_SINGLE_I8 = 0x18
+_REGISTER_READ_SINGLE_I16 = 0x19
+_REGISTER_READ_SINGLE_I32 = 0x1a
+_REGISTER_READ_SINGLE_FLOAT = 0x1b
+
+_REGISTER_READ_MULTIPLE_I8 = 0x1c
+_REGISTER_READ_MULTIPLE_I16 = 0x1d
+_REGISTER_READ_MULTIPLE_I32 = 0x1e
+_REGISTER_READ_MULTIPLE_FLOAT = 0x1f
+
+_REGISTER_REPLY_SINGLE_I8 = 0x20
+_REGISTER_REPLY_SINGLE_I16 = 0x21
+_REGISTER_REPLY_SINGLE_I32 = 0x22
+_REGISTER_REPLY_SINGLE_FLOAT = 0x23
+
+_REGISTER_REPLY_MULTIPLE_I8 = 0x24
+_REGISTER_REPLY_MULTIPLE_I16 = 0x25
+_REGISTER_REPLY_MULTIPLE_I32 = 0x26
+_REGISTER_REPLY_MULTIPLE_FLOAT = 0x27
+
+_REGISTER_WRITE_ERROR = 0x28
+_REGISTER_READ_ERROR = 0x29
+
 async def read_varuint(stream):
     result = 0
     shift = 0
 
     for i in range(5):
         data = await stream.read(1)
+        if len(data) < 1:
+            return None
         this_byte, = struct.unpack('<B', data)
         result |= (this_byte & 0x7f) << shift
         shift += 7
@@ -47,6 +73,29 @@ async def read_varuint(stream):
             return result
 
     assert False
+
+
+def write_varuint(stream, value):
+    assert value >= 0 and value < 2 ** 32
+    while True:
+        this_byte = value & 0x7f
+        value = value >> 7
+        if value > 0:
+            this_byte |= 0x80
+        stream.write(bytes([this_byte]))
+        if value == 0:
+            break
+
+
+def _pack_frame(source, dest, payload):
+        header = _FRAME_HEADER_STRUCT.pack(
+            _FRAME_HEADER_MAGIC, source, dest)
+
+        frame_minus_crc = header + struct.pack('<B', len(payload)) + payload
+        crc = binascii.crc_hqx(frame_minus_crc, 0xffff)
+        frame = frame_minus_crc + struct.pack('<H', crc)
+
+        return frame
 
 
 class MultiplexManager:
@@ -65,10 +114,51 @@ class MultiplexManager:
         self._write_data += data
 
     async def drain(self):
-        async with self.lock:
-            to_write, self._write_data = self._write_data, bytearray()
-            self.stream.write(to_write)
-            await self.stream.drain()
+        assert self.lock.locked()
+
+        to_write, self._write_data = self._write_data, bytearray()
+        self.stream.write(to_write)
+        await self.stream.drain()
+
+    async def read_frame(self, only_from=None):
+        assert self.lock.locked()
+
+        recording_stream = stream_helpers.RecordingStream(self.stream)
+
+        result_frame_header = await recording_stream.read(_FRAME_HEADER_STRUCT.size)
+
+        header, source, dest = _FRAME_HEADER_STRUCT.unpack(result_frame_header)
+        if header != _FRAME_HEADER_MAGIC:
+            print('multiplex_protocol: re-synchronizing! {:04x}'.format(header),
+                  flush=True)
+            # We appear to be unsynchronized with one or more
+            # receivers.
+            _ = await recording_stream.read(8192, block=False)
+
+            # Report a timeout error.
+            raise asyncio.TimeoutError()
+
+        async def read_payload():
+            payload_len = await read_varuint(recording_stream)
+            sizeof_crc = 2
+            payload_and_crc = await recording_stream.read(
+                payload_len + sizeof_crc)
+            return payload_and_crc
+
+        payload_and_crc = await read_payload()
+
+        if only_from and source != only_from:
+            return None
+
+        result_frame = recording_stream.buffer()
+
+        # TODO(jpieper): Verify CRC.
+
+        payload = payload_and_crc[0:-2]
+        if len(payload) < 3:
+            return
+
+        return payload
 
 
 class MultiplexClient:
@@ -76,7 +166,9 @@ class MultiplexClient:
                  channel=1,
                  poll_rate_s=0.1,
                  timeout=0.05):
-        '''destination_id - a 7 bit identifier of the remote device to
+        '''A client for the stream protocol.
+
+        destination_id - a 7 bit identifier of the remote device to
         communicate with
         '''
         self._manager = manager
@@ -87,26 +179,21 @@ class MultiplexClient:
         self._read_data = bytearray()
 
     def write(self, data, **kwargs):
-        header = _FRAME_HEADER_STRUCT.pack(
-            _FRAME_HEADER_MAGIC,
-            self._manager.source_id,
-            self._destination_id)
-
-        assert len(data) < 100
         payload = struct.pack(
             '<BBB',
             _STREAM_CLIENT_TO_SERVER,
             self._channel,
             len(data)) + data
 
-        frame_minus_crc = header + struct.pack('<B', len(payload)) + payload
-        crc = binascii.crc_hqx(frame_minus_crc, 0xffff)
-        frame = frame_minus_crc + struct.pack('<H', crc)
+        frame = _pack_frame(self._manager.source_id,
+                            self._destination_id,
+                            payload)
 
         self._manager.write(frame, **kwargs)
 
     async def drain(self):
-        await self._manager.drain()
+        async with self._manager.lock:
+            await self._manager.drain()
 
     async def read(self, size):
         # Poll repeatedly until we have enough.
@@ -157,53 +244,13 @@ class MultiplexClient:
         self._manager.stream.write(frame)
         await self._manager.stream.drain()
 
-        recording_stream = stream_helpers.RecordingStream(self._manager.stream)
-
         try:
-            result_frame_header = await asyncio.wait_for(
-                recording_stream.read(_FRAME_HEADER_STRUCT.size),
+            payload = await asyncio.wait_for(
+                self._manager.read_frame(only_from=self._destination_id),
                 timeout=self._timeout)
         except asyncio.TimeoutError:
             # We treat a timeout, for now, the same as if the client
             # came back with no data at all.
-            return
-
-        header, source, dest = _FRAME_HEADER_STRUCT.unpack(result_frame_header)
-        if header != _FRAME_HEADER_MAGIC:
-            print('multiplex_protocol: re-synchronizing! {:04x}'.format(header),
-                  flush=True)
-            # We appear to be unsynchronized with one or more
-            # receivers.
-            _ = await recording_stream.read(8192, block=False)
-
-            # Return nothing and hope for better next time.
-            return
-
-        async def read_payload():
-            payload_len = await read_varuint(recording_stream)
-            sizeof_crc = 2
-            payload_and_crc = await recording_stream.read(
-                payload_len + sizeof_crc)
-            return payload_and_crc
-
-        payload_and_crc = await asyncio.wait_for(
-            read_payload(), timeout=self._timeout)
-
-        if dest != self._manager.source_id:
-            # Interesting.  This shouldn't really happen.
-            #
-            # TODO(jpieper): Log this.
-            return
-
-        if source != self._destination_id:
-            return
-
-        result_frame = recording_stream.buffer()
-
-        # TODO(jpieper): Verify CRC.
-
-        payload = payload_and_crc[0:-2]
-        if len(payload) < 3:
             return
 
         payload_stream = stream_helpers.AsyncStream(io.BytesIO(payload))
@@ -218,3 +265,123 @@ class MultiplexClient:
             return
 
         return payload[payload_stream.tell():]
+
+    async def register_query(self, request):
+        '''request should be a RegisterRequest object
+        returns a dict from ParseRegisterReply
+        '''
+        async with self._manager.lock:
+            self._manager.write(_pack_frame(
+                self._manager.source_id | 0x80,
+                self._destination_id,
+                request.data.getbuffer()))
+            await self._manager.drain()
+
+            return await ParseRegisterReply(await self._manager.read_frame())
+
+
+class RegisterType(enum.Enum):
+    INT8 = 0
+    INT16 = 1
+    INT32 = 2
+    FLOAT = 3
+
+
+_TYPE_FORMAT = [
+    struct.Struct('<b'),
+    struct.Struct('<h'),
+    struct.Struct('<i'),
+    struct.Struct('<f'),
+]
+
+
+class RegisterRequest:
+    '''Constructs subframes necessary to read or write individual
+    registers.'''
+    def __init__(self):
+        self.data = io.BytesIO()
+
+    def read_single(self, register, reg_type):
+        write_varuint(self.data, _REGISTER_READ_SINGLE_I8 + int(reg_type))
+        write_varuint(self.data, register)
+
+    def read_multiple(self, register, length, reg_type):
+        write_varuint(self.data, _REGISTER_READ_MULTIPLE_I8 + int(reg_type))
+        write_varuint(self.data, register)
+        write_varuint(self.data, length)
+
+
+class RegisterValue:
+    def __init__(self, value_in, reg_type_in):
+        self.value = value_in
+        self.reg_type = reg_type_in
+
+    def __repr__(self):
+        return '{}({})'.format(self.value, self.reg_type)
+
+    def __eq__(self, other):
+        return self.value == other.value and self.reg_type == other.reg_type
+
+
+class RegisterError:
+    def __init__(self, error_in):
+        self.error = error_in
+
+    def __repr__(self):
+        return 'ERR[{}]'.format(self.error)
+
+
+async def ParseRegisterReply(data):
+    '''Parses a reply from a register operation.'''
+    # The resulting data is stored here.
+    result = {}
+    stream = stream_helpers.AsyncStream(io.BytesIO(data))
+
+    async def _parse_subframe(stream):
+        subframe_id = await read_varuint(stream)
+        if subframe_id is None:
+            return None
+
+        this_result = {}
+        if (subframe_id & ~0x03) == _REGISTER_REPLY_SINGLE_I8:
+            this_reg = await read_varuint(stream)
+            this_fmt = _TYPE_FORMAT[subframe_id & 0x03]
+            size = this_fmt.size
+            data = await stream.read(size)
+
+            if this_reg is None or data is None:
+                return None
+            this_result[this_reg] = RegisterValue(
+                this_fmt.unpack(data)[0], subframe_id & 0x03)
+        elif (subframe_id & ~0x03) == _REGISTER_REPLY_MULTIPLE_I8:
+            start_reg = await read_varuint(stream)
+            number_of_reg = await read_varuint(stream)
+            if start_reg is None or number_of_reg is None:
+                return None
+            this_fmt = _TYPE_FORMAT[subframe_id & 0x03]
+
+            for i in range(number_of_reg):
+                data = await stream.read(this_fmt.size)
+                if data is None:
+                    return None
+                this_result[start_reg + i] = RegisterValue(
+                    this_fmt.unpack(data)[0], subframe_id & 0x03)
+        elif subframe_id == _REGISTER_WRITE_ERROR:
+            this_reg = await read_varuint(stream)
+            this_err = await read_varuint(stream)
+            this_result[this_reg] = RegisterError(this_err)
+        elif subframe_id == _REGISTER_READ_ERROR:
+            this_reg = await read_varuint(stream)
+            this_err = await read_varuint(stream)
+            this_result[this_reg] = RegisterError(this_err)
+        else:
+            return None
+
+        return this_result
+
+    while True:
+        this_result = await _parse_subframe(stream)
+        if this_result is None:
+            break
+        result.update(this_result)
+    return result

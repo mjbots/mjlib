@@ -689,6 +689,8 @@ class MultiplexProtocolServer::Impl {
 
   bool ProcessSubframeReadSingle(uint8_t type, ProtocolReadStream& str,
                                  ProtocolWriteStream* response) {
+    if (!response) { return false; }
+
     const auto maybe_register = str.ReadVaruint();
     if (!maybe_register) { return true; }
 
@@ -699,6 +701,8 @@ class MultiplexProtocolServer::Impl {
 
   bool ProcessSubframeReadMultiple(uint8_t type, ProtocolReadStream& str,
                                    ProtocolWriteStream* response) {
+    if (!response) { return false; }
+
     const auto start_register = str.ReadVaruint();
     if (!start_register) { return true; }
 
