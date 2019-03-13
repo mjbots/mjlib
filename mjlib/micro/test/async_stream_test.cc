@@ -1,4 +1,4 @@
-// Copyright 2018 Josh Pieper, jjp@pobox.com.
+// Copyright 2018-2019 Josh Pieper, jjp@pobox.com.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -53,9 +53,9 @@ BOOST_AUTO_TEST_CASE(BasicAsyncStream) {
     BOOST_TEST(dut_stream.write_data_.empty() == true);
     BOOST_TEST(dut_stream.write_cbk_.valid() == false);
 
-    base::error_code write_error;
+    error_code write_error;
     AsyncWrite(dut_stream, std::string_view("test of sending"),
-               [&](base::error_code error) {
+               [&](error_code error) {
                  write_error = error;
                });
 
@@ -81,11 +81,11 @@ BOOST_AUTO_TEST_CASE(BasicAsyncStream) {
 
     char buffer_to_read_into[10] = "";
 
-    base::error_code read_error;
+    error_code read_error;
     AsyncRead(dut_stream,
               base::string_span(buffer_to_read_into,
                                 sizeof(buffer_to_read_into)),
-              [&](base::error_code error) {
+              [&](error_code error) {
                 read_error = error;
               });
 

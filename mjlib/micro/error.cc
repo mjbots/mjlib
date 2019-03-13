@@ -1,4 +1,4 @@
-// Copyright 2018 Josh Pieper, jjp@pobox.com.
+// Copyright 2018-2019 Josh Pieper, jjp@pobox.com.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@ namespace mjlib {
 namespace micro {
 
 namespace {
-struct MicroErrorCategory : base::error_category {
+struct MicroErrorCategory : error_category {
   const char* name() const noexcept override { return "mjlib.micro"; }
   std::string_view message(int condition) const override {
     switch (static_cast<errc>(condition)) {
@@ -28,14 +28,14 @@ struct MicroErrorCategory : base::error_category {
   }
 };
 
-const base::error_category& micro_error_category() {
+const error_category& micro_error_category() {
   static MicroErrorCategory result;
   return result;
 }
 }
 
-base::error_code make_error_code(errc err) {
-  return base::error_code(static_cast<int>(err), micro_error_category());
+error_code make_error_code(errc err) {
+  return error_code(static_cast<int>(err), micro_error_category());
 }
 
 }

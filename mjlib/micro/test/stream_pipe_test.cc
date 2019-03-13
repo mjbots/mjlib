@@ -1,4 +1,4 @@
-// Copyright 2018 Josh Pieper, jjp@pobox.com.
+// Copyright 2018-2019 Josh Pieper, jjp@pobox.com.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -37,7 +37,7 @@ BOOST_AUTO_TEST_CASE(BasicStreamPipe) {
 
   dut.side_a()->AsyncWriteSome(
       data_to_send,
-      [&](base::error_code ec, ssize_t size) {
+      [&](error_code ec, ssize_t size) {
         BOOST_TEST(!ec);
         write_complete++;
         write_size = size;
@@ -51,7 +51,7 @@ BOOST_AUTO_TEST_CASE(BasicStreamPipe) {
 
   dut.side_b()->AsyncReadSome(
       base::string_span(data_to_receive, 4),
-      [&](base::error_code ec, ssize_t size) {
+      [&](error_code ec, ssize_t size) {
         BOOST_TEST(!ec);
         read_complete++;
         read_size = size;
@@ -85,7 +85,7 @@ class Writer {
 
     stream_->AsyncWriteSome(
         buf_,
-        [this](base::error_code ec, ssize_t size) {
+        [this](error_code ec, ssize_t size) {
           BOOST_TEST(!ec);
           this->StartWrite(size);
         });
@@ -114,7 +114,7 @@ BOOST_AUTO_TEST_CASE(StreamPipeWriteEnqueue) {
   int receive_count = 0;
   dut.side_b()->AsyncReadSome(
       base::string_span(to_receive, sizeof(to_receive)),
-      [&](base::error_code ec, ssize_t size) {
+      [&](error_code ec, ssize_t size) {
         BOOST_TEST(!ec);
         BOOST_TEST(size == 8);
         BOOST_TEST(std::string(to_receive, size) == "0 bytes\n");
@@ -127,7 +127,7 @@ BOOST_AUTO_TEST_CASE(StreamPipeWriteEnqueue) {
 
   dut.side_b()->AsyncReadSome(
       base::string_span(to_receive, 1),
-      [&](base::error_code ec, ssize_t size) {
+      [&](error_code ec, ssize_t size) {
         BOOST_TEST(!ec);
         BOOST_TEST(size == 1);
         BOOST_TEST(std::string(to_receive, size) == "8");
@@ -141,7 +141,7 @@ BOOST_AUTO_TEST_CASE(StreamPipeWriteEnqueue) {
   // Finally, read another slightly larger piece.
   dut.side_b()->AsyncReadSome(
       base::string_span(to_receive, 3),
-      [&](base::error_code ec, ssize_t size) {
+      [&](error_code ec, ssize_t size) {
         BOOST_TEST(!ec);
         BOOST_TEST(size == 3);
         BOOST_TEST(std::string(to_receive, size) == "1 b");

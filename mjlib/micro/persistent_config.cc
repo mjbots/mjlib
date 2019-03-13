@@ -1,4 +1,4 @@
-// Copyright 2015-2018 Josh Pieper, jjp@pobox.com.
+// Copyright 2015-2019 Josh Pieper, jjp@pobox.com.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -88,7 +88,7 @@ class PersistentConfig::Impl {
     EnumerateCallback({});
   }
 
-  void EnumerateCallback(base::error_code error) {
+  void EnumerateCallback(error_code error) {
     if (error) {
       current_response_.callback(error);
       return;
@@ -107,7 +107,7 @@ class PersistentConfig::Impl {
         this->send_buffer_,
         element_it->first,
         *current_response_.stream,
-        [this](base::error_code err) { this->EnumerateCallback(err); });
+        [this](error_code err) { this->EnumerateCallback(err); });
   }
 
   void Get(const std::string_view& field,
@@ -125,7 +125,7 @@ class PersistentConfig::Impl {
               tokenizer.remaining(),
               send_buffer_,
               *current_response_.stream,
-              [this](base::error_code error) {
+              [this](error_code error) {
                 if (error) {
                   this->current_response_.callback(error);
                   return;

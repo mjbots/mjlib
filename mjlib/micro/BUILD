@@ -27,7 +27,7 @@ cc_library(
     hdrs = ["async_types.h"],
     deps = [
         ":static_function",
-        "//mjlib/base:system_error",
+        ":error_code",
     ],
 )
 
@@ -46,11 +46,17 @@ cc_library(
     hdrs = ["async_stream.h"],
     deps = [
         ":async_types",
+        ":error_code",
         ":static_function",
         "//mjlib/base:noncopyable",
         "//mjlib/base:string_span",
-        "//mjlib/base:system_error",
     ],
+)
+
+cc_library(
+    name = "error_code",
+    hdrs = ["error_code.h"],
+    srcs = ["error_code.cc"],
 )
 
 cc_library(
@@ -58,7 +64,7 @@ cc_library(
     hdrs = ["error.h"],
     srcs = ["error.cc"],
     deps = [
-        "//mjlib/base:system_error",
+        ":error_code",
     ],
 )
 
@@ -210,6 +216,7 @@ cc_test(
         "test/async_stream_test.cc",
         "test/command_manager_fixture.h",
         "test/command_manager_test.cc",
+        "test/error_code_test.cc",
         "test/multiplex_protocol_test.cc",
         "test/persistent_config_fixture.h",
         "test/persistent_config_test.cc",
@@ -225,6 +232,7 @@ cc_test(
         ":async_exclusive",
         ":async_stream",
         ":command_manager",
+        ":error_code",
         ":event_queue",
         ":multiplex_protocol",
         ":persistent_config",

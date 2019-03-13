@@ -1,4 +1,4 @@
-// Copyright 2018 Josh Pieper, jjp@pobox.com.
+// Copyright 2018-2019 Josh Pieper, jjp@pobox.com.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,9 +16,8 @@
 
 #include <sstream>
 
-#include "mjlib/base/system_error.h"
-
 #include "mjlib/micro/async_stream.h"
+#include "mjlib/micro/error_code.h"
 
 namespace mjlib {
 namespace micro {
@@ -33,7 +32,7 @@ class Reader {
   void StartRead() {
     stream_->AsyncReadSome(
         base::string_span(buffer_, buffer_ + sizeof(buffer_)),
-        [this](base::error_code ec, ssize_t size) {
+        [this](error_code ec, ssize_t size) {
           BOOST_TEST(!ec);
           data_.write(buffer_, size);
           this->StartRead();

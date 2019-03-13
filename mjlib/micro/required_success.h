@@ -1,4 +1,4 @@
-// Copyright 2018 Josh Pieper, jjp@pobox.com.
+// Copyright 2018-2019 Josh Pieper, jjp@pobox.com.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@ namespace micro {
 class RequiredSuccess {
  public:
   ErrorCallback Make() {
-    return [this](base::error_code ec) {
+    return [this](error_code ec) {
       MJ_ASSERT(!done_);
       MJ_ASSERT(!ec);
       done_ = true;

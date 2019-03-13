@@ -1,4 +1,4 @@
-// Copyright 2018 Josh Pieper, jjp@pobox.com.
+// Copyright 2018-2019 Josh Pieper, jjp@pobox.com.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "mjlib/base/system_error.h"
+#include "mjlib/micro/error_code.h"
 
 #include <boost/test/auto_unit_test.hpp>
 
@@ -25,7 +25,7 @@ enum class Errc {
   kError2,
 };
 
-class MyCategory : public mjlib::base::error_category {
+class MyCategory : public mjlib::micro::error_category {
  public:
   const char* name() const noexcept override { return "my_category"; }
   std::string_view message(int condition) const override {
@@ -37,12 +37,12 @@ class MyCategory : public mjlib::base::error_category {
   }
 };
 
-const mjlib::base::error_category& my_category() noexcept {
+const mjlib::micro::error_category& my_category() noexcept {
   static MyCategory result;
   return result;
 }
 
-mjlib::base::error_code make_error_code(Errc errc) {
+mjlib::micro::error_code make_error_code(Errc errc) {
   return {static_cast<int>(errc), my_category()};
 }
 
@@ -50,20 +50,20 @@ mjlib::base::error_code make_error_code(Errc errc) {
 }
 
 namespace mjlib {
-namespace base {
+namespace micro {
 template <>
 struct is_error_code_enum<my_error::Errc> : std::true_type {};
 }
 }
 
 BOOST_AUTO_TEST_CASE(BasicErrorCode) {
-  using mjlib::base::error_code;
+  using mjlib::micro::error_code;
 
   // Default constructor.
   {
     error_code ec;
     BOOST_TEST(ec.value() == 0);
-    BOOST_TEST((ec.category() == mjlib::base::generic_category()));
+    BOOST_TEST((ec.category() == mjlib::micro::generic_category()));
 
     BOOST_TEST(ec == ec);
     error_code other;

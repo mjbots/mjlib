@@ -1,4 +1,4 @@
-// Copyright 2015-2018 Josh Pieper, jjp@pobox.com.
+// Copyright 2015-2019 Josh Pieper, jjp@pobox.com.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -120,7 +120,7 @@ class TelemetryManager::Impl {
             [this, eptr = &element]
             (AsyncWriteStream* stream, VoidCallback release) {
               this->write_release_ = release;
-              ErrorCallback actual_release = [this](base::error_code) {
+              ErrorCallback actual_release = [this](error_code) {
                 // TODO(jpieper): When we have logging or something,
                 // report the error from here.
                 this->outstanding_write_ = false;
@@ -156,7 +156,7 @@ class TelemetryManager::Impl {
         send_buffer_,
         element->name,
         *response.stream,
-        [this](base::error_code) {
+        [this](error_code) {
           this->WriteOK(current_response_);
         });
   }
@@ -210,7 +210,7 @@ class TelemetryManager::Impl {
     ListCallback({});
   }
 
-  void ListCallback(base::error_code error) {
+  void ListCallback(error_code error) {
     if (error) {
       current_response_.callback(error);
       return;
@@ -239,7 +239,7 @@ class TelemetryManager::Impl {
     ptr++;
     AsyncWrite(*current_response_.stream,
                std::string_view(send_buffer_, ptr - send_buffer_),
-               [this](base::error_code ec) {
+               [this](error_code ec) {
                  ListCallback(ec);
                });
   }

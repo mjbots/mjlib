@@ -1,4 +1,4 @@
-// Copyright 2018 Josh Pieper, jjp@pobox.com.
+// Copyright 2018-2019 Josh Pieper, jjp@pobox.com.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,10 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "mjlib/base/system_error.h"
+#include "mjlib/micro/error_code.h"
 
 namespace mjlib {
-namespace base {
+namespace micro {
 
 error_condition error_category::default_error_condition(int code) const noexcept {
   return error_condition(code, *this);

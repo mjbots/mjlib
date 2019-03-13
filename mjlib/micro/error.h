@@ -1,4 +1,4 @@
-// Copyright 2018 Josh Pieper, jjp@pobox.com.
+// Copyright 2018-2019 Josh Pieper, jjp@pobox.com.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 
 #include <type_traits>
 
-#include "mjlib/base/system_error.h"
+#include "mjlib/micro/error_code.h"
 
 namespace mjlib {
 namespace micro {
@@ -25,10 +25,10 @@ enum class errc {
   kDelimiterNotFound = 1,
 };
 
-base::error_code make_error_code(errc);
+micro::error_code make_error_code(errc);
 }
 
-namespace base {
+namespace micro {
 
 template <>
 struct is_error_code_enum<mjlib::micro::errc> : std::true_type {};

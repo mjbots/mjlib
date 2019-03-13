@@ -1,4 +1,4 @@
-// Copyright 2018 Josh Pieper, jjp@pobox.com.
+// Copyright 2018-2019 Josh Pieper, jjp@pobox.com.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -101,7 +101,7 @@ BOOST_AUTO_TEST_CASE(BasicSerializableHandler) {
     {
       const int result =
           dut.Read("sub_value.detailed", buffer, *stream_pipe.side_a(),
-                   [&](base::error_code ec) {
+                   [&](error_code ec) {
                      BOOST_TEST(!ec);
                      complete_count++;
                  });
@@ -117,7 +117,7 @@ BOOST_AUTO_TEST_CASE(BasicSerializableHandler) {
     {
       const int result =
           dut.Read("array_value.1", buffer, *stream_pipe.side_a(),
-                   [&](base::error_code ec) {
+                   [&](error_code ec) {
                      BOOST_TEST(!ec);
                      complete_count++;
                    });
@@ -150,13 +150,13 @@ BOOST_AUTO_TEST_CASE(EnumerateTest) {
   detail::EnumerateArchive::Context context;
 
   int done_count = 0;
-  base::error_code done_ec;
+  error_code done_ec;
 
   dut.Enumerate(&context,
                 buffer,
                 "prefix",
                 *stream_pipe.side_a(),
-                [&](base::error_code ec) {
+                [&](error_code ec) {
                   done_count++;
                   done_ec = ec;
                 });
@@ -164,7 +164,7 @@ BOOST_AUTO_TEST_CASE(EnumerateTest) {
   BOOST_TEST(done_count == 0);
   event_queue.Poll();
   BOOST_TEST(done_count == 1);
-  BOOST_TEST(done_ec == base::error_code());
+  BOOST_TEST(done_ec == error_code());
   const std::string expected =
       "prefix.int_value 10\r\n"
       "prefix.float_value 2.000000\r\n"

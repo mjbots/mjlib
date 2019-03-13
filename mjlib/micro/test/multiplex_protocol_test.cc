@@ -130,7 +130,7 @@ BOOST_FIXTURE_TEST_CASE(MultiplexProtocolServerTest, Fixture) {
   char read_buffer[100] = {};
   int read_count = 0;
   ssize_t read_size = 0;
-  tunnel->AsyncReadSome(read_buffer, [&](base::error_code ec, ssize_t size) {
+  tunnel->AsyncReadSome(read_buffer, [&](error_code ec, ssize_t size) {
       BOOST_TEST(!ec);
       read_count++;
       read_size = size;
@@ -143,7 +143,7 @@ BOOST_FIXTURE_TEST_CASE(MultiplexProtocolServerTest, Fixture) {
   {
     int write_count = 0;
     AsyncWrite(*dut_stream.side_a(), str(kClientToServer),
-               [&](base::error_code ec) {
+               [&](error_code ec) {
                  BOOST_TEST(!ec);
                  write_count++;
                });
@@ -158,14 +158,14 @@ BOOST_FIXTURE_TEST_CASE(MultiplexProtocolServerTest, Fixture) {
 BOOST_FIXTURE_TEST_CASE(ServerWrongId, Fixture) {
   char read_buffer[100] = {};
   int read_count = 0;
-  tunnel->AsyncReadSome(read_buffer, [&](base::error_code, ssize_t) {
+  tunnel->AsyncReadSome(read_buffer, [&](error_code, ssize_t) {
       read_count++;
     });
 
   char unknown_buf[100] = {};
   int unknown_count = 0;
   ssize_t unknown_size = 0;
-  dut.AsyncReadUnknown(unknown_buf, [&](base::error_code ec, ssize_t size) {
+  dut.AsyncReadUnknown(unknown_buf, [&](error_code ec, ssize_t size) {
       BOOST_TEST(!ec);
       unknown_count++;
       unknown_size = size;
@@ -177,7 +177,7 @@ BOOST_FIXTURE_TEST_CASE(ServerWrongId, Fixture) {
 
   int write_count = 0;
   AsyncWrite(*dut_stream.side_a(), str(kClientToServer2),
-             [&](base::error_code ec) {
+             [&](error_code ec) {
                BOOST_TEST(!ec);
                write_count++;
              });
@@ -195,7 +195,7 @@ BOOST_FIXTURE_TEST_CASE(ServerWrongId, Fixture) {
 BOOST_FIXTURE_TEST_CASE(ServerTestReadSecond, Fixture) {
   int write_count = 0;
   AsyncWrite(*dut_stream.side_a(), str(kClientToServer),
-             [&](base::error_code ec) {
+             [&](error_code ec) {
                BOOST_TEST(!ec);
                write_count++;
              });
@@ -205,7 +205,7 @@ BOOST_FIXTURE_TEST_CASE(ServerTestReadSecond, Fixture) {
   char read_buffer[100] = {};
   int read_count = 0;
   ssize_t read_size = 0;
-  tunnel->AsyncReadSome(read_buffer, [&](base::error_code ec, ssize_t size) {
+  tunnel->AsyncReadSome(read_buffer, [&](error_code ec, ssize_t size) {
       BOOST_TEST(!ec);
       read_count++;
       read_size = size;
@@ -219,7 +219,7 @@ BOOST_FIXTURE_TEST_CASE(ServerTestReadSecond, Fixture) {
 
 BOOST_FIXTURE_TEST_CASE(ServerTestFragment, Fixture) {
   AsyncWrite(*dut_stream.side_a(), str(kClientToServerMultiple),
-             [&](base::error_code ec) {
+             [&](error_code ec) {
                BOOST_TEST(!ec);
              });
 
@@ -227,7 +227,7 @@ BOOST_FIXTURE_TEST_CASE(ServerTestFragment, Fixture) {
   auto read = [&](const std::string& expected) {
     int read_count = 0;
     ssize_t read_size = 0;
-    tunnel->AsyncReadSome(read_buffer, [&](base::error_code ec, ssize_t size) {
+    tunnel->AsyncReadSome(read_buffer, [&](error_code ec, ssize_t size) {
         BOOST_TEST(!ec);
         read_count++;
         read_size = size;
@@ -246,7 +246,7 @@ BOOST_FIXTURE_TEST_CASE(ServerTestFragment, Fixture) {
   // Now kick off a read that should stall until more data comes in.
   int read_count = 0;
   ssize_t read_size = 0;
-  tunnel->AsyncReadSome(read_buffer, [&](base::error_code ec, ssize_t size) {
+  tunnel->AsyncReadSome(read_buffer, [&](error_code ec, ssize_t size) {
       BOOST_TEST(!ec);
       read_count++;
       read_size = size;
@@ -256,7 +256,7 @@ BOOST_FIXTURE_TEST_CASE(ServerTestFragment, Fixture) {
   BOOST_TEST(read_count == 0);
 
   AsyncWrite(*dut_stream.side_a(), str(kClientToServer),
-             [&](base::error_code ec) {
+             [&](error_code ec) {
                BOOST_TEST(!ec);
              });
   event_queue.Poll();
@@ -284,7 +284,7 @@ BOOST_FIXTURE_TEST_CASE(ServerSendTest, Fixture) {
   ssize_t write_size = 0;
   tunnel->AsyncWriteSome(
       "stuff to test",
-      [&](base::error_code ec, ssize_t size) {
+      [&](error_code ec, ssize_t size) {
         BOOST_TEST(!ec);
         write_count++;
         write_size = size;
@@ -297,7 +297,7 @@ BOOST_FIXTURE_TEST_CASE(ServerSendTest, Fixture) {
   int read_count = 0;
   ssize_t read_size = 0;
   dut_stream.side_a()->AsyncReadSome(
-      receive_buffer, [&](base::error_code ec, ssize_t size) {
+      receive_buffer, [&](error_code ec, ssize_t size) {
         BOOST_TEST(!ec);
         read_count++;
         read_size = size;
@@ -308,7 +308,7 @@ BOOST_FIXTURE_TEST_CASE(ServerSendTest, Fixture) {
   BOOST_TEST(read_count == 0);
 
   AsyncWrite(*dut_stream.side_a(), str(kClientToServerEmpty),
-             [](base::error_code ec) { BOOST_TEST(!ec); });
+             [](error_code ec) { BOOST_TEST(!ec); });
 
   event_queue.Poll();
 
@@ -349,7 +349,7 @@ const uint8_t kWriteSingle[] = {
 BOOST_FIXTURE_TEST_CASE(WriteSingleTest, Fixture) {
   int write_count = 0;
   AsyncWrite(*dut_stream.side_a(), str(kWriteSingle),
-             [&](base::error_code ec) {
+             [&](error_code ec) {
                BOOST_TEST(!ec);
                write_count++;
              });
@@ -382,7 +382,7 @@ const uint8_t kWriteMultiple[] = {
 BOOST_FIXTURE_TEST_CASE(WriteMultipleTest, Fixture) {
   int write_count = 0;
   AsyncWrite(*dut_stream.side_a(), str(kWriteMultiple),
-             [&](base::error_code ec) {
+             [&](error_code ec) {
                BOOST_TEST(!ec);
                write_count++;
              });
@@ -406,7 +406,7 @@ BOOST_FIXTURE_TEST_CASE(WriteErrorTest, Fixture) {
   int read_count = 0;
   ssize_t read_size = 0;
   dut_stream.side_a()->AsyncReadSome(
-      receive_buffer, [&](base::error_code ec, ssize_t size) {
+      receive_buffer, [&](error_code ec, ssize_t size) {
         BOOST_TEST(!ec);
         read_count++;
         read_size = size;
@@ -420,7 +420,7 @@ BOOST_FIXTURE_TEST_CASE(WriteErrorTest, Fixture) {
 
   int write_count = 0;
   AsyncWrite(*dut_stream.side_a(), str(kWriteSingle),
-             [&](base::error_code ec) {
+             [&](error_code ec) {
                BOOST_TEST(!ec);
                write_count++;
              });
@@ -463,7 +463,7 @@ BOOST_FIXTURE_TEST_CASE(ReadSingleTest, Fixture) {
   int read_count = 0;
   ssize_t read_size = 0;
   dut_stream.side_a()->AsyncReadSome(
-      receive_buffer, [&](base::error_code ec, ssize_t size) {
+      receive_buffer, [&](error_code ec, ssize_t size) {
         BOOST_TEST(!ec);
         read_count++;
         read_size = size;
@@ -473,7 +473,7 @@ BOOST_FIXTURE_TEST_CASE(ReadSingleTest, Fixture) {
 
   int write_count = 0;
   AsyncWrite(*dut_stream.side_a(), str(kReadSingle),
-             [&](base::error_code ec) {
+             [&](error_code ec) {
                BOOST_TEST(!ec);
                write_count++;
              });
@@ -517,7 +517,7 @@ BOOST_FIXTURE_TEST_CASE(ReadMultipleTest, Fixture) {
   int read_count = 0;
   ssize_t read_size = 0;
   dut_stream.side_a()->AsyncReadSome(
-      receive_buffer, [&](base::error_code ec, ssize_t size) {
+      receive_buffer, [&](error_code ec, ssize_t size) {
         BOOST_TEST(!ec);
         read_count++;
         read_size = size;
@@ -527,7 +527,7 @@ BOOST_FIXTURE_TEST_CASE(ReadMultipleTest, Fixture) {
 
   int write_count = 0;
   AsyncWrite(*dut_stream.side_a(), str(kReadMultiple),
-             [&](base::error_code ec) {
+             [&](error_code ec) {
                BOOST_TEST(!ec);
                write_count++;
              });

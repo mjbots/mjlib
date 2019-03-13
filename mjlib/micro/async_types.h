@@ -1,4 +1,4 @@
-// Copyright 2015-2018 Josh Pieper, jjp@pobox.com.
+// Copyright 2015-2019 Josh Pieper, jjp@pobox.com.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,16 +14,15 @@
 
 #pragma once
 
-#include "mjlib/base/system_error.h"
-
+#include "mjlib/micro/error_code.h"
 #include "mjlib/micro/static_function.h"
 
 namespace mjlib {
 namespace micro {
 
 using VoidCallback = StaticFunction<void (void)>;
-using ErrorCallback = StaticFunction<void (const base::error_code&)>;
-using SizeCallback = StaticFunction<void (const base::error_code&, ssize_t)>;
+using ErrorCallback = StaticFunction<void (const error_code&)>;
+using SizeCallback = StaticFunction<void (const error_code&, ssize_t)>;
 
 }
 }

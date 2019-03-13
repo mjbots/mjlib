@@ -1,4 +1,4 @@
-// Copyright 2015-2018 Josh Pieper, jjp@pobox.com.
+// Copyright 2015-2019 Josh Pieper, jjp@pobox.com.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -38,7 +38,7 @@ inline void AsyncReadUntilHelper(AsyncReadUntilContext& context,
                                  uint16_t position) {
   auto handler =
       [ctx=&context,
-       position] (base::error_code error, std::size_t size) {
+       position] (error_code error, std::size_t size) {
     if (error) {
       ctx->callback(error, position + size);
       return;
@@ -75,7 +75,7 @@ inline void AsyncReadUntil(AsyncReadUntilContext& context) {
 inline void AsyncIgnoreUntil(AsyncReadUntilContext& context) {
   context.stream->AsyncReadSome(
       base::string_span(context.buffer.data(), context.buffer.data() + 1),
-      [ctx=&context](base::error_code error, std::size_t) {
+      [ctx=&context](error_code error, std::size_t) {
         if (error) {
           ctx->callback(error, 0);
           return;

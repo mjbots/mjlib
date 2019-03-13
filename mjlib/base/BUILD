@@ -1,6 +1,6 @@
 # -*- python -*-
 
-# Copyright 2018 Josh Pieper, jjp@pobox.com.
+# Copyright 2018-2019 Josh Pieper, jjp@pobox.com.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -73,12 +73,6 @@ cc_library(
 )
 
 cc_library(
-    name = "system_error",
-    hdrs = ["system_error.h"],
-    srcs = ["system_error.cc"],
-)
-
-cc_library(
     name = "crc",
     hdrs = ["crc.h"],
     srcs = ["crc.cc"],
@@ -109,7 +103,6 @@ cc_test(
     srcs = [
         "test/pid_test.cc",
         "test/string_span_test.cc",
-        "test/system_error_test.cc",
         "test/tokenizer_test.cc",
         "test/test_main.cc",
         "test/windowed_average_test.cc",
@@ -117,7 +110,6 @@ cc_test(
     deps = [
         ":pid",
         ":string_span",
-        ":system_error",
         ":tokenizer",
         ":windowed_average",
         "@boost//:test",

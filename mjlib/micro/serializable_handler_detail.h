@@ -1,4 +1,4 @@
-// Copyright 2015-2018 Josh Pieper, jjp@pobox.com.
+// Copyright 2015-2019 Josh Pieper, jjp@pobox.com.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@
 #include "mjlib/base/tokenizer.h"
 
 #include "mjlib/micro/async_stream.h"
+#include "mjlib/micro/error_code.h"
 
 namespace mjlib {
 namespace micro {
@@ -72,7 +73,7 @@ struct EnumerateArchive : public mjlib::base::VisitArchive<EnumerateArchive> {
       std::string_view data = FormatField(
           context_->buffer, std::string_view(pair.name()), pair.get_value());
       AsyncWrite(*context_->stream, data, [ctx = this->context_](
-                     base::error_code error) {
+                     error_code error) {
           if (error) { ctx->callback(error); return; }
           ctx->current_field_index_to_write++;
 

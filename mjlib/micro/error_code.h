@@ -1,4 +1,4 @@
-// Copyright 2018 Josh Pieper, jjp@pobox.com.
+// Copyright 2018-2019 Josh Pieper, jjp@pobox.com.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@
 #include <type_traits>
 
 namespace mjlib {
-namespace base {
+namespace micro {
 class error_condition;
 class error_code;
 
@@ -60,7 +60,7 @@ class error_condition {
 
   template <class ErrorConditionEnum,
             std::enable_if_t<
-              mjlib::base::is_error_condition_enum<ErrorConditionEnum>::value,
+              mjlib::micro::is_error_condition_enum<ErrorConditionEnum>::value,
               int*> = nullptr>
   error_condition(ErrorConditionEnum e) noexcept
       : error_condition(make_error_condition(e)) {}
@@ -92,14 +92,14 @@ class error_code {
 
   template <class ErrorCodeEnum,
             std::enable_if_t<
-              mjlib::base::is_error_code_enum<ErrorCodeEnum>::value,
+              mjlib::micro::is_error_code_enum<ErrorCodeEnum>::value,
               int*> = nullptr>
   error_code(ErrorCodeEnum e) noexcept
       : error_code(make_error_code(e)) {}
 
   template <class ErrorCodeEnum,
             std::enable_if_t<
-              mjlib::base::is_error_code_enum<ErrorCodeEnum>::value,
+              mjlib::micro::is_error_code_enum<ErrorCodeEnum>::value,
               int*> = nullptr>
   error_code& operator=(ErrorCodeEnum e) {
     *this = make_error_code(e);

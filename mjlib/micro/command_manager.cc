@@ -1,4 +1,4 @@
-// Copyright 2015-2018 Josh Pieper, jjp@pobox.com.
+// Copyright 2015-2019 Josh Pieper, jjp@pobox.com.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -43,14 +43,14 @@ class CommandManager::Impl {
     read_until_context_.buffer = base::string_span(line_buffer_);
     read_until_context_.delimiters = "\r\n";
     read_until_context_.callback =
-        [this](base::error_code error, int size) {
+        [this](error_code error, int size) {
       this->HandleRead(error, size);
     };
 
     AsyncReadUntil(read_until_context_);
   }
 
-  void HandleRead(base::error_code error, int size) {
+  void HandleRead(error_code error, int size) {
     if (error) {
       // Well, not much we can do, but ignore everything until we get
       // another newline and try again.
@@ -60,7 +60,7 @@ class CommandManager::Impl {
       read_until_context_.stream = read_stream_;
       read_until_context_.buffer = base::string_span(line_buffer_);
       read_until_context_.delimiters = "\r\n";
-      read_until_context_.callback = [this](base::error_code, int) {
+      read_until_context_.callback = [this](error_code, int) {
         this->MaybeStartRead();
       };
       AsyncIgnoreUntil(read_until_context_);
@@ -119,7 +119,7 @@ class CommandManager::Impl {
           this->done_callback_ = done_callback;
 
           Response context{actual_write_stream,
-                [this](base::error_code) {
+                [this](error_code) {
               this->write_outstanding_ = false;
               auto done = this->done_callback_;
               this->done_callback_ = {};

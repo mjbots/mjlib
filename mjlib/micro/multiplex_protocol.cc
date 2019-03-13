@@ -260,7 +260,7 @@ class MultiplexProtocolServer::Impl {
                   std::placeholders::_1, std::placeholders::_2));
   }
 
-  void HandleReadFrame(const base::error_code& ec, size_t size) {
+  void HandleReadFrame(const error_code& ec, size_t size) {
     read_outstanding_ = false;
 
     if (ec) {
@@ -391,7 +391,7 @@ class MultiplexProtocolServer::Impl {
         unknown_buffer_ = {};
         unknown_callback_ = {};
 
-        callback(base::error_code(), total_size);
+        callback(error_code(), total_size);
       }
 
       Consume(total_size);
@@ -466,12 +466,12 @@ class MultiplexProtocolServer::Impl {
                std::bind(&Impl::HandleWrite, this, std::placeholders::_1));
   }
 
-  void HandleWrite(base::error_code ec) {
+  void HandleWrite(error_code ec) {
     MJ_ASSERT(!ec);
     write_outstanding_ = false;
   }
 
-  void HandleWriteRaw(const base::error_code& ec, size_t size) {
+  void HandleWriteRaw(const error_code& ec, size_t size) {
     MJ_ASSERT(!ec);
     write_outstanding_ = false;
     auto callback = raw_write_callback_;

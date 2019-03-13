@@ -1,4 +1,4 @@
-// Copyright 2015-2018 Josh Pieper, jjp@pobox.com.
+// Copyright 2015-2019 Josh Pieper, jjp@pobox.com.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,13 +15,12 @@
 #pragma once
 
 #include <string_view>
-#include <system_error>
 
 #include "mjlib/base/noncopyable.h"
 #include "mjlib/base/string_span.h"
-#include "mjlib/base/system_error.h"
 
 #include "mjlib/micro/async_types.h"
+#include "mjlib/micro/error_code.h"
 #include "mjlib/micro/static_function.h"
 
 namespace mjlib {
@@ -55,7 +54,7 @@ void AsyncWrite(Stream& stream, const std::string_view& data,
   }
 
   auto continuation = [stream=&stream, data, cbk=callback.shrink<4>()]
-      (base::error_code error, ssize_t size) {
+      (error_code error, ssize_t size) {
     if (error) {
       cbk(error);
       return;
@@ -83,7 +82,7 @@ void AsyncRead(Stream& stream, const base::string_span& data,
   }
 
   auto continuation = [stream=&stream, data, cbk=callback.shrink<4>()]
-      (base::error_code error, ssize_t size) {
+      (error_code error, ssize_t size) {
     if (error) {
       cbk(error);
       return;

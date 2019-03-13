@@ -1,4 +1,4 @@
-// Copyright 2018 Josh Pieper, jjp@pobox.com.
+// Copyright 2018-2019 Josh Pieper, jjp@pobox.com.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -72,7 +72,7 @@ BOOST_AUTO_TEST_CASE(BasicCommandManager) {
 
   // Send a command.
   AsyncWrite(*pipe.side_b(), std::string_view("cmd1 and more stuff\n"),
-             [&](base::error_code ec) {
+             [&](error_code ec) {
                BOOST_TEST(!ec);
                write_done++;
              });
@@ -90,7 +90,7 @@ BOOST_AUTO_TEST_CASE(BasicCommandManager) {
 
   // Send more than one command in a single buffer.
   AsyncWrite(*pipe.side_b(), std::string_view("cmd1 things\ncmd1 a\n"),
-             [&](base::error_code ec) {
+             [&](error_code ec) {
                BOOST_TEST(!ec);
                write_done++;
              });
