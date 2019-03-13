@@ -23,7 +23,7 @@ import inspect
 import io
 import struct
 
-import mjlib.micro.stream_helpers as stream_helpers
+import mjlib.multiplex.stream_helpers as stream_helpers
 
 
 _FRAME_HEADER_STRUCT = struct.Struct('<HBB')

@@ -22,7 +22,8 @@ test_suite(
         "//mjlib/base:test",
         "//mjlib/io:test",
         "//mjlib/micro:test",
-        "//mjlib/micro:py_test",
+        "//mjlib/multiplex:test",
+        "//mjlib/multiplex:py_test",
         "//mjlib/telemetry:test",
     ],
 )

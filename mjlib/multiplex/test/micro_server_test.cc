@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "mjlib/micro/multiplex_protocol.h"
+#include "mjlib/multiplex/micro_server.h"
 
 #include <boost/test/auto_unit_test.hpp>
 
@@ -21,31 +21,33 @@
 #include "mjlib/micro/test/str.h"
 
 namespace base = mjlib::base;
-using namespace mjlib::micro;
-using test::str;
+using namespace mjlib::multiplex;
+using mjlib::micro::test::str;
+namespace micro = mjlib::micro;
+namespace test = micro::test;
 
 namespace {
-class Server : public MultiplexProtocolServer::Server {
+class Server : public MicroServer::Server {
  public:
-  uint32_t Write(MultiplexProtocol::Register reg,
-                 const MultiplexProtocol::Value& value) override {
+  uint32_t Write(MicroServer::Register reg,
+                 const MicroServer::Value& value) override {
     writes_.push_back({reg, value});
     return next_write_error_;
   }
 
-  MultiplexProtocol::ReadResult Read(
-      MultiplexProtocol::Register reg, size_t type_index) const override {
+  MicroServer::ReadResult Read(
+      MicroServer::Register reg, size_t type_index) const override {
     if (type_index == 2) {
-      return MultiplexProtocol::Value(int32_values.at(reg));
+      return MicroServer::Value(int32_values.at(reg));
     } else if (type_index == 3) {
-      return MultiplexProtocol::Value(float_values.at(reg));
+      return MicroServer::Value(float_values.at(reg));
     }
     return static_cast<uint32_t>(1);
   }
 
   struct WriteValue {
-    MultiplexProtocol::Register reg;
-    MultiplexProtocol::Value value;
+    MicroServer::Register reg;
+    MicroServer::Value value;
   };
 
   std::vector<WriteValue> writes_;
@@ -61,14 +63,14 @@ class Server : public MultiplexProtocolServer::Server {
 };
 
 struct Fixture : test::PersistentConfigFixture {
-  StreamPipe dut_stream{event_queue.MakePoster()};
+  micro::StreamPipe dut_stream{event_queue.MakePoster()};
 
   Server server;
-  MultiplexProtocolServer dut{&pool, dut_stream.side_b(), []() {
-      return MultiplexProtocolServer::Options();
+  MicroServer dut{&pool, dut_stream.side_b(), []() {
+      return MicroServer::Options();
     }()};
 
-  AsyncStream* tunnel{dut.MakeTunnel(9)};
+  micro::AsyncStream* tunnel{dut.MakeTunnel(9)};
 
   Fixture() {
     dut.Start(&server);
@@ -126,11 +128,11 @@ const uint8_t kClientToServerMultiple[] = {
 };
 }
 
-BOOST_FIXTURE_TEST_CASE(MultiplexProtocolServerTest, Fixture) {
+BOOST_FIXTURE_TEST_CASE(MicroServerTest, Fixture) {
   char read_buffer[100] = {};
   int read_count = 0;
   ssize_t read_size = 0;
-  tunnel->AsyncReadSome(read_buffer, [&](error_code ec, ssize_t size) {
+  tunnel->AsyncReadSome(read_buffer, [&](micro::error_code ec, ssize_t size) {
       BOOST_TEST(!ec);
       read_count++;
       read_size = size;
@@ -143,7 +145,7 @@ BOOST_FIXTURE_TEST_CASE(MultiplexProtocolServerTest, Fixture) {
   {
     int write_count = 0;
     AsyncWrite(*dut_stream.side_a(), str(kClientToServer),
-               [&](error_code ec) {
+               [&](micro::error_code ec) {
                  BOOST_TEST(!ec);
                  write_count++;
                });
@@ -158,14 +160,14 @@ BOOST_FIXTURE_TEST_CASE(MultiplexProtocolServerTest, Fixture) {
 BOOST_FIXTURE_TEST_CASE(ServerWrongId, Fixture) {
   char read_buffer[100] = {};
   int read_count = 0;
-  tunnel->AsyncReadSome(read_buffer, [&](error_code, ssize_t) {
+  tunnel->AsyncReadSome(read_buffer, [&](micro::error_code, ssize_t) {
       read_count++;
     });
 
   char unknown_buf[100] = {};
   int unknown_count = 0;
   ssize_t unknown_size = 0;
-  dut.AsyncReadUnknown(unknown_buf, [&](error_code ec, ssize_t size) {
+  dut.AsyncReadUnknown(unknown_buf, [&](micro::error_code ec, ssize_t size) {
       BOOST_TEST(!ec);
       unknown_count++;
       unknown_size = size;
@@ -177,7 +179,7 @@ BOOST_FIXTURE_TEST_CASE(ServerWrongId, Fixture) {
 
   int write_count = 0;
   AsyncWrite(*dut_stream.side_a(), str(kClientToServer2),
-             [&](error_code ec) {
+             [&](micro::error_code ec) {
                BOOST_TEST(!ec);
                write_count++;
              });
@@ -195,7 +197,7 @@ BOOST_FIXTURE_TEST_CASE(ServerWrongId, Fixture) {
 BOOST_FIXTURE_TEST_CASE(ServerTestReadSecond, Fixture) {
   int write_count = 0;
   AsyncWrite(*dut_stream.side_a(), str(kClientToServer),
-             [&](error_code ec) {
+             [&](micro::error_code ec) {
                BOOST_TEST(!ec);
                write_count++;
              });
@@ -205,7 +207,7 @@ BOOST_FIXTURE_TEST_CASE(ServerTestReadSecond, Fixture) {
   char read_buffer[100] = {};
   int read_count = 0;
   ssize_t read_size = 0;
-  tunnel->AsyncReadSome(read_buffer, [&](error_code ec, ssize_t size) {
+  tunnel->AsyncReadSome(read_buffer, [&](micro::error_code ec, ssize_t size) {
       BOOST_TEST(!ec);
       read_count++;
       read_size = size;
@@ -219,7 +221,7 @@ BOOST_FIXTURE_TEST_CASE(ServerTestReadSecond, Fixture) {
 
 BOOST_FIXTURE_TEST_CASE(ServerTestFragment, Fixture) {
   AsyncWrite(*dut_stream.side_a(), str(kClientToServerMultiple),
-             [&](error_code ec) {
+             [&](micro::error_code ec) {
                BOOST_TEST(!ec);
              });
 
@@ -227,7 +229,7 @@ BOOST_FIXTURE_TEST_CASE(ServerTestFragment, Fixture) {
   auto read = [&](const std::string& expected) {
     int read_count = 0;
     ssize_t read_size = 0;
-    tunnel->AsyncReadSome(read_buffer, [&](error_code ec, ssize_t size) {
+    tunnel->AsyncReadSome(read_buffer, [&](micro::error_code ec, ssize_t size) {
         BOOST_TEST(!ec);
         read_count++;
         read_size = size;
@@ -246,7 +248,7 @@ BOOST_FIXTURE_TEST_CASE(ServerTestFragment, Fixture) {
   // Now kick off a read that should stall until more data comes in.
   int read_count = 0;
   ssize_t read_size = 0;
-  tunnel->AsyncReadSome(read_buffer, [&](error_code ec, ssize_t size) {
+  tunnel->AsyncReadSome(read_buffer, [&](micro::error_code ec, ssize_t size) {
       BOOST_TEST(!ec);
       read_count++;
       read_size = size;
@@ -256,7 +258,7 @@ BOOST_FIXTURE_TEST_CASE(ServerTestFragment, Fixture) {
   BOOST_TEST(read_count == 0);
 
   AsyncWrite(*dut_stream.side_a(), str(kClientToServer),
-             [&](error_code ec) {
+             [&](micro::error_code ec) {
                BOOST_TEST(!ec);
              });
   event_queue.Poll();
@@ -284,7 +286,7 @@ BOOST_FIXTURE_TEST_CASE(ServerSendTest, Fixture) {
   ssize_t write_size = 0;
   tunnel->AsyncWriteSome(
       "stuff to test",
-      [&](error_code ec, ssize_t size) {
+      [&](micro::error_code ec, ssize_t size) {
         BOOST_TEST(!ec);
         write_count++;
         write_size = size;
@@ -297,7 +299,7 @@ BOOST_FIXTURE_TEST_CASE(ServerSendTest, Fixture) {
   int read_count = 0;
   ssize_t read_size = 0;
   dut_stream.side_a()->AsyncReadSome(
-      receive_buffer, [&](error_code ec, ssize_t size) {
+      receive_buffer, [&](micro::error_code ec, ssize_t size) {
         BOOST_TEST(!ec);
         read_count++;
         read_size = size;
@@ -308,7 +310,7 @@ BOOST_FIXTURE_TEST_CASE(ServerSendTest, Fixture) {
   BOOST_TEST(read_count == 0);
 
   AsyncWrite(*dut_stream.side_a(), str(kClientToServerEmpty),
-             [](error_code ec) { BOOST_TEST(!ec); });
+             [](micro::error_code ec) { BOOST_TEST(!ec); });
 
   event_queue.Poll();
 
@@ -349,7 +351,7 @@ const uint8_t kWriteSingle[] = {
 BOOST_FIXTURE_TEST_CASE(WriteSingleTest, Fixture) {
   int write_count = 0;
   AsyncWrite(*dut_stream.side_a(), str(kWriteSingle),
-             [&](error_code ec) {
+             [&](micro::error_code ec) {
                BOOST_TEST(!ec);
                write_count++;
              });
@@ -382,7 +384,7 @@ const uint8_t kWriteMultiple[] = {
 BOOST_FIXTURE_TEST_CASE(WriteMultipleTest, Fixture) {
   int write_count = 0;
   AsyncWrite(*dut_stream.side_a(), str(kWriteMultiple),
-             [&](error_code ec) {
+             [&](micro::error_code ec) {
                BOOST_TEST(!ec);
                write_count++;
              });
@@ -406,7 +408,7 @@ BOOST_FIXTURE_TEST_CASE(WriteErrorTest, Fixture) {
   int read_count = 0;
   ssize_t read_size = 0;
   dut_stream.side_a()->AsyncReadSome(
-      receive_buffer, [&](error_code ec, ssize_t size) {
+      receive_buffer, [&](micro::error_code ec, ssize_t size) {
         BOOST_TEST(!ec);
         read_count++;
         read_size = size;
@@ -420,7 +422,7 @@ BOOST_FIXTURE_TEST_CASE(WriteErrorTest, Fixture) {
 
   int write_count = 0;
   AsyncWrite(*dut_stream.side_a(), str(kWriteSingle),
-             [&](error_code ec) {
+             [&](micro::error_code ec) {
                BOOST_TEST(!ec);
                write_count++;
              });
@@ -463,7 +465,7 @@ BOOST_FIXTURE_TEST_CASE(ReadSingleTest, Fixture) {
   int read_count = 0;
   ssize_t read_size = 0;
   dut_stream.side_a()->AsyncReadSome(
-      receive_buffer, [&](error_code ec, ssize_t size) {
+      receive_buffer, [&](micro::error_code ec, ssize_t size) {
         BOOST_TEST(!ec);
         read_count++;
         read_size = size;
@@ -473,7 +475,7 @@ BOOST_FIXTURE_TEST_CASE(ReadSingleTest, Fixture) {
 
   int write_count = 0;
   AsyncWrite(*dut_stream.side_a(), str(kReadSingle),
-             [&](error_code ec) {
+             [&](micro::error_code ec) {
                BOOST_TEST(!ec);
                write_count++;
              });
@@ -517,7 +519,7 @@ BOOST_FIXTURE_TEST_CASE(ReadMultipleTest, Fixture) {
   int read_count = 0;
   ssize_t read_size = 0;
   dut_stream.side_a()->AsyncReadSome(
-      receive_buffer, [&](error_code ec, ssize_t size) {
+      receive_buffer, [&](micro::error_code ec, ssize_t size) {
         BOOST_TEST(!ec);
         read_count++;
         read_size = size;
@@ -527,7 +529,7 @@ BOOST_FIXTURE_TEST_CASE(ReadMultipleTest, Fixture) {
 
   int write_count = 0;
   AsyncWrite(*dut_stream.side_a(), str(kReadMultiple),
-             [&](error_code ec) {
+             [&](micro::error_code ec) {
                BOOST_TEST(!ec);
                write_count++;
              });

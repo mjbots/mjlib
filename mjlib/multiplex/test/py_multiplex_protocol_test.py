@@ -19,8 +19,8 @@ import io
 import unittest
 
 
-import mjlib.micro.stream_helpers as sh
-import mjlib.micro.multiplex_protocol as mp
+import mjlib.multiplex.stream_helpers as sh
+import mjlib.multiplex.multiplex_protocol as mp
 
 
 def _run(coro):

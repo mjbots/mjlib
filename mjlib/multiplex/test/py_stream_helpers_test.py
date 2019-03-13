@@ -20,7 +20,7 @@ import io
 import unittest
 
 
-import mjlib.micro.stream_helpers as sh
+import mjlib.multiplex.stream_helpers as sh
 
 def _run(coro):
     return asyncio.get_event_loop().run_until_complete(coro)

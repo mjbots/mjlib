@@ -195,16 +195,16 @@ cc_library(
 )
 
 cc_library(
-    name = "multiplex_protocol",
-    hdrs = ["multiplex_protocol.h"],
-    srcs = ["multiplex_protocol.cc"],
+    name = "test_fixtures",
+    hdrs = [
+        "test/command_manager_fixture.h",
+        "test/persistent_config_fixture.h",
+        "test/reader.h",
+        "test/str.h",
+    ],
     deps = [
-        ":async_stream",
-        ":persistent_config",
-        ":pool_ptr",
-        "//mjlib/base:assert",
-        "//mjlib/base:buffer_stream",
-        "//mjlib/base:visitor",
+        ":event_queue",
+        ":required_success",
     ],
 )
 
@@ -214,17 +214,12 @@ cc_test(
         "test/test_main.cc",
         "test/async_exclusive_test.cc",
         "test/async_stream_test.cc",
-        "test/command_manager_fixture.h",
         "test/command_manager_test.cc",
         "test/error_code_test.cc",
-        "test/multiplex_protocol_test.cc",
-        "test/persistent_config_fixture.h",
         "test/persistent_config_test.cc",
         "test/pool_map_test.cc",
         "test/pool_ptr_test.cc",
-        "test/reader.h",
         "test/serializable_handler_test.cc",
-        "test/str.h",
         "test/stream_pipe_test.cc",
         "test/telemetry_manager_test.cc",
     ],
@@ -234,7 +229,6 @@ cc_test(
         ":command_manager",
         ":error_code",
         ":event_queue",
-        ":multiplex_protocol",
         ":persistent_config",
         ":pool_map",
         ":pool_ptr",
@@ -242,65 +236,9 @@ cc_test(
         ":serializable_handler",
         ":stream_pipe",
         ":telemetry_manager",
+        ":test_fixtures",
         "//mjlib/base:buffer_stream",
         "@boost//:test",
         "@fmt",
-    ],
-)
-
-# Now for the python pieces.
-
-
-py_library(
-    name = "py_stream_helpers",
-    srcs = ["stream_helpers.py"],
-)
-
-py_library(
-    name = "py_multiplex_protocol",
-    srcs = ["multiplex_protocol.py"],
-    deps = [":py_stream_helpers"],
-)
-
-py_library(
-    name = "aioserial",
-    srcs = ["aioserial.py"],
-)
-
-py_binary(
-    name = "mp_console",
-    srcs = ["mp_console.py"],
-    deps = [
-        ":py_multiplex_protocol",
-        ":aioserial",
-    ],
-)
-
-py_binary(
-    name = "conf_write",
-    srcs = ["conf_write.py"],
-    deps = [
-        ":py_multiplex_protocol",
-        ":aioserial",
-    ],
-)
-
-py_test(
-    name = "py_stream_helpers_test",
-    srcs = ["test/py_stream_helpers_test.py"],
-    deps = [":py_stream_helpers"],
-)
-
-py_test(
-    name = "py_multiplex_protocol_test",
-    srcs = ["test/py_multiplex_protocol_test.py"],
-    deps = [":py_multiplex_protocol"],
-)
-
-test_suite(
-    name = "py_test",
-    tests = [
-        "py_stream_helpers_test",
-        "py_multiplex_protocol_test",
     ],
 )

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "mjlib/micro/multiplex_protocol.h"
+#include "mjlib/multiplex/micro_server.h"
 
 #include <functional>
 
@@ -23,7 +23,7 @@
 #include "mjlib/base/visitor.h"
 
 namespace mjlib {
-namespace micro {
+namespace multiplex {
 
 namespace {
 int GetVaruintSize(uint32_t value) {
@@ -115,16 +115,16 @@ class ProtocolWriteStream {
 
 }
 
-class MultiplexProtocolServer::Impl {
+class MicroServer::Impl {
  public:
-  class RawStream : public AsyncWriteStream {
+  class RawStream : public micro::AsyncWriteStream {
    public:
     RawStream(Impl* parent) : parent_(parent) {}
 
     ~RawStream() override {}
 
     void AsyncWriteSome(const std::string_view& buffer,
-                        const SizeCallback& callback) override {
+                        const micro::SizeCallback& callback) override {
       MJ_ASSERT(!parent_->write_outstanding_);
       parent_->raw_write_callback_ = callback;
       parent_->stream_->AsyncWriteSome(
@@ -137,14 +137,14 @@ class MultiplexProtocolServer::Impl {
     Impl* const parent_;
   };
 
-  class TunnelStream : public AsyncStream {
+  class TunnelStream : public micro::AsyncStream {
    public:
     void set_parent(Impl* impl) { parent_ = impl; }
     uint32_t id() const { return id_; }
     void set_id(uint32_t id) { id_ = id; }
 
     void AsyncReadSome(const base::string_span& buffer,
-                       const SizeCallback& callback) override {
+                       const micro::SizeCallback& callback) override {
       MJ_ASSERT(read_buffer_.empty());
       read_buffer_ = buffer;
       read_callback_ = callback;
@@ -156,7 +156,7 @@ class MultiplexProtocolServer::Impl {
     }
 
     void AsyncWriteSome(const std::string_view& buffer,
-                        const SizeCallback& callback) override {
+                        const micro::SizeCallback& callback) override {
       MJ_ASSERT(write_buffer_.empty());
       write_buffer_ = buffer;
       write_callback_ = callback;
@@ -189,17 +189,17 @@ class MultiplexProtocolServer::Impl {
     uint32_t id_ = 0;
 
     base::string_span read_buffer_;
-    SizeCallback read_callback_;
+    micro::SizeCallback read_callback_;
 
     char read_data_[128] = {};
     ssize_t read_data_size_ = 0;
 
     std::string_view write_buffer_;
-    SizeCallback write_callback_;
+    micro::SizeCallback write_callback_;
   };
 
-  Impl(Pool* pool,
-       AsyncStream* stream,
+  Impl(micro::Pool* pool,
+       micro::AsyncStream* stream,
        const Options& options)
       : options_(options),
         stream_(stream),
@@ -213,7 +213,7 @@ class MultiplexProtocolServer::Impl {
     }
   }
 
-  AsyncStream* MakeTunnel(uint32_t id) {
+  micro::AsyncStream* MakeTunnel(uint32_t id) {
     MJ_ASSERT(id != 0);
     for (auto& tunnel : tunnels_) {
       if (tunnel.id() == 0) {
@@ -233,7 +233,7 @@ class MultiplexProtocolServer::Impl {
   }
 
   void AsyncReadUnknown(const base::string_span& buffer,
-                        const SizeCallback& callback) {
+                        const micro::SizeCallback& callback) {
     MJ_ASSERT(unknown_buffer_.empty());
     MJ_ASSERT(!buffer.empty());
 
@@ -241,7 +241,7 @@ class MultiplexProtocolServer::Impl {
     unknown_callback_ = callback;
   }
 
-  AsyncWriteStream* raw_write_stream() {
+  micro::AsyncWriteStream* raw_write_stream() {
     return &raw_write_stream_;
   }
 
@@ -260,7 +260,7 @@ class MultiplexProtocolServer::Impl {
                   std::placeholders::_1, std::placeholders::_2));
   }
 
-  void HandleReadFrame(const error_code& ec, size_t size) {
+  void HandleReadFrame(const micro::error_code& ec, size_t size) {
     read_outstanding_ = false;
 
     if (ec) {
@@ -391,7 +391,7 @@ class MultiplexProtocolServer::Impl {
         unknown_buffer_ = {};
         unknown_callback_ = {};
 
-        callback(error_code(), total_size);
+        callback(micro::error_code(), total_size);
       }
 
       Consume(total_size);
@@ -466,12 +466,12 @@ class MultiplexProtocolServer::Impl {
                std::bind(&Impl::HandleWrite, this, std::placeholders::_1));
   }
 
-  void HandleWrite(error_code ec) {
+  void HandleWrite(micro::error_code ec) {
     MJ_ASSERT(!ec);
     write_outstanding_ = false;
   }
 
-  void HandleWriteRaw(const error_code& ec, size_t size) {
+  void HandleWriteRaw(const micro::error_code& ec, size_t size) {
     MJ_ASSERT(!ec);
     write_outstanding_ = false;
     auto callback = raw_write_callback_;
@@ -733,7 +733,7 @@ class MultiplexProtocolServer::Impl {
   }
 
   const Options options_;
-  AsyncStream* const stream_;
+  micro::AsyncStream* const stream_;
   Server* server_ = nullptr;
 
   Config config_;
@@ -748,44 +748,44 @@ class MultiplexProtocolServer::Impl {
   bool write_outstanding_ = false;
 
   base::string_span unknown_buffer_;
-  SizeCallback unknown_callback_;
+  micro::SizeCallback unknown_callback_;
 
-  SizeCallback raw_write_callback_;
+  micro::SizeCallback raw_write_callback_;
 
   TunnelStream tunnels_[1];
   Stats stats_;
 };
 
-MultiplexProtocolServer::MultiplexProtocolServer(
-    Pool* pool,
-    AsyncStream* async_stream,
+MicroServer::MicroServer(
+    micro::Pool* pool,
+    micro::AsyncStream* async_stream,
     const Options& options)
     : impl_(pool, pool, async_stream, options) {}
 
-MultiplexProtocolServer::~MultiplexProtocolServer() {}
+MicroServer::~MicroServer() {}
 
-AsyncStream* MultiplexProtocolServer::MakeTunnel(uint32_t id) {
+micro::AsyncStream* MicroServer::MakeTunnel(uint32_t id) {
   return impl_->MakeTunnel(id);
 }
 
-void MultiplexProtocolServer::Start(Server* server) {
+void MicroServer::Start(Server* server) {
   impl_->Start(server);
 }
 
-void MultiplexProtocolServer::AsyncReadUnknown(const base::string_span& buffer,
-                                               const SizeCallback& callback) {
+void MicroServer::AsyncReadUnknown(const base::string_span& buffer,
+                                   const micro::SizeCallback& callback) {
   impl_->AsyncReadUnknown(buffer, callback);
 }
 
-AsyncWriteStream* MultiplexProtocolServer::raw_write_stream() {
+micro::AsyncWriteStream* MicroServer::raw_write_stream() {
   return impl_->raw_write_stream();
 }
 
-const MultiplexProtocolServer::Stats* MultiplexProtocolServer::stats() const {
+const MicroServer::Stats* MicroServer::stats() const {
   return impl_->stats();
 }
 
-MultiplexProtocolServer::Config* MultiplexProtocolServer::config() {
+MicroServer::Config* MicroServer::config() {
   return impl_->config();
 }
 

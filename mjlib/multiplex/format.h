@@ -128,15 +128,10 @@
 #include <cstdint>
 #include <variant>
 
-#include "mjlib/base/visitor.h"
-#include "mjlib/micro/async_stream.h"
-#include "mjlib/micro/persistent_config.h"
-#include "mjlib/micro/pool_ptr.h"
-
 namespace mjlib {
-namespace micro {
+namespace multiplex {
 
-struct MultiplexProtocol {
+struct Format {
   static constexpr uint16_t kHeader = 0xab54;
   static constexpr int kHeaderSize = 4;
   static constexpr int kMaxVaruintSize = 5;
@@ -184,97 +179,6 @@ struct MultiplexProtocol {
   using Value = std::variant<int8_t, int16_t, int32_t, float>;
   // Either a Value, or an error code.
   using ReadResult = std::variant<Value, uint32_t>;
-};
-
-/// Implements a multi-node frame based packet protocol on top of an
-/// AsyncStream.  This node's ID is stored in a PersistentConfig.
-class MultiplexProtocolServer : public MultiplexProtocol {
- public:
-  /// Applications implementing the server should provide a concrete
-  /// implementation of this interface.  Within a single frame, all
-  /// calls to Write or Read will take place before returning to the
-  /// event loop.  Applications may use this fact to implement atomic
-  /// updates as necessary.
-  class Server {
-   public:
-    virtual ~Server() {}
-
-    /// Attempt to store the given value.
-    virtual uint32_t Write(Register, const Value&) = 0;
-
-    /// @param type_index is an index into the Value variant
-    /// describing what type to return.
-    virtual ReadResult Read(Register, size_t type_index) const = 0;
-  };
-
-  struct Options {
-    size_t buffer_size = 256;
-    int max_tunnel_streams = 1;
-    uint8_t default_id = 1;
-  };
-
-  MultiplexProtocolServer(Pool*, AsyncStream*, const Options&);
-  ~MultiplexProtocolServer();
-
-  /// Allocate a "tunnel", where an AsyncStream is tunneled over the
-  /// multiplex connection.
-  AsyncStream* MakeTunnel(uint32_t id);
-
-  void Start(Server*);
-
-  /// Read any data sent to the wrong ID and store it in @p buffer.
-  /// @p callback is invoked upon completion.
-  void AsyncReadUnknown(const base::string_span& buffer,
-                        const SizeCallback& callback);
-
-  /// @return a stream which can be used to write raw data to the
-  /// master.
-  AsyncWriteStream* raw_write_stream();
-
-  // Exposed mostly for debugging and unit testing.
-  struct Stats {
-    uint32_t wrong_id = 0;
-    uint32_t checksum_mismatch = 0;
-    uint32_t receive_overrun = 0;
-    uint32_t unknown_subframe = 0;
-    uint32_t missing_subframe = 0;
-    uint32_t malformed_subframe = 0;
-
-    template <typename Archive>
-    void Serialize(Archive* a) {
-      a->Visit(MJ_NVP(wrong_id));
-      a->Visit(MJ_NVP(checksum_mismatch));
-      a->Visit(MJ_NVP(receive_overrun));
-      a->Visit(MJ_NVP(unknown_subframe));
-      a->Visit(MJ_NVP(missing_subframe));
-      a->Visit(MJ_NVP(malformed_subframe));
-    }
-  };
-
-  const Stats* stats() const;
-
-  struct Config {
-    uint8_t id = 1;
-
-    template <typename Archive>
-    void Serialize(Archive* a) {
-      a->Visit(MJ_NVP(id));
-    }
-  };
-
-  Config* config();
-
- private:
-  class Impl;
-  PoolPtr<Impl> impl_;
-};
-
-class MultiplexProtocolClient : public MultiplexProtocol {
- public:
-
- private:
-  class Impl;
-  PoolPtr<Impl> impl_;
 };
 
 }

@@ -21,8 +21,8 @@ import argparse
 import asyncio
 
 
-import mjlib.micro.multiplex_protocol as mp
-import mjlib.micro.aioserial as aioserial
+import mjlib.multiplex.multiplex_protocol as mp
+import mjlib.multiplex.aioserial as aioserial
 
 
 async def readline(stream):
