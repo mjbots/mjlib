@@ -24,6 +24,13 @@ cc_library(
 )
 
 cc_library(
+    name = "fail",
+    hdrs = ["fail.h"],
+    srcs = ["fail.cc"],
+    deps = [":error_code"],
+)
+
+cc_library(
     name = "stringify",
     hdrs = ["stringify.h"],
 )
@@ -119,11 +126,25 @@ cc_library(
     hdrs = ["windowed_average.h"],
 )
 
+cc_library(
+    name = "program_options_archive",
+    hdrs = [
+        "program_options_archive.h",
+        "program_options_archive_detail.h",
+    ],
+    deps = [
+        ":visitor",
+        ":visit_archive",
+        "@boost//:program_options",
+    ],
+)
+
 cc_test(
     name = "test",
     srcs = [
         "test/error_code_test.cc",
         "test/pid_test.cc",
+        "test/program_options_archive_test.cc",
         "test/string_span_test.cc",
         "test/tokenizer_test.cc",
         "test/test_main.cc",
@@ -131,7 +152,9 @@ cc_test(
     ],
     deps = [
         ":error_code",
+        ":fail",
         ":pid",
+        ":program_options_archive",
         ":string_span",
         ":system_error",
         ":tokenizer",
