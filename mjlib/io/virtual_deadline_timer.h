@@ -1,4 +1,4 @@
-// Copyright 2016 Josh Pieper, jjp@pobox.com.  All rights reserved.
+// Copyright 2016-2019 Josh Pieper, jjp@pobox.com.  All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,10 +19,10 @@
 #include <boost/date_time/posix_time/posix_time_types.hpp>
 #include <boost/noncopyable.hpp>
 
-#include "async_types.h"
+#include "mjlib/io/async_types.h"
 
-namespace mjmech {
-namespace base {
+namespace mjlib {
+namespace io {
 
 class VirtualDeadlineTimerImpl : boost::noncopyable {
  public:
@@ -56,7 +56,7 @@ class VirtualDeadlineTimerService {
       boost::system::error_code&) = 0;
   virtual void async_wait(
       implementation_type&,
-      ErrorHandler) = 0;
+      ErrorCallback) = 0;
   virtual void shutdown_service() = 0;
   virtual boost::posix_time::ptime now() const = 0;
 };
@@ -113,7 +113,7 @@ class AsioTimerService : public VirtualDeadlineTimerService {
   }
 
   void async_wait(implementation_type& impl,
-                  ErrorHandler handler) override {
+                  ErrorCallback handler) override {
     base().async_wait(data(impl), handler);
   }
 
@@ -213,11 +213,7 @@ class VirtualDeadlineTimerServiceHolder
 
   template <typename Handler>
   void async_wait(implementation_type& impl, Handler handler) {
-    this->child_->async_wait(
-        impl,
-        [handler](ErrorCode ec) mutable {
-          handler(ec.error_code());
-        });
+    this->child_->async_wait(impl, handler);
   }
 
   void shutdown_service() override {

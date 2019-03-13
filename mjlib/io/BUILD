@@ -58,6 +58,23 @@ cc_library(
     ],
 )
 
+cc_library(
+    name = "debug_time",
+    hdrs = [
+        "virtual_deadline_timer.h",
+        "deadline_timer.h",
+    ],
+    srcs = [
+        "virtual_deadline_timer.cc",
+    ],
+    deps = [
+        ":async_types",
+    ],
+    defines = [
+        "BOOST_ASIO_ENABLE_OLD_SERVICES",
+    ],
+)
+
 cc_binary(
     name = "stream_factory_manual_test",
     srcs = ["test/stream_factory_manual_test.cc",],
@@ -73,9 +90,11 @@ cc_test(
     srcs = [
         "test/async_stream_test.cc",
         "test/test_main.cc",
+        "test/virtual_deadline_timer_test.cc",
     ],
     deps = [
         ":async_stream",
+        ":debug_time",
         ":stream_factory",
         "@boost//:test",
     ],

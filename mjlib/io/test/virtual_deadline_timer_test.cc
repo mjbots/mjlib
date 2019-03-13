@@ -12,12 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "mjlib/io/virtual_deadline_timer.h"
+#include "mjlib/io/deadline_timer.h"
 
-namespace mjlib {
-namespace io {
+#include <boost/test/auto_unit_test.hpp>
 
-boost::asio::io_service::id VirtualDeadlineTimerServiceHolder::id;
+using namespace mjlib;
 
-}
+BOOST_AUTO_TEST_CASE(BasicVirtualDeadlineTimer) {
+  boost::asio::io_service service;
+  io::DeadlineTimer timer(service);
+  timer.expires_from_now(boost::posix_time::milliseconds(1));
+  timer.wait();
 }
