@@ -1,6 +1,6 @@
 # -*- python -*-
 
-# Copyright 2018 Josh Pieper, jjp@pobox.com.
+# Copyright 2019 Josh Pieper, jjp@pobox.com.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,13 +16,32 @@
 
 package(default_visibility = ["//visibility:public"])
 
-test_suite(
-    name = "host",
-    tests = [
-        "//mjlib/base:test",
-        "//mjlib/io:test",
-        "//mjlib/micro:test",
-        "//mjlib/micro:py_test",
-        "//mjlib/telemetry:test",
+cc_library(
+    name = "async_types",
+    hdrs = ["async_types.h"],
+    deps = [
+        "//mjlib/base:error_code",
+        "@boost",
+    ],
+)
+
+cc_library(
+    name = "async_stream",
+    hdrs = ["async_stream.h"],
+    deps = [
+        ":async_types",
+        "@boost",
+    ],
+)
+
+cc_test(
+    name = "test",
+    srcs = [
+        "test/async_stream_test.cc",
+        "test/test_main.cc",
+    ],
+    deps = [
+        ":async_stream",
+        "@boost//:test",
     ],
 )
