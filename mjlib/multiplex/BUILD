@@ -22,11 +22,35 @@ cc_library(
 )
 
 cc_library(
+    name = "stream",
+    hdrs = ["stream.h"],
+    deps = [
+        ":format",
+        "//mjlib/base:assert",
+        "//mjlib/base:stream",
+    ],
+)
+
+cc_library(
+    name = "register",
+    hdrs = ["register.h"],
+    srcs = ["register.cc"],
+    deps = [
+        ":format",
+        ":stream",
+        "//mjlib/base:assert",
+        "//mjlib/base:fast_stream",
+        "//mjlib/base:stream",
+    ],
+)
+
+cc_library(
     name = "micro_server",
     hdrs = ["micro_server.h"],
     srcs = ["micro_server.cc"],
     deps = [
         ":format",
+        ":stream",
         "//mjlib/base:assert",
         "//mjlib/base:buffer_stream",
         "//mjlib/base:visitor",
@@ -41,10 +65,12 @@ cc_test(
     name = "test",
     srcs = [
         "test/micro_server_test.cc",
+        "test/register_test.cc",
         "test/test_main.cc",
     ],
     deps = [
         ":micro_server",
+        ":register",
         "//mjlib/micro:stream_pipe",
         "//mjlib/micro:test_fixtures",
         "@boost//:test",

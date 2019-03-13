@@ -181,5 +181,14 @@ struct Format {
   using ReadResult = std::variant<Value, uint32_t>;
 };
 
+inline int GetVaruintSize(uint32_t value) {
+  int result = 0;
+  do {
+    value >>= 7;
+    result++;
+  } while (value);
+  return result;
+}
+
 }
 }

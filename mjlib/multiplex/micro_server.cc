@@ -22,98 +22,10 @@
 #include "mjlib/base/buffer_stream.h"
 #include "mjlib/base/visitor.h"
 
+#include "mjlib/multiplex/stream.h"
+
 namespace mjlib {
 namespace multiplex {
-
-namespace {
-int GetVaruintSize(uint32_t value) {
-  int result = 0;
-  do {
-    value >>= 7;
-    result++;
-  } while (value);
-  return result;
-}
-
-class ProtocolReadStream {
- public:
-  ProtocolReadStream(base::BufferReadStream& istr) : istr_(istr) {}
-  base::BufferReadStream* base() { return &istr_; }
-
-  template <typename T>
-  std::optional<T> Read() {
-    return ReadScalar<T>();
-  }
-
-  std::optional<uint32_t> ReadVaruint() {
-    uint32_t result = 0;
-    int pos = 0;
-    for (int i = 0; i < 5; i++) {
-      if (istr_.remaining() == 0) { return {}; }
-      const auto maybe_this_byte = Read<uint8_t>();
-      if (!maybe_this_byte) {
-        return {};
-      }
-      const auto this_byte = *maybe_this_byte;
-      result |= (this_byte & 0x7f) << pos;
-      pos += 7;
-      if ((this_byte & 0x80) == 0) { return result; }
-    }
-    // Whoops, this was too big.  For now, just return maxint.
-    return std::numeric_limits<uint32_t>::max();
-  }
-
-  template <typename T>
-  std::optional<T> ReadScalar() {
-    if (istr_.remaining() < static_cast<std::streamsize>(sizeof(T))) {
-      return std::make_optional<T>();
-    }
-
-    T result = T{};
-    RawRead(reinterpret_cast<char*>(&result), sizeof(result));
-    return result;
-  }
-
- private:
-  void RawRead(char* out, std::streamsize size) {
-    istr_.read({out, size});
-    MJ_ASSERT(istr_.gcount() == size);
-  }
-
-  base::BufferReadStream& istr_;
-};
-
-class ProtocolWriteStream {
- public:
-  ProtocolWriteStream(base::BufferWriteStream& ostr) : ostr_(ostr) {}
-  base::BufferWriteStream* base() { return &ostr_; }
-
-  template <typename T>
-  void Write(T value) {
-    WriteScalar<T>(value);
-  }
-
-  void WriteVaruint(uint32_t value) {
-    do {
-      uint8_t this_byte = value & 0x7f;
-      value >>= 7;
-      this_byte |= value ? 0x80 : 0x00;
-      Write(this_byte);
-    } while (value);
-  }
-
- private:
-  template <typename T>
-  void WriteScalar(T value) {
-    MJ_ASSERT(ostr_.remaining() >= static_cast<std::streamsize>(sizeof(T)));
-
-    ostr_.write({reinterpret_cast<const char*>(&value), sizeof(value)});
-  }
-
-  base::BufferWriteStream& ostr_;
-};
-
-}
 
 class MicroServer::Impl {
  public:
@@ -323,7 +235,7 @@ class MicroServer::Impl {
     // See if we have enough data to have a valid varuint for size.
     base::BufferReadStream data({&read_buffer_[2],
             static_cast<size_t>(read_start_ - 2)});
-    ProtocolReadStream read_stream{data};
+    ReadStream read_stream{data};
 
     const auto maybe_source_id = read_stream.Read<uint8_t>();
     const auto maybe_dest_id = read_stream.Read<uint8_t>();
@@ -349,16 +261,16 @@ class MicroServer::Impl {
     }
 
     // Do we have enough data yet?
-    const char* const payload_start = read_stream.base()->position();
+    const char* const payload_start = data.position();
     const auto data_we_have =
-        &read_buffer_[read_start_] - read_stream.base()->position();
+        &read_buffer_[read_start_] - data.position();
     if (data_we_have < static_cast<ssize_t>(payload_size + 2)) {
       // We need more still.
       return false;
     }
 
     const char* const crc_location =
-        read_stream.base()->position() + payload_size;
+        data.position() + payload_size;
 
     // Woohoo.  We nominally have enough for a whole frame.  Verify
     // the checksum!
@@ -382,7 +294,7 @@ class MicroServer::Impl {
 
     if (*maybe_dest_id != config_.id) {
       stats_.wrong_id++;
-      const auto total_size = read_stream.base()->position() - read_buffer_;
+      const auto total_size = data.position() - read_buffer_;
 
       if (!unknown_buffer_.empty()) {
         std::memcpy(unknown_buffer_.data(), read_buffer_, total_size);
@@ -401,7 +313,7 @@ class MicroServer::Impl {
 
     base::BufferWriteStream buffer_write_stream{
       base::string_span(write_buffer_, options_.buffer_size)};
-    ProtocolWriteStream write_stream{buffer_write_stream};
+    WriteStream write_stream{buffer_write_stream};
     const bool need_response =
         ((*maybe_source_id) & 0x80) != 0 &&
         !write_outstanding_;
@@ -409,6 +321,7 @@ class MicroServer::Impl {
     // Everything checked out.  Now we we can process our subframes.
     ProcessSubframes(
         std::string_view(payload_start, payload_size),
+        &buffer_write_stream,
         need_response ? &write_stream : nullptr);
     const auto to_consume = crc_location - read_buffer_ + 2;
     Consume(to_consume);
@@ -441,7 +354,7 @@ class MicroServer::Impl {
     {
       base::BufferWriteStream header_buffer_stream(
           base::string_span(write_buffer_, header_size));
-      ProtocolWriteStream header_stream(header_buffer_stream);
+      WriteStream header_stream(header_buffer_stream);
       header_stream.Write(kHeader);
       header_stream.Write(config_.id);
       header_stream.Write(client_id);
@@ -457,7 +370,7 @@ class MicroServer::Impl {
     {
       base::BufferWriteStream crc_buffer_stream(
           base::string_span(&write_buffer_[crc_location], 2));
-      ProtocolWriteStream crc_stream(crc_buffer_stream);
+      WriteStream crc_stream(crc_buffer_stream);
       crc_stream.Write(actual_crc);
     }
 
@@ -480,9 +393,10 @@ class MicroServer::Impl {
   }
 
   void ProcessSubframes(const std::string_view& subframes,
-                        ProtocolWriteStream* response_stream) {
+                        base::BufferWriteStream* response_buffer_stream,
+                        WriteStream* response_stream) {
     base::BufferReadStream buffer_stream(subframes);
-    ProtocolReadStream str(buffer_stream);
+    ReadStream str(buffer_stream);
 
     auto u8 = [](auto value) {
       return static_cast<uint8_t>(value);
@@ -490,7 +404,7 @@ class MicroServer::Impl {
 
     struct RegisterHandler {
       uint8_t base_register = 0;
-      bool (Impl::* handler)(uint8_t, ProtocolReadStream&, ProtocolWriteStream*);
+      bool (Impl::* handler)(uint8_t, ReadStream&, WriteStream*);
     };
 
     constexpr RegisterHandler register_handlers[] = {
@@ -512,7 +426,10 @@ class MicroServer::Impl {
 
       if (subframe_type == u8(Subframe::kClientToServer)) {
         // The client sent us some data.
-        if (ProcessSubframeClientToServer(str, response_stream)) {
+        if (ProcessSubframeClientToServer(
+                buffer_stream, str,
+                response_buffer_stream,
+                response_stream)) {
           stats_.malformed_subframe++;
           return;
         }
@@ -543,11 +460,14 @@ class MicroServer::Impl {
 
   // @return true if malformed
   bool ProcessSubframeClientToServer(
-      ProtocolReadStream& str, ProtocolWriteStream* response_stream) {
+      base::BufferReadStream& buffer_stream,
+      ReadStream& str,
+      base::BufferWriteStream* response_buffer_stream,
+      WriteStream* response_stream) {
     const auto maybe_channel = str.ReadVaruint();
     const auto maybe_bytes = str.ReadVaruint();
     if (!maybe_channel || !maybe_bytes ||
-        str.base()->remaining() < static_cast<std::streamsize>(*maybe_bytes)) {
+        buffer_stream.remaining() < static_cast<std::streamsize>(*maybe_bytes)) {
       // Malformed.
       return true;
     }
@@ -581,10 +501,10 @@ class MicroServer::Impl {
       const auto to_copy =
           std::min<std::streamsize>(
               tunnel.write_buffer_.size(),
-              response_stream->base()->remaining() -
+              response_buffer_stream->remaining() -
               (kMaxVaruintSize + kCrcSize + kExtraPadding));
       response_stream->WriteVaruint(to_copy);
-      if (to_copy) {
+      if (to_copy > 0) {
         response_stream->base()->write(tunnel.write_buffer_.substr(0, to_copy));
 
         tunnel.write_buffer_ = {};
@@ -597,7 +517,7 @@ class MicroServer::Impl {
     return false;
   }
 
-  std::optional<Value> ReadValue(uint8_t type, ProtocolReadStream& str) {
+  std::optional<Value> ReadValue(uint8_t type, ReadStream& str) {
     if (type == 0) {
       return str.ReadScalar<int8_t>();
     } else if (type == 1) {
@@ -611,7 +531,7 @@ class MicroServer::Impl {
     return {};
   }
 
-  void EmitWriteError(ProtocolWriteStream* response,
+  void EmitWriteError(WriteStream* response,
                       Register error_reg, uint32_t error) {
     if (!response) { return; }
     response->WriteVaruint(static_cast<uint8_t>(Subframe::kWriteError));
@@ -619,8 +539,8 @@ class MicroServer::Impl {
     response->WriteVaruint(error);
   }
 
-  bool ProcessSubframeWriteSingle(uint8_t type, ProtocolReadStream& str,
-                                  ProtocolWriteStream* response) {
+  bool ProcessSubframeWriteSingle(uint8_t type, ReadStream& str,
+                                  WriteStream* response) {
     const auto maybe_register = str.ReadVaruint();
     if (!maybe_register) { return true; }
 
@@ -635,8 +555,8 @@ class MicroServer::Impl {
     return false;
   }
 
-  bool ProcessSubframeWriteMultiple(uint8_t type, ProtocolReadStream& str,
-                                    ProtocolWriteStream* response) {
+  bool ProcessSubframeWriteMultiple(uint8_t type, ReadStream& str,
+                                    WriteStream* response) {
     const auto start_register = str.ReadVaruint();
     if (!start_register) { return true; }
 
@@ -659,7 +579,7 @@ class MicroServer::Impl {
     return false;
   }
 
-  void EmitReadResult(ProtocolWriteStream* response,
+  void EmitReadResult(WriteStream* response,
                       uint32_t reg,
                       const Value& value) {
     const uint8_t subframe_id = 0x20 | value.index();
@@ -670,7 +590,7 @@ class MicroServer::Impl {
       }, value);
   }
 
-  void EmitReadError(ProtocolWriteStream* response,
+  void EmitReadError(WriteStream* response,
                      uint32_t reg,
                      uint32_t error) {
     response->WriteVaruint(static_cast<uint8_t>(Subframe::kReadError));
@@ -678,7 +598,7 @@ class MicroServer::Impl {
     response->WriteVaruint(error);
   }
 
-  void EmitRead(ProtocolWriteStream* response,
+  void EmitRead(WriteStream* response,
                 uint32_t reg,
                 const ReadResult& read_result) {
     if (read_result.index() == 0) {
@@ -688,8 +608,8 @@ class MicroServer::Impl {
     }
   }
 
-  bool ProcessSubframeReadSingle(uint8_t type, ProtocolReadStream& str,
-                                 ProtocolWriteStream* response) {
+  bool ProcessSubframeReadSingle(uint8_t type, ReadStream& str,
+                                 WriteStream* response) {
     if (!response) { return false; }
 
     const auto maybe_register = str.ReadVaruint();
@@ -700,8 +620,8 @@ class MicroServer::Impl {
     return false;
   }
 
-  bool ProcessSubframeReadMultiple(uint8_t type, ProtocolReadStream& str,
-                                   ProtocolWriteStream* response) {
+  bool ProcessSubframeReadMultiple(uint8_t type, ReadStream& str,
+                                   WriteStream* response) {
     if (!response) { return false; }
 
     const auto start_register = str.ReadVaruint();
