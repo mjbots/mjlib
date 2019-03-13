@@ -16,8 +16,13 @@
 
 #include <boost/test/auto_unit_test.hpp>
 
+#include "mjlib/base/fast_stream.h"
+
+namespace base = mjlib::base;
 using mjlib::multiplex::RegisterRequest;
-using Value = mjlib::multiplex::Format::Value ;
+using mjlib::multiplex::ParseRegisterReply;
+using Value = mjlib::multiplex::Format::Value;
+using ReadResult = mjlib::multiplex::Format::ReadResult;
 
 BOOST_AUTO_TEST_CASE(BasicRegisterTest) {
   {
@@ -51,5 +56,21 @@ BOOST_AUTO_TEST_CASE(BasicRegisterTest) {
     RegisterRequest dut;
     dut.WriteMultiple(0x03, { Value(0.0f), Value(1.0f), });
     BOOST_TEST(dut.buffer().size() == 11);
+  }
+}
+
+BOOST_AUTO_TEST_CASE(ParseRegisterReplyTest) {
+  {
+    base::FastIStringStream data("\x20\x03\x01");
+    const auto dut = ParseRegisterReply(data);
+    BOOST_TEST(dut.size() == 1);
+    BOOST_TEST((dut.at(0x03) == ReadResult(Value(static_cast<int8_t>(1)))));
+  }
+  {
+    base::FastIStringStream data("\x25\x04\x02\x06\x05\x04\x03");
+    const auto dut = ParseRegisterReply(data);
+    BOOST_TEST(dut.size() == 2);
+    BOOST_TEST((dut.at(0x04) == ReadResult(Value(static_cast<int16_t>(0x0506)))));
+    BOOST_TEST((dut.at(0x05) == ReadResult(Value(static_cast<int16_t>(0x0304)))));
   }
 }

@@ -39,6 +39,7 @@ cc_library(
         ":format",
         ":stream",
         "//mjlib/base:assert",
+        "//mjlib/base:fail",
         "//mjlib/base:fast_stream",
         "//mjlib/base:stream",
     ],

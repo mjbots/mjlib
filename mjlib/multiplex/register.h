@@ -53,5 +53,7 @@ class RegisterRequest {
 /// The possible reply to a register operation.
 using RegisterReply = std::map<Format::Register, Format::ReadResult>;
 
+RegisterReply ParseRegisterReply(base::ReadStream&);
+
 }
 }
