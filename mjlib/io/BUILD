@@ -41,9 +41,12 @@ cc_library(
         "stream_factory.cc",
         "stream_factory_stdio.h",
         "stream_factory_stdio.cc",
+        "stream_factory_serial.h",
+        "stream_factory_serial.cc",
     ],
     deps = [
         ":async_stream",
+        "//mjlib/base:system_error",
         "//mjlib/base:visitor",
     ],
 )

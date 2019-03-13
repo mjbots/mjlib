@@ -46,6 +46,7 @@ class StreamFactory : boost::noncopyable {
     int serial_baud = 115200;
     std::string serial_parity = "n";
     int serial_data_bits = 8;
+    bool serial_low_latency = true;
 
     std::string tcp_target;
     int tcp_target_port = 0;
@@ -64,6 +65,7 @@ class StreamFactory : boost::noncopyable {
       a->Visit(MJ_NVP(serial_baud));
       a->Visit(MJ_NVP(serial_parity));
       a->Visit(MJ_NVP(serial_data_bits));
+      a->Visit(MJ_NVP(serial_low_latency));
       a->Visit(MJ_NVP(tcp_target));
       a->Visit(MJ_NVP(tcp_target_port));
       a->Visit(MJ_NVP(tcp_server_port));
