@@ -28,14 +28,14 @@ class AsyncReadStream : boost::noncopyable {
  public:
   virtual ~AsyncReadStream() {}
 
-  virtual void AsyncReadSome(MutableBufferSequence, ReadHandler) = 0;
+  virtual void async_read_some(MutableBufferSequence, ReadHandler) = 0;
 };
 
 class AsyncWriteStream : boost::noncopyable {
  public:
   virtual ~AsyncWriteStream() {}
 
-  virtual void AsyncWriteSome(ConstBufferSequence, WriteHandler) = 0;
+  virtual void async_write_some(ConstBufferSequence, WriteHandler) = 0;
 };
 
 class AsyncStream : public AsyncReadStream, public AsyncWriteStream {

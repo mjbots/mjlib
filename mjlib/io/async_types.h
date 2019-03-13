@@ -28,7 +28,7 @@ namespace io {
 // from boost::asio.
 using VoidCallback = std::function<void ()>;
 using ErrorCallback = std::function<void (const base::error_code&)>;
-using SizeCallback = std::function<void (const base::error_code&, ssize_t)>;
+using SizeCallback = std::function<void (const base::error_code&, size_t)>;
 
 using ReadHandler = SizeCallback;
 using WriteHandler = SizeCallback;

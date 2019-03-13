@@ -34,6 +34,30 @@ cc_library(
     ],
 )
 
+cc_library(
+    name = "stream_factory",
+    hdrs = ["stream_factory.h",],
+    srcs = [
+        "stream_factory.cc",
+        "stream_factory_stdio.h",
+        "stream_factory_stdio.cc",
+    ],
+    deps = [
+        ":async_stream",
+        "//mjlib/base:visitor",
+    ],
+)
+
+cc_binary(
+    name = "stream_factory_manual_test",
+    srcs = ["test/stream_factory_manual_test.cc",],
+    deps = [
+        ":stream_factory",
+        "//mjlib/base:fail",
+        "//mjlib/base:program_options_archive",
+    ],
+)
+
 cc_test(
     name = "test",
     srcs = [
@@ -42,6 +66,8 @@ cc_test(
     ],
     deps = [
         ":async_stream",
+        ":stream_factory",
         "@boost//:test",
     ],
+    data = [":stream_factory_manual_test"],
 )
