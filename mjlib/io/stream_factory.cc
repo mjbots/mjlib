@@ -17,6 +17,7 @@
 #include "mjlib/io/stream_factory_serial.h"
 #include "mjlib/io/stream_factory_stdio.h"
 #include "mjlib/io/stream_factory_tcp_client.h"
+#include "mjlib/io/stream_factory_tcp_server.h"
 
 namespace mjlib {
 namespace io {
@@ -57,7 +58,10 @@ void StreamFactory::AsyncCreate(const Options& options, StreamHandler handler) {
       detail::AsyncCreateTcpClient(impl_->service_, options, handler);
       return;
     }
-    case Type::kTcpServer:
+    case Type::kTcpServer: {
+      detail::AsyncCreateTcpServer(impl_->service_, options, handler);
+      return;
+    }
     case Type::kPipe: {
       BOOST_ASSERT(false);
       return;
