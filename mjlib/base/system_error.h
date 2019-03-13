@@ -42,7 +42,7 @@ class system_error : public std::runtime_error {
   virtual ~system_error() throw() {}
 
   const char* what() const throw() { return ec_.message().c_str(); }
-  error_code& error_code() { return ec_; }
+  error_code& code() { return ec_; }
 
  private:
   error_code ec_;
