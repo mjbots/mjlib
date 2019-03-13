@@ -54,6 +54,55 @@ class ProgramOptionsArchiveValue : public boost::program_options::value_semantic
   NameValuePair nvp_;
 };
 
+template <typename NameValuePair>
+class ProgramOptionsEnumArchiveValue
+    : public boost::program_options::value_semantic {
+ public:
+  ProgramOptionsEnumArchiveValue(const NameValuePair& nvp) : nvp_(nvp) {}
+  ~ProgramOptionsEnumArchiveValue() override {}
+
+  std::string name() const override { return ""; }
+  unsigned min_tokens() const override { return 1; }
+  unsigned max_tokens() const override { return 1; }
+  bool is_composing() const override { return false; }
+  bool is_required() const override { return false; }
+  void parse(boost::any& value_store,
+             const std::vector<std::string>& new_tokens,
+             bool /* utf8 */) const override {
+    const std::string value = new_tokens.at(0);
+    for (const auto& pair : nvp_.enumeration_mapper()) {
+      if (value == pair.second) {
+        value_store = pair.first;
+        return;
+      }
+    }
+
+    auto format_enum_types = [&]() {
+      std::string result;
+      for (const auto& pair : nvp_.enumeration_mapper()) {
+        if (!result.empty()) { result += ","; }
+        result += pair.second;
+      }
+      return result;
+    };
+    throw boost::program_options::invalid_option_value(
+        "enum not in set: " + format_enum_types());
+  }
+
+  bool apply_default(boost::any&) const override {
+    return false;
+  }
+
+  void notify(const boost::any& value_store) const override {
+    if (value_store.empty()) { return; }
+    nvp_.set_value(static_cast<uint32_t>(
+                       boost::any_cast<typename NameValuePair::Base>(value_store)));
+  }
+
+ private:
+  NameValuePair nvp_;
+};
+
 }
 
 }

@@ -37,6 +37,13 @@ class ProgramOptionsArchive : public VisitArchive<ProgramOptionsArchive> {
   }
 
   template <typename NameValuePair>
+  void VisitEnumeration(const NameValuePair& pair) {
+    (*description_).add_options()(
+        (prefix_ + pair.name()).c_str(),
+        new detail::ProgramOptionsEnumArchiveValue<NameValuePair>(pair));
+  }
+
+  template <typename NameValuePair>
   void VisitScalar(const NameValuePair& pair) {
     VisitOptions(pair);
   }
