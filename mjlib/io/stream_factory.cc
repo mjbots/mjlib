@@ -18,6 +18,7 @@
 #include "mjlib/io/stream_factory_stdio.h"
 #include "mjlib/io/stream_factory_tcp_client.h"
 #include "mjlib/io/stream_factory_tcp_server.h"
+#include "mjlib/io/stream_pipe_factory.h"
 
 namespace mjlib {
 namespace io {
@@ -37,6 +38,7 @@ class StreamFactory::Impl {
   Impl(boost::asio::io_service& service) : service_(service) {}
 
   boost::asio::io_service& service_;
+  StreamPipeFactory pipe_factory_{service_};
 };
 
 StreamFactory::StreamFactory(boost::asio::io_service& service)
@@ -63,7 +65,10 @@ void StreamFactory::AsyncCreate(const Options& options, StreamHandler handler) {
       return;
     }
     case Type::kPipe: {
-      BOOST_ASSERT(false);
+      auto stream = impl_->pipe_factory_.GetStream(
+          options.pipe_key, options.pipe_direction);
+      impl_->service_.post(
+          std::bind(handler, base::error_code(), stream));
       return;
     }
   }

@@ -47,6 +47,8 @@ cc_library(
         "stream_factory_tcp_client.cc",
         "stream_factory_tcp_server.h",
         "stream_factory_tcp_server.cc",
+        "stream_pipe_factory.h",
+        "stream_pipe_factory.cc",
     ],
     deps = [
         ":async_stream",
