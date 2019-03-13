@@ -24,6 +24,27 @@ cc_library(
 )
 
 cc_library(
+    name = "stringify",
+    hdrs = ["stringify.h"],
+)
+
+cc_library(
+    name = "error_code",
+    hdrs = ["error_code.h"],
+    srcs = ["error_code.cc"],
+    deps = [
+        ":stringify",
+        "@boost//:system",
+    ],
+)
+
+cc_library(
+    name = "system_error",
+    hdrs = ["system_error.h"],
+    deps = [":error_code"],
+)
+
+cc_library(
     name = "stream",
     hdrs = ["stream.h"],
     deps = [":string_span"],
@@ -101,6 +122,7 @@ cc_library(
 cc_test(
     name = "test",
     srcs = [
+        "test/error_code_test.cc",
         "test/pid_test.cc",
         "test/string_span_test.cc",
         "test/tokenizer_test.cc",
@@ -108,8 +130,10 @@ cc_test(
         "test/windowed_average_test.cc",
     ],
     deps = [
+        ":error_code",
         ":pid",
         ":string_span",
+        ":system_error",
         ":tokenizer",
         ":windowed_average",
         "@boost//:test",
