@@ -75,6 +75,12 @@ cc_library(
     ],
 )
 
+cc_library(
+    name = "exclusive_command",
+    hdrs = ["exclusive_command.h"],
+    deps = ["@boost",],
+)
+
 cc_binary(
     name = "stream_factory_manual_test",
     srcs = ["test/stream_factory_manual_test.cc",],
@@ -89,12 +95,14 @@ cc_test(
     name = "test",
     srcs = [
         "test/async_stream_test.cc",
+        "test/exclusive_command_test.cc",
         "test/test_main.cc",
         "test/virtual_deadline_timer_test.cc",
     ],
     deps = [
         ":async_stream",
         ":debug_time",
+        ":exclusive_command",
         ":stream_factory",
         "@boost//:test",
     ],
