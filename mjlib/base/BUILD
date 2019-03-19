@@ -66,7 +66,10 @@ cc_library(
 cc_library(
     name = "buffer_stream",
     hdrs = ["buffer_stream.h"],
-    deps = [":stream"],
+    deps = [
+        ":assert",
+        ":stream",
+    ],
 )
 
 cc_library(
@@ -142,6 +145,7 @@ cc_library(
 cc_test(
     name = "test",
     srcs = [
+        "test/buffer_stream_test.cc",
         "test/error_code_test.cc",
         "test/pid_test.cc",
         "test/program_options_archive_test.cc",
@@ -151,6 +155,7 @@ cc_test(
         "test/windowed_average_test.cc",
     ],
     deps = [
+        ":buffer_stream",
         ":error_code",
         ":fail",
         ":pid",

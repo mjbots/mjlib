@@ -1,4 +1,4 @@
-// Copyright 2018 Josh Pieper, jjp@pobox.com.
+// Copyright 2018-2019 Josh Pieper, jjp@pobox.com.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -54,16 +54,16 @@ class BufferReadStream : public ReadStream {
   BufferReadStream(const std::string_view& buffer) : buffer_(buffer) {}
 
   void ignore(std::streamsize amount) override {
-    MJ_ASSERT((offset_ + amount) <=
-              static_cast<std::streamsize>(buffer_.size()));
-    last_read_ = amount;
+    std::streamsize to_ignore =
+        std::min<std::streamsize>(amount, buffer_.size() - offset_);
+    last_read_ = to_ignore;
     offset_ += last_read_;
   }
 
   void read(const string_span& buffer) override {
-    MJ_ASSERT((offset_ + buffer.size()) <=
-              static_cast<std::streamsize>(buffer_.size()));
-    last_read_ = buffer.size();
+    std::streamsize to_read =
+        std::min<std::streamsize>(buffer.size(), buffer_.size() - offset_);
+    last_read_ = to_read;
     std::memcpy(buffer.data(), &buffer_[offset_], last_read_);
     offset_ += last_read_;
   }
