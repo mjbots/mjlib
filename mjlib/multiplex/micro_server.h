@@ -79,6 +79,8 @@ class MicroServer : public Format {
     uint32_t unknown_subframe = 0;
     uint32_t missing_subframe = 0;
     uint32_t malformed_subframe = 0;
+    uint32_t write_error = 0;
+    uint32_t last_write_error = 0;
 
     template <typename Archive>
     void Serialize(Archive* a) {
@@ -88,6 +90,8 @@ class MicroServer : public Format {
       a->Visit(MJ_NVP(unknown_subframe));
       a->Visit(MJ_NVP(missing_subframe));
       a->Visit(MJ_NVP(malformed_subframe));
+      a->Visit(MJ_NVP(write_error));
+      a->Visit(MJ_NVP(last_write_error));
     }
   };
 

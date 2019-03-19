@@ -380,12 +380,18 @@ class MicroServer::Impl {
   }
 
   void HandleWrite(micro::error_code ec) {
-    MJ_ASSERT(!ec);
+    if (ec) {
+      stats_.write_error++;
+      stats_.last_write_error = ec.value();
+    }
     write_outstanding_ = false;
   }
 
   void HandleWriteRaw(const micro::error_code& ec, size_t size) {
-    MJ_ASSERT(!ec);
+    if (ec) {
+      stats_.write_error++;
+      stats_.last_write_error = ec.value();
+    }
     write_outstanding_ = false;
     auto callback = raw_write_callback_;
     raw_write_callback_ = {};
