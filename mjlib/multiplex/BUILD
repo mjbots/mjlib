@@ -46,6 +46,18 @@ cc_library(
 )
 
 cc_library(
+    name = "asio_client",
+    hdrs = ["asio_client.h"],
+    srcs = ["asio_client.cc"],
+    deps = [
+        ":register",
+        "//mjlib/base:error_code",
+        "//mjlib/io:async_stream",
+        "//mjlib/io:exclusive_command",
+    ],
+)
+
+cc_library(
     name = "micro_server",
     hdrs = ["micro_server.h"],
     srcs = ["micro_server.cc"],
@@ -70,6 +82,7 @@ cc_test(
         "test/test_main.cc",
     ],
     deps = [
+        ":asio_client",
         ":micro_server",
         ":register",
         "//mjlib/micro:stream_pipe",
