@@ -254,27 +254,40 @@ class MultiplexClient:
         self._manager.stream.write(frame)
         await self._manager.stream.drain()
 
-        try:
-            payload = await asyncio.wait_for(
-                self._manager.read_frame(only_from=self._destination_id),
-                timeout=self._timeout)
-        except asyncio.TimeoutError:
-            # We treat a timeout, for now, the same as if the client
-            # came back with no data at all.
-            return
+        result = b''
+        timeout = self._timeout
 
-        payload_stream = stream_helpers.AsyncStream(io.BytesIO(payload))
-        subframe_id = await read_varuint(payload_stream)
-        channel = await read_varuint(payload_stream)
-        server_len = await read_varuint(payload_stream)
+        # We loop multiple times in case a previous poll timed out,
+        # and replies are in-flight.
+        while True:
+            try:
+                payload = await asyncio.wait_for(
+                    self._manager.read_frame(only_from=self._destination_id),
+                    timeout=timeout)
+            except asyncio.TimeoutError:
+                # We treat a timeout, for now, the same as if the client
+                # came back with no data at all.
+                break
 
-        if subframe_id is None or channel is None or server_len is None:
-            return
+            payload_stream = stream_helpers.AsyncStream(io.BytesIO(payload))
+            subframe_id = await read_varuint(payload_stream)
+            channel = await read_varuint(payload_stream)
+            server_len = await read_varuint(payload_stream)
 
-        if subframe_id != _STREAM_SERVER_TO_CLIENT:
-            return
+            if subframe_id is None or channel is None or server_len is None:
+                break
 
-        return payload[payload_stream.tell():]
+            if subframe_id != _STREAM_SERVER_TO_CLIENT:
+                break
+
+            result += payload[payload_stream.tell():]
+
+            # On subsequent tries through this, we barely want to wait
+            # at all, we're just looking to see if something is
+            # already there.
+            timeout = 0.0001
+
+        return result
 
     async def register_query(self, request):
         '''request should be a RegisterRequest object
