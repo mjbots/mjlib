@@ -55,7 +55,14 @@ class ReadStream {
     T result = T{};
     const bool complete = RawRead(reinterpret_cast<char*>(&result), sizeof(result));
     if (!complete) {
-      return std::make_optional<T>();
+#ifndef __clang__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#endif
+      return {};
+#ifndef __clang__
+#pragma GCC diagnostic pop
+#endif
     }
     return result;
   }
