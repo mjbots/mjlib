@@ -73,6 +73,14 @@ cc_library(
 )
 
 cc_library(
+    name = "crc_stream",
+    hdrs = ["crc_stream.h"],
+    deps = [
+        ":stream",
+    ],
+)
+
+cc_library(
     name = "string_span",
     hdrs = ["string_span.h"],
 )
@@ -146,6 +154,7 @@ cc_test(
     name = "test",
     srcs = [
         "test/buffer_stream_test.cc",
+        "test/crc_stream_test.cc",
         "test/error_code_test.cc",
         "test/pid_test.cc",
         "test/program_options_archive_test.cc",
@@ -156,8 +165,10 @@ cc_test(
     ],
     deps = [
         ":buffer_stream",
+        ":crc_stream",
         ":error_code",
         ":fail",
+        ":fast_stream",
         ":pid",
         ":program_options_archive",
         ":string_span",
