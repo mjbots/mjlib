@@ -81,6 +81,25 @@ cc_library(
     deps = ["@boost",],
 )
 
+cc_library(
+    name = "streambuf_read_stream",
+    hdrs = ["streambuf_read_stream.h"],
+    deps = [
+        "//mjlib/base:stream",
+        "@boost",
+    ],
+)
+
+cc_library(
+    name = "test_reader",
+    hdrs = ["test/reader.h"],
+    deps = [
+        ":async_stream",
+        "//mjlib/base:fail",
+        "@boost",
+    ],
+)
+
 cc_binary(
     name = "stream_factory_manual_test",
     srcs = ["test/stream_factory_manual_test.cc",],
@@ -95,12 +114,14 @@ cc_test(
     name = "test",
     srcs = [
         "test/async_stream_test.cc",
+        "test/streambuf_read_stream_test.cc",
         "test/exclusive_command_test.cc",
         "test/test_main.cc",
         "test/virtual_deadline_timer_test.cc",
     ],
     deps = [
         ":async_stream",
+        ":streambuf_read_stream",
         ":debug_time",
         ":exclusive_command",
         ":stream_factory",
