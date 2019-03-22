@@ -33,6 +33,7 @@ class FastOStringStream : public WriteStream {
   }
 
   std::string str() const { return std::string(&data_[0], data_.size()); }
+  std::string_view view() const { return std::string_view(&data_[0], data_.size()); }
 
   class vector {
    public:
