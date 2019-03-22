@@ -46,6 +46,36 @@ cc_library(
 )
 
 cc_library(
+    name = "frame",
+    hdrs = ["frame.h"],
+    srcs = ["frame.cc"],
+    deps = [
+        ":format",
+        ":stream",
+        "//mjlib/base:crc_stream",
+        "//mjlib/base:fast_stream",
+        "@boost",
+    ],
+)
+
+cc_library(
+    name = "frame_stream",
+    hdrs = ["frame_stream.h"],
+    srcs = ["frame_stream.cc"],
+    deps = [
+        ":format",
+        ":frame",
+        ":stream",
+        "//mjlib/base:crc_stream",
+        "//mjlib/base:fail",
+        "//mjlib/io:async_stream",
+        "//mjlib/io:debug_time",
+        "//mjlib/io:streambuf_read_stream",
+        "@boost",
+    ],
+)
+
+cc_library(
     name = "asio_client",
     hdrs = ["asio_client.h"],
     srcs = ["asio_client.cc"],
@@ -77,14 +107,20 @@ cc_library(
 cc_test(
     name = "test",
     srcs = [
+        "test/frame_test.cc",
+        "test/frame_stream_test.cc",
         "test/micro_server_test.cc",
         "test/register_test.cc",
         "test/test_main.cc",
     ],
     deps = [
         ":asio_client",
+        ":frame",
+        ":frame_stream",
         ":micro_server",
         ":register",
+        "//mjlib/io:stream_factory",
+        "//mjlib/io:test_reader",
         "//mjlib/micro:stream_pipe",
         "//mjlib/micro:test_fixtures",
         "@boost//:test",
