@@ -174,7 +174,7 @@ StreamPipeFactory::StreamPipeFactory(boost::asio::io_service& service)
 StreamPipeFactory::~StreamPipeFactory() {}
 
 SharedStream StreamPipeFactory::GetStream(const std::string& key, int direction) {
-  if (impl_->pipes_.count(key)) {
+  if (impl_->pipes_.count(key) == 0) {
     impl_->pipes_.insert(
         std::make_pair(key,
                        std::make_shared<BidirectionalPipe>(impl_->service_)));
