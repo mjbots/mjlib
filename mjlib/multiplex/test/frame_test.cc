@@ -21,7 +21,7 @@ BOOST_AUTO_TEST_CASE(BasicFrameTest) {
   dut.source_id = 1;
   dut.dest_id = 2;
   dut.request_reply = false;
-  dut.payload = "";
+  dut.payload = " ";
   auto result = dut.encode();
-  BOOST_TEST(result == std::string("\x54\xab\x01\x02\x00\x03\x28", 7));
+  BOOST_TEST(result == std::string("\x54\xab\x01\x02\x01\x20\x22\x38", 8));
 }
