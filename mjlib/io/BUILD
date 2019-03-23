@@ -61,8 +61,9 @@ cc_library(
 cc_library(
     name = "debug_time",
     hdrs = [
-        "virtual_deadline_timer.h",
         "deadline_timer.h",
+        "debug_deadline_service.h",
+        "virtual_deadline_timer.h",
     ],
     srcs = [
         "virtual_deadline_timer.cc",
