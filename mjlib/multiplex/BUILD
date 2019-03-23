@@ -80,8 +80,11 @@ cc_library(
     hdrs = ["asio_client.h"],
     srcs = ["asio_client.cc"],
     deps = [
+        ":frame_stream",
         ":register",
+        ":stream",
         "//mjlib/base:error_code",
+        "//mjlib/base:fast_stream",
         "//mjlib/io:async_stream",
         "//mjlib/io:exclusive_command",
     ],
@@ -107,6 +110,7 @@ cc_library(
 cc_test(
     name = "test",
     srcs = [
+        "test/asio_client_test.cc",
         "test/frame_test.cc",
         "test/frame_stream_test.cc",
         "test/micro_server_test.cc",
