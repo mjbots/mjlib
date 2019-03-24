@@ -108,6 +108,22 @@ cc_library(
     ],
 )
 
+cc_binary(
+    name = "multiplex_tool",
+    srcs = [
+        "multiplex_tool.cc",
+    ],
+    deps = [
+        ":asio_client",
+        "//mjlib/base:error_code",
+        "//mjlib/base:fail",
+        "//mjlib/base:program_options_archive",
+        "//mjlib/io:stream_copy",
+        "//mjlib/io:stream_factory",
+        "@boost",
+    ],
+)
+
 cc_test(
     name = "test",
     srcs = [
@@ -129,6 +145,9 @@ cc_test(
         "//mjlib/micro:stream_pipe",
         "//mjlib/micro:test_fixtures",
         "@boost//:test",
+    ],
+    data = [
+        ":multiplex_tool",
     ],
 )
 
