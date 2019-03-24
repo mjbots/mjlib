@@ -121,6 +121,7 @@ cc_binary(
         "//mjlib/io:stream_copy",
         "//mjlib/io:stream_factory",
         "@boost",
+        "@fmt",
     ],
 )
 
