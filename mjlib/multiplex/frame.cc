@@ -33,7 +33,7 @@ std::string Frame::encode() const {
   writer.Write<uint8_t>(source_id | (request_reply ? 0x80 : 0x00));
   writer.Write<uint8_t>(dest_id);
   writer.WriteVaruint(payload.size());
-  stream.write(payload);
+  crc_stream.write(payload);
   const uint16_t checksum = crc_stream.checksum();
   writer.Write(checksum);
 

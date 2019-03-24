@@ -124,7 +124,7 @@ BOOST_FIXTURE_TEST_CASE(AsioClientTunnelWrite, Fixture) {
   BOOST_TEST(size == 5u);
   BOOST_TEST(server_reader.data().size() == 15u);
   BOOST_TEST(server_reader.data() ==
-             std::string("\x54\xab\x00\x02\x08\x40\x03\x05hello\x3b\x9e", 15));
+             std::string("\x54\xab\x00\x02\x08\x40\x03\x05hello\xb7\xe2", 15));
 }
 
 BOOST_FIXTURE_TEST_CASE(AsioClientTunnelRead, Fixture) {
@@ -147,7 +147,7 @@ BOOST_FIXTURE_TEST_CASE(AsioClientTunnelRead, Fixture) {
 
   BOOST_TEST(read_done == 0);
   BOOST_TEST(server_reader.data() ==
-             std::string("\x54\xab\x80\x02\x03\x40\x03\x00\x0a\x14", 10));
+             std::string("\x54\xab\x80\x02\x03\x40\x03\x00\x96\x38", 10));
 
   // Now respond with some data.
   boost::asio::async_write(
