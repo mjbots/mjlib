@@ -23,6 +23,7 @@
 #include "mjlib/base/fast_stream.h"
 #include "mjlib/io/deadline_timer.h"
 #include "mjlib/io/exclusive_command.h"
+#include "mjlib/io/offset_buffer.h"
 
 #include "mjlib/multiplex/frame_stream.h"
 #include "mjlib/multiplex/stream.h"
@@ -82,6 +83,15 @@ class AsioClient::Impl {
   void HandleRead(const base::error_code& ec, RegisterHandler handler) {
     base::FailIf(ec);
 
+    // If this isn't from who we expected, just read again.
+    if (rx_frame_.source_id != tx_frame_.dest_id ||
+        rx_frame_.dest_id != tx_frame_.source_id) {
+      frame_stream_.AsyncRead(
+          &rx_frame_, kDefaultTimeout,
+          std::bind(&Impl::HandleRead, this, pl::_1, handler));
+      return;
+    }
+
     base::FastIStringStream stream(rx_frame_.payload);
     auto reply = ParseRegisterReply(stream);
     service_.post(std::bind(handler, ec, reply));
@@ -114,11 +124,29 @@ class AsioClient::Impl {
                                                   size_t bytes_read) {
         base::FailIf(ec);
 
-        if (bytes_read > 0) {
-          // TODO(jpieper): We need to keep retrying just the read
-          // with a very short timeout once we have any response, so
-          // as to clear out any reads that may be lingering.
+        if (parent_->frame_stream_.read_data_queued() &&
+            bytes_read < boost::asio::buffer_size(buffers)) {
+          // Hmmm, we have more data available and room to put it.
+          // This isn't possible unless either a slave was talking in
+          // an unsolicited manner, or we actually got a response to a
+          // previous request that had timed out, and our response is
+          // still somewhere in the queue.  In any event, we'll want
+          // to keep reading this to flush any data still on the
+          // stream.
 
+          auto handler_wrapper =
+              [handler, bytes_read](const base::error_code& ec, size_t size) {
+            handler(ec, bytes_read + size);
+          };
+
+          this->async_read_some(
+              io::OffsetBufferSequence(buffers, bytes_read),
+              handler_wrapper);
+
+          return;
+        }
+
+        if (bytes_read > 0) {
           // No need to retry, we're done.
           parent_->service_.post(
               std::bind(handler, base::error_code(), bytes_read));

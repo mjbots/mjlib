@@ -87,6 +87,7 @@ cc_library(
         "//mjlib/base:fast_stream",
         "//mjlib/io:async_stream",
         "//mjlib/io:exclusive_command",
+        "//mjlib/io:offset_buffer",
     ],
 )
 

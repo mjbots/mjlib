@@ -38,6 +38,11 @@ class FrameStream {
   void AsyncRead(Frame*, boost::posix_time::time_duration timeout,
                  io::ErrorCallback callback);
 
+  /// @return true if there is data available to be read.  This means
+  /// an AsyncRead *may* be able to complete without touching the
+  /// operating system.
+  bool read_data_queued() const;
+
  private:
   class Impl;
   std::unique_ptr<Impl> impl_;

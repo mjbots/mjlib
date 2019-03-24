@@ -66,6 +66,10 @@ class FrameStream::Impl {
     MaybeStartRead();
   }
 
+  bool read_data_queued() const {
+    return streambuf_.size() > 0;
+  }
+
  private:
   void MaybeStartRead() {
     if (read_outstanding_) { return; }
@@ -149,6 +153,8 @@ class FrameStream::Impl {
         // Maybe we should instead report this as an error?
       }
 
+      streambuf_.consume(stream.offset());
+
       // Woot!  We have a full functioning frame.  Let's report that.
       current_frame_ = nullptr;
       auto copy = *current_callback_;
@@ -214,6 +220,10 @@ void FrameStream::AsyncRead(Frame* frame,
                             boost::posix_time::time_duration timeout,
                             io::ErrorCallback callback) {
   impl_->AsyncRead(frame, timeout, callback);
+}
+
+bool FrameStream::read_data_queued() const {
+  return impl_->read_data_queued();
 }
 
 }
