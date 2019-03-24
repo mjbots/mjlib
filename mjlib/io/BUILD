@@ -107,6 +107,7 @@ cc_library(
         ":async_stream",
         ":async_types",
         "//mjlib/base:error_code",
+        "//mjlib/base:fail",
         "@boost",
     ],
 )

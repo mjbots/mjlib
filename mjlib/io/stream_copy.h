@@ -14,6 +14,9 @@
 
 #pragma once
 
+#include <boost/asio/write.hpp>
+
+#include "mjlib/base/fail.h"
 #include "mjlib/io/async_stream.h"
 #include "mjlib/io/async_types.h"
 
