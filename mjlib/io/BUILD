@@ -92,6 +92,15 @@ cc_library(
 )
 
 cc_library(
+    name = "offset_buffer",
+    hdrs = ["offset_buffer.h"],
+    deps = [
+        ":async_types",
+        "@boost",
+    ],
+)
+
+cc_library(
     name = "test_reader",
     hdrs = ["test/reader.h"],
     deps = [
@@ -115,16 +124,18 @@ cc_test(
     name = "test",
     srcs = [
         "test/async_stream_test.cc",
-        "test/streambuf_read_stream_test.cc",
         "test/exclusive_command_test.cc",
+        "test/offset_buffer_test.cc",
+        "test/streambuf_read_stream_test.cc",
         "test/test_main.cc",
         "test/virtual_deadline_timer_test.cc",
     ],
     deps = [
         ":async_stream",
-        ":streambuf_read_stream",
         ":debug_time",
         ":exclusive_command",
+        ":offset_buffer",
+        ":streambuf_read_stream",
         ":stream_factory",
         "@boost//:test",
     ],
