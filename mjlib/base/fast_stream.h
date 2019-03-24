@@ -88,6 +88,7 @@ class FastIStringStream : public ReadStream {
 
   std::streamsize gcount() const override { return last_read_; }
 
+  size_t offset() const { return offset_; }
   size_t remaining() const { return data_.size() - offset_; }
 
   const std::string data_;

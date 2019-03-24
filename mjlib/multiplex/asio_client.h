@@ -16,6 +16,8 @@
 
 #include <memory>
 
+#include <boost/date_time/posix_time/posix_time_types.hpp>
+
 #include "mjlib/base/error_code.h"
 #include "mjlib/io/async_stream.h"
 #include "mjlib/multiplex/register.h"
@@ -45,7 +47,8 @@ class AsioClient {
 
   struct TunnelOptions {
     // Poll this often for data to be received.
-    double poll_rate_s = 0.01;
+    boost::posix_time::time_duration poll_rate =
+        boost::posix_time::milliseconds(10);
 
     TunnelOptions() {}
   };

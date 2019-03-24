@@ -21,6 +21,7 @@
 
 #include "mjlib/base/fail.h"
 #include "mjlib/base/fast_stream.h"
+#include "mjlib/io/deadline_timer.h"
 #include "mjlib/io/exclusive_command.h"
 
 #include "mjlib/multiplex/frame_stream.h"
@@ -30,6 +31,15 @@ namespace pl = std::placeholders;
 
 namespace mjlib {
 namespace multiplex {
+namespace {
+const boost::posix_time::time_duration kDefaultTimeout =
+    boost::posix_time::milliseconds(10);
+
+template <typename T>
+uint32_t u32(T value) {
+  return static_cast<uint32_t>(value);
+}
+}
 
 class AsioClient::Impl {
  public:
@@ -58,14 +68,11 @@ class AsioClient::Impl {
                    RegisterHandler handler,
                    bool request_reply) {
     if (!request_reply) {
-      stream_->get_io_service().post(std::bind(handler, ec, RegisterReply()));
+      service_.post(std::bind(handler, ec, RegisterReply()));
       return;
     }
 
     FailIf(ec);
-
-    const boost::posix_time::time_duration kDefaultTimeout =
-        boost::posix_time::milliseconds(10);
 
     frame_stream_.AsyncRead(
         &rx_frame_, kDefaultTimeout,
@@ -77,20 +84,204 @@ class AsioClient::Impl {
 
     base::FastIStringStream stream(rx_frame_.payload);
     auto reply = ParseRegisterReply(stream);
-    stream_->get_io_service().post(
-        std::bind(handler, ec, reply));
+    service_.post(std::bind(handler, ec, reply));
   }
 
-  io::SharedStream MakeTunnel(uint8_t, uint32_t, const TunnelOptions&) {
-    return {};
+  io::SharedStream MakeTunnel(uint8_t id, uint32_t channel,
+                              const TunnelOptions& options) {
+    return std::make_shared<Tunnel>(this, id, channel, options);
   }
 
  private:
+  class Tunnel : public io::AsyncStream {
+   public:
+    Tunnel(Impl* parent, uint8_t id, uint32_t channel,
+           const TunnelOptions& options)
+        : parent_(parent),
+          id_(id),
+          channel_(channel),
+          options_(options) {}
+
+    ~Tunnel() override {}
+
+    void async_read_some(io::MutableBufferSequence buffers,
+                         io::ReadHandler handler) override {
+      // We create a local lambda to be the immediate callback, that
+      // way the lock can be released in between polls.  Boy would
+      // this ever be more clear if we could express it with
+      // coroutines.
+      auto maybe_retry = [this, buffers, handler](const base::error_code& ec,
+                                                  size_t bytes_read) {
+        base::FailIf(ec);
+
+        if (bytes_read > 0) {
+          // TODO(jpieper): We need to keep retrying just the read
+          // with a very short timeout once we have any response, so
+          // as to clear out any reads that may be lingering.
+
+          // No need to retry, we're done.
+          parent_->service_.post(
+              std::bind(handler, base::error_code(), bytes_read));
+          return;
+        }
+
+        // Yep, we failed to get anything this time.  Wait our polling
+        // period and try again.
+        poll_timer_.expires_from_now(options_.poll_rate);
+        poll_timer_.async_wait([this, buffers, handler](auto&& ec) {
+            if (ec == boost::asio::error::operation_aborted) { return; }
+            this->async_read_some(buffers, handler);
+          });
+      };
+
+      parent_->lock_.Invoke(
+          [this, buffers](io::SizeCallback handler) {
+            MakeFrame(boost::asio::buffer("", 0), true);
+
+            parent_->frame_stream_.AsyncWrite(
+                &parent_->tx_frame_,
+                std::bind(&Tunnel::HandleRequestRead, this, pl::_1,
+                          buffers, handler));
+          },
+          maybe_retry);
+    }
+
+    void async_write_some(io::ConstBufferSequence buffers,
+                          io::WriteHandler handler) override {
+      parent_->lock_.Invoke([this, buffers](io::WriteHandler handler) {
+          const auto size = boost::asio::buffer_size(buffers);
+          MakeFrame(buffers, false);
+
+          parent_->frame_stream_.AsyncWrite(
+              &parent_->tx_frame_,
+              [handler, size](auto&& ec) {
+                if (ec) {
+                  handler(ec, 0);
+                } else {
+                  handler(ec, size);
+                }
+              });
+        },
+        handler);
+    }
+
+    boost::asio::io_service& get_io_service() override {
+      return parent_->service_;
+    }
+
+    void cancel() override {
+    }
+
+   private:
+    void HandleRequestRead(const base::error_code& ec,
+                           io::MutableBufferSequence buffers,
+                           io::SizeCallback callback) {
+      base::FailIf(ec);
+
+      // Now we need to try and read the response.
+      parent_->frame_stream_.AsyncRead(
+          &parent_->rx_frame_,
+          kDefaultTimeout,
+          std::bind(&Tunnel::HandleRead, this, pl::_1, buffers, callback));
+    }
+
+    void HandleRead(const base::error_code& ec, io::MutableBufferSequence buffers,
+                    io::SizeCallback callback) {
+      if (ec == boost::asio::error::operation_aborted) {
+        // We got a timeout.  Just wait our polling period and try again.
+        callback({}, 0u);
+        return;
+      }
+
+      // Verify the response came from who we expected it to, and was
+      // addressed to us.
+      auto& frame = parent_->rx_frame_;
+      if (frame.source_id != this->id_ ||
+          frame.dest_id != parent_->options_.source_id) {
+        // Just retry.
+        callback({}, 0u);
+        return;
+      }
+
+      // Now, parse the response.
+      base::FastIStringStream stream(frame.payload);
+      ReadStream reader{stream};
+
+      // For basically any error, we're just going to retry.
+      const auto maybe_subframe = reader.ReadVaruint();
+      if (!maybe_subframe) {
+        callback({}, 0u);
+        return;
+      }
+
+      if (*maybe_subframe != u32(Format::Subframe::kServerToClient)) {
+        callback({}, 0u);
+        return;
+      }
+
+      const auto maybe_channel = reader.ReadVaruint();
+      if (!maybe_channel) {
+        callback({}, 0u);
+        return;
+      }
+      if (*maybe_channel != channel_) {
+        callback({}, 0u);
+        return;
+      }
+
+      const auto maybe_size = reader.ReadVaruint();
+      if (!maybe_size) {
+        callback({}, 0u);
+        return;
+      }
+
+      if (*maybe_size > stream.remaining()) {
+        callback({}, 0u);
+        return;
+      }
+
+      // OK, we've got something.
+      boost::asio::buffer_copy(
+          buffers, boost::asio::buffer(&frame.payload[stream.offset()],
+                                       *maybe_size));
+      callback({}, *maybe_size);
+    }
+
+    void MakeFrame(io::ConstBufferSequence buffers, bool request_reply) {
+      base::FastOStringStream stream;
+      WriteStream writer{stream};
+
+      writer.WriteVaruint(u32(Format::Subframe::kClientToServer));
+      writer.WriteVaruint(channel_);
+
+      const auto size = boost::asio::buffer_size(buffers);
+      writer.WriteVaruint(size);
+      temp_data_.resize(size);
+      boost::asio::buffer_copy(boost::asio::buffer(&temp_data_[0], size), buffers);
+      stream.write(std::string_view(&temp_data_[0], size));
+
+      Frame& frame = parent_->tx_frame_;
+      frame.source_id = parent_->options_.source_id;
+      frame.dest_id = id_;
+      frame.request_reply = request_reply;
+      frame.payload = stream.str();
+    }
+
+    Impl* const parent_;
+    const uint8_t id_;
+    const uint32_t channel_;
+    const TunnelOptions options_;
+
+    io::DeadlineTimer poll_timer_{parent_->service_};
+    std::vector<char> temp_data_;
+  };
+
   io::AsyncStream* const stream_;
+  boost::asio::io_service& service_{stream_->get_io_service()};
   const Options options_;
   FrameStream frame_stream_;
 
-  io::ExclusiveCommand lock_{stream_->get_io_service()};
+  io::ExclusiveCommand lock_{service_};
 
   Frame rx_frame_;
   Frame tx_frame_;
