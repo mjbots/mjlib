@@ -16,6 +16,7 @@
 
 #include <functional>
 #include <iostream>
+#include <optional>
 
 #include <boost/asio/read.hpp>
 #include <boost/asio/streambuf.hpp>
@@ -25,6 +26,7 @@
 
 #include "mjlib/base/fail.h"
 #include "mjlib/base/program_options_archive.h"
+#include "mjlib/io/stream_copy.h"
 
 namespace pl = std::placeholders;
 namespace base = mjlib::base;
@@ -65,52 +67,12 @@ class Communicator {
     if (!stdio_) { return; }
     if (!remote_) { return; }
 
-    StartReadStdio();
-    StartReadRemote();
-  }
-
-  void StartReadStdio() {
-    stdio_->async_read_some(
-        boost::asio::buffer(stdio_buf_),
-        std::bind(&Communicator::HandleReadStdio, this,
-                  pl::_1, pl::_2));
-  }
-
-  void HandleReadStdio(const base::error_code& ec, size_t size) {
-    base::FailIf(ec);
-    boost::asio::async_write(*remote_, boost::asio::buffer(stdio_buf_, size),
-                             std::bind(&Communicator::HandleWriteRemote, this,
-                                       pl::_1, pl::_2));
-  }
-
-  void HandleWriteRemote(const base::error_code& ec, size_t) {
-    base::FailIf(ec);
-    StartReadStdio();
-  }
-
-  void StartReadRemote() {
-    remote_->async_read_some(
-        boost::asio::buffer(remote_buf_),
-        std::bind(&Communicator::HandleReadRemote, this,
-                  pl::_1, pl::_2));
-  }
-
-  void HandleReadRemote(const base::error_code& ec, size_t size) {
-    base::FailIf(ec);
-    boost::asio::async_write(*stdio_, boost::asio::buffer(remote_buf_, size),
-                             std::bind(&Communicator::HandleWriteStdio, this,
-                                       pl::_1, pl::_2));
-  }
-
-  void HandleWriteStdio(const base::error_code& ec, size_t) {
-    base::FailIf(ec);
-    StartReadRemote();
+    copy_.emplace(stdio_.get(), remote_.get());
   }
 
   io::SharedStream stdio_;
   io::SharedStream remote_;
-  char stdio_buf_[4096] = {};
-  char remote_buf_[4096] = {};
+  std::optional<io::BidirectionalStreamCopy> copy_;
 };
 }
 

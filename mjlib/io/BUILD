@@ -101,6 +101,17 @@ cc_library(
 )
 
 cc_library(
+    name = "stream_copy",
+    hdrs = ["stream_copy.h"],
+    deps = [
+        ":async_stream",
+        ":async_types",
+        "//mjlib/base:error_code",
+        "@boost",
+    ],
+)
+
+cc_library(
     name = "test_reader",
     hdrs = ["test/reader.h"],
     deps = [
@@ -114,6 +125,7 @@ cc_binary(
     name = "stream_factory_manual_test",
     srcs = ["test/stream_factory_manual_test.cc",],
     deps = [
+        ":stream_copy",
         ":stream_factory",
         "//mjlib/base:fail",
         "//mjlib/base:program_options_archive",
