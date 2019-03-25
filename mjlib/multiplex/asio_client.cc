@@ -81,6 +81,12 @@ class AsioClient::Impl {
   }
 
   void HandleRead(const base::error_code& ec, RegisterHandler handler) {
+    // If we got a timeout, report that upstream.
+    if (ec == boost::asio::error::operation_aborted) {
+      service_.post(std::bind(handler, ec, RegisterReply()));
+      return;
+    }
+
     base::FailIf(ec);
 
     // If this isn't from who we expected, just read again.
