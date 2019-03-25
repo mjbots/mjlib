@@ -172,6 +172,10 @@ class CommandRunner {
 
   void ProcessRegisterCommand() {
     auto command = GetCommand();
+    if (command.empty()) {
+      HandleLine({}, 0);
+      return;
+    }
 
     // Commands are of the form:
     //
@@ -188,6 +192,8 @@ class CommandRunner {
     istr >> id_str;
 
     std::vector<std::string> operators = Split(command.substr(istr.tellg()), ",");
+
+    request_ = {};
 
     for (const auto& op : operators) {
       std::istringstream op_str(op);
@@ -245,9 +251,9 @@ class CommandRunner {
                      int id) {
     base::FailIf(ec);
 
-    std::cout << id << ": ";
-
     if (reply.size() != 0) {
+      std::cout << id << ": ";
+
       std::cout << "{";
       bool first = true;
       for (auto& pair : reply) {

@@ -46,7 +46,6 @@ class RegisterRequest {
 
  private:
   base::FastOStringStream buffer_;
-  WriteStream stream_{buffer_};
   bool request_reply_ = false;
 };
 

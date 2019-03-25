@@ -34,19 +34,23 @@ void RegisterRequest::ExpectResponse(bool value) {
 }
 
 void RegisterRequest::ReadSingle(Register reg, size_t type_index) {
+  WriteStream stream{buffer_};
+
   MJ_ASSERT(type_index <= 3);
-  stream_.WriteVaruint(u32(Format::Subframe::kReadSingleBase) + type_index);
-  stream_.WriteVaruint(reg);
+  stream.WriteVaruint(u32(Format::Subframe::kReadSingleBase) + type_index);
+  stream.WriteVaruint(reg);
 
   request_reply_ = true;
 }
 
 void RegisterRequest::ReadMultiple(Register reg, uint32_t num_registers,
                                    size_t type_index) {
+  WriteStream stream{buffer_};
+
   MJ_ASSERT(type_index <= 3);
-  stream_.WriteVaruint(u32(Format::Subframe::kReadMultipleBase) + type_index);
-  stream_.WriteVaruint(reg);
-  stream_.WriteVaruint(num_registers);
+  stream.WriteVaruint(u32(Format::Subframe::kReadMultipleBase) + type_index);
+  stream.WriteVaruint(reg);
+  stream.WriteVaruint(num_registers);
 
   request_reply_ = true;
 }
@@ -62,20 +66,23 @@ void WriteValue(base::WriteStream* stream, const Format::Value& value) {
 }
 
 void RegisterRequest::WriteSingle(Register reg, Format::Value value) {
-  stream_.WriteVaruint(u32(Format::Subframe::kWriteSingleBase) + value.index());
-  stream_.WriteVaruint(reg);
-  WriteValue(stream_.base(), value);
+  WriteStream stream{buffer_};
+
+  stream.WriteVaruint(u32(Format::Subframe::kWriteSingleBase) + value.index());
+  stream.WriteVaruint(reg);
+  WriteValue(stream.base(), value);
 }
 
 void RegisterRequest::WriteMultiple(Register start_reg,
                                     const std::vector<Format::Value>& values) {
   MJ_ASSERT(!values.empty());
-  stream_.WriteVaruint(u32(Format::Subframe::kWriteMultipleBase) +
-                       values.front().index());
-  stream_.WriteVaruint(start_reg);
-  stream_.WriteVaruint(values.size());
+  WriteStream stream{buffer_};
+  stream.WriteVaruint(u32(Format::Subframe::kWriteMultipleBase) +
+                      values.front().index());
+  stream.WriteVaruint(start_reg);
+  stream.WriteVaruint(values.size());
   for (const auto& value : values) {
-    WriteValue(stream_.base(), value);
+    WriteValue(stream.base(), value);
   }
 }
 
