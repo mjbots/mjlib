@@ -28,6 +28,7 @@
 #include "mjlib/base/fail.h"
 #include "mjlib/base/program_options_archive.h"
 #include "mjlib/io/async_stream.h"
+#include "mjlib/io/deadline_timer.h"
 #include "mjlib/io/stream_copy.h"
 #include "mjlib/io/stream_factory.h"
 #include "mjlib/multiplex/asio_client.h"
@@ -74,10 +75,12 @@ std::vector<std::string> Split(std::string_view str, std::string delimiter) {
 
 class CommandRunner {
  public:
-  CommandRunner(io::StreamFactory* stream_factory,
+  CommandRunner(boost::asio::io_service& service,
+                io::StreamFactory* stream_factory,
                 const io::StreamFactory::Options& stream_options,
                 const Options& options)
-      : stream_factory_(stream_factory),
+      : service_(service),
+        stream_factory_(stream_factory),
         options_(options) {
     stream_factory->AsyncCreate(
         stream_options,
@@ -187,9 +190,22 @@ class CommandRunner {
     //
     //  (rb|rs|ri|rf) REG [NUM]
     //   - read one or more consecutive registers
+    //
+    // OR
+    //
+    // :123
+    //   - a delay in milliseconds
     std::istringstream istr(command);
     std::string id_str;
     istr >> id_str;
+
+    if (id_str.at(0) == ':') {
+      delay_timer_.expires_from_now(
+          boost::posix_time::milliseconds(std::stoi(id_str.substr(1))));
+      delay_timer_.async_wait(
+          std::bind(&CommandRunner::HandleDelayTimer, this, pl::_1));
+      return;
+    }
 
     std::vector<std::string> operators = Split(command.substr(istr.tellg()), ",");
 
@@ -239,6 +255,15 @@ class CommandRunner {
                                      pl::_1, pl::_2, id));
   }
 
+  void HandleDelayTimer(const base::error_code& ec) {
+    if (ec == boost::asio::error::operation_aborted) {
+      return;
+    }
+
+    base::FailIf(ec);
+    HandleLine({}, 0);
+  }
+
   std::string FormatValue(mp::Format::ReadResult result) {
     if (std::holds_alternative<uint32_t>(result)) {
       return fmt::format("err/{}", std::get<uint32_t>(result));
@@ -249,6 +274,12 @@ class CommandRunner {
 
   void HandleRequest(const base::error_code& ec, const mp::RegisterReply& reply,
                      int id) {
+    if (ec == boost::asio::error::operation_aborted) {
+      std::cout << "timeout\n";
+      HandleLine({}, 0u);
+      return;
+    }
+
     base::FailIf(ec);
 
     if (reply.size() != 0) {
@@ -344,6 +375,7 @@ class CommandRunner {
     }
   }
 
+  boost::asio::io_service& service_;
   io::StreamFactory* const stream_factory_;
   const Options options_;
   io::SharedStream stream_;
@@ -355,6 +387,8 @@ class CommandRunner {
 
   boost::asio::streambuf streambuf_;
   mp::RegisterRequest request_;
+
+  io::DeadlineTimer delay_timer_{service_};
 };
 }
 
@@ -384,7 +418,7 @@ int main(int argc, char** argv) {
     return 0;
   }
 
-  CommandRunner command_runner{&factory, stream_options, options};
+  CommandRunner command_runner{service, &factory, stream_options, options};
 
   service.run();
 
