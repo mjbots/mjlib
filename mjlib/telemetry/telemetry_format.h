@@ -20,6 +20,7 @@
 
 #include "mjlib/base/assert.h"
 #include "mjlib/base/stream.h"
+#include "mjlib/base/time_conversions.h"
 
 /// @file
 ///
@@ -286,6 +287,10 @@ class TelemetryWriteStream {
     } while (value);
   }
 
+  void Write(boost::posix_time::ptime timestamp) {
+    WriteScalar(base::ConvertPtimeToEpochMicroseconds(timestamp));
+  }
+
   void RawWrite(const char* data, uint32_t size) {
     ostr_.write({data, size});
   }
@@ -338,6 +343,10 @@ class TelemetryReadStream {
     std::string result(size, static_cast<char>(0));
     RawRead(&result[0], size);
     return result;
+  }
+
+  boost::posix_time::ptime ReadTime() {
+    return base::ConvertEpochMicrosecondsToPtime(Read<int64_t>());
   }
 
   uint64_t ReadVarint() {

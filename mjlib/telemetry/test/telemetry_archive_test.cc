@@ -66,6 +66,8 @@ struct Test1 {
   std::vector<std::vector<int32_t> > value_vecvec = { { 1, 2 }, { 3} };
   std::vector<SubTest1> value_vecobj = { SubTest1(), SubTest1() };
   TestEnumeration value_enum = kNextValue;
+  boost::posix_time::ptime value_ptime =
+      mjlib::base::ConvertEpochSecondsToPtime(1000.0);
 
   template <typename Archive>
   void Serialize(Archive* a ) {
@@ -85,6 +87,7 @@ struct Test1 {
     a->Visit(MJ_NVP(value_vecvec));
     a->Visit(MJ_NVP(value_vecobj));
     a->Visit(MJ_ENUM(value_enum, TestEnumMapper));
+    a->Visit(MJ_NVP(value_ptime));
   }
 };
 }
@@ -133,6 +136,7 @@ BOOST_AUTO_TEST_CASE(TelemetryArchiveSchemaTest) {
         value_u32: kUInt32;
       };
   value_enum: kEnum;
+  value_ptime: kPtime;
 }
 )XX";
   BOOST_CHECK_EQUAL(repr.str(), expected);
@@ -188,6 +192,7 @@ BOOST_AUTO_TEST_CASE(TelemetryArchiveDataTest) {
       {3},
       {3}];
   value_enum: kEnum = kNextValue (5);
+  value_ptime: kPtime = 1970-Jan-01 00:16:40;
 }
 )XX";
   BOOST_CHECK_EQUAL(repr.str(), expected);

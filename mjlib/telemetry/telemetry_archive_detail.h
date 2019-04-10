@@ -93,6 +93,13 @@ class DataVisitorBase : public base::VisitArchive<Derived> {
     static_cast<Derived*>(this)->VisitString(pair);
   }
 
+  template <typename NameValuePair>
+  void VisitHelper(const NameValuePair& pair,
+                   boost::posix_time::ptime*,
+                   int) {
+    static_cast<Derived*>(this)->VisitPtime(pair);
+  }
+
   template <typename NameValuePair, typename T>
   void VisitHelper(const NameValuePair& pair,
                    T*,

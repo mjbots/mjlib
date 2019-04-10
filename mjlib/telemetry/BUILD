@@ -19,7 +19,10 @@ package(default_visibility = ["//visibility:public"])
 cc_library(
     name = "telemetry_format",
     hdrs = ["telemetry_format.h"],
-    deps = ["//mjlib/base:assert"],
+    deps = [
+        "//mjlib/base:assert",
+        "//mjlib/base:time_conversions",
+    ],
 )
 
 cc_library(
@@ -43,6 +46,7 @@ cc_library(
     deps = [
         "//mjlib/base:assert",
         "//mjlib/base:recording_stream",
+        "//mjlib/base:stringify",
         "@fmt",
     ],
 )

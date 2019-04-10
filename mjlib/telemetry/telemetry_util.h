@@ -14,11 +14,14 @@
 
 #pragma once
 
+#include <boost/date_time/posix_time/posix_time.hpp>
+
 #include <fmt/format.h>
 
 #include "mjlib/base/assert.h"
 #include "mjlib/base/fast_stream.h"
 #include "mjlib/base/recording_stream.h"
+#include "mjlib/base/stringify.h"
 
 #include "mjlib/telemetry/telemetry_format.h"
 
@@ -120,7 +123,7 @@ class TelemetrySchemaReader {
         break;
       }
       case FT::kPtime: {
-        MJ_ASSERT(false);
+        Write(base::Stringify(data_->ReadTime()));
         break;
       }
       case FT::kFinal:

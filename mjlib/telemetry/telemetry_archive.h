@@ -17,6 +17,8 @@
 #include <optional>
 #include <type_traits>
 
+#include <boost/date_time/posix_time/posix_time_types.hpp>
+
 #include "mjlib/base/fast_stream.h"
 #include "mjlib/base/stream.h"
 #include "mjlib/base/visit_archive.h"
@@ -216,6 +218,12 @@ class TelemetryWriteArchive {
     }
 
     template <typename NameValuePair>
+    void VisitPtime(const NameValuePair& pair) {
+      this->stream_.Write(
+          base::ConvertPtimeToEpochMicroseconds(pair.get_value()));
+    }
+
+    template <typename NameValuePair>
     void VisitPrimitive(const NameValuePair& pair) {
       this->stream_.Write(pair.get_value());
     }
@@ -233,6 +241,9 @@ class TelemetryWriteArchive {
   static TF::FieldType FindType(float*) { return TF::FieldType::kFloat32; }
   static TF::FieldType FindType(double*) { return TF::FieldType::kFloat64; }
   static TF::FieldType FindType(std::string*) { return TF::FieldType::kString; }
+  static TF::FieldType FindType(boost::posix_time::ptime*) {
+    return TF::FieldType::kPtime;
+  }
 };
 
 /// This archive can read a serialized structure assuming that the
@@ -284,6 +295,13 @@ class TelemetrySimpleReadArchive {
     template <typename NameValuePair>
     void VisitString(const NameValuePair& pair) {
       pair.set_value(this->stream_.ReadString());
+    }
+
+    template <typename NameValuePair>
+    void VisitPtime(const NameValuePair& pair) {
+      pair.set_value(
+          base::ConvertEpochMicrosecondsToPtime(
+              this->stream_.template Read<int64_t>()));
     }
 
     template <typename NameValuePair>
