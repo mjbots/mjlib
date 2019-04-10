@@ -150,6 +150,19 @@ cc_library(
     ],
 )
 
+cc_library(
+    name = "time_conversions",
+    hdrs = [
+        "time_conversions.h",
+    ],
+    srcs = [
+        "time_conversions.cc",
+    ],
+    deps = [
+        "@boost",
+    ],
+)
+
 cc_test(
     name = "test",
     srcs = [
@@ -159,6 +172,7 @@ cc_test(
         "test/pid_test.cc",
         "test/program_options_archive_test.cc",
         "test/string_span_test.cc",
+        "test/time_conversions_test.cc",
         "test/tokenizer_test.cc",
         "test/test_main.cc",
         "test/windowed_average_test.cc",
@@ -173,6 +187,7 @@ cc_test(
         ":program_options_archive",
         ":string_span",
         ":system_error",
+        ":time_conversions",
         ":tokenizer",
         ":windowed_average",
         "@boost//:test",
