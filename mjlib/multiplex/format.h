@@ -35,7 +35,8 @@
 ///    - an IEEE 754 32-bit floating number in least significant byte
 ///      first order
 ///  * ID
-///    - each node is identified by a 7 bit identifier
+///    - each node is identified by a 7 bit identifier, 0x7f is the
+///      "broadcast" address
 ///
 ///
 /// # Frame format #
@@ -69,7 +70,7 @@
 ///   (int8_t, int16_t, int32_t, float)
 ///
 /// ## Subframes ##
-///   0x10, 0x11, 0x12, 0x3 - write single (int8_t|int16_t|int32_t|float)
+///   0x10, 0x11, 0x12, 0x13 - write single (int8_t|int16_t|int32_t|float)
 ///     - varuint => register #
 ///     - (int8_t|int16_t|int32_t|float) => value
 ///   0x14, 0x15, 0x16, 0x17 - write multiple (int8_t|int16_t|int32_t|float)
@@ -137,6 +138,7 @@ struct Format {
   static constexpr int kMaxVaruintSize = 5;
   static constexpr int kMinVaruintSize = 1;
   static constexpr int kCrcSize = 2;
+  static constexpr uint8_t kBroadcastId = 0x7f;
 
   enum class Subframe : uint8_t {
     // # Register RPC #

@@ -292,7 +292,8 @@ class MicroServer::Impl {
       return true;
     }
 
-    if (*maybe_dest_id != config_.id) {
+    if (*maybe_dest_id != kBroadcastId &&
+        *maybe_dest_id != config_.id) {
       stats_.wrong_id++;
       const auto total_size = data.position() - read_buffer_;
 

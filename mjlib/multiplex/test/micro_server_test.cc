@@ -365,6 +365,36 @@ BOOST_FIXTURE_TEST_CASE(WriteSingleTest, Fixture) {
 }
 
 namespace {
+const uint8_t kWriteSingleBroadcast[] = {
+  0x54, 0xab,  // header
+  0x82,  // source id
+  0x7f,  // destination id
+  0x03,  // payload size
+    0x10,  // write single int8_t
+      0x02,  // register 2
+      0x20,  // value
+  0xb7, 0xc6,  // CRC
+  0x00,  // null terminator
+};
+}
+
+BOOST_FIXTURE_TEST_CASE(WriteSingleBroadcast, Fixture) {
+  int write_count = 0;
+  AsyncWrite(*dut_stream.side_a(), str(kWriteSingleBroadcast),
+             [&](micro::error_code ec) {
+               BOOST_TEST(!ec);
+               write_count++;
+             });
+
+  event_queue.Poll();
+  BOOST_TEST(write_count == 1);
+
+  BOOST_TEST(server.writes_.size() == 1);
+  BOOST_TEST(server.writes_.at(0).reg == 2);
+  BOOST_TEST(std::get<int8_t>(server.writes_.at(0).value) == 0x20);
+}
+
+namespace {
 const uint8_t kWriteMultiple[] = {
   0x54, 0xab,  // header
   0x82,  // source id
