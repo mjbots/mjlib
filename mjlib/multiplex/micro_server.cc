@@ -292,8 +292,8 @@ class MicroServer::Impl {
       return true;
     }
 
-    if (*maybe_dest_id != kBroadcastId &&
-        *maybe_dest_id != config_.id) {
+    if ((*maybe_dest_id == kBroadcastId) ||
+        (*maybe_dest_id != config_.id)) {
       stats_.wrong_id++;
       const auto total_size = data.position() - read_buffer_;
 
@@ -307,9 +307,10 @@ class MicroServer::Impl {
         callback(micro::error_code(), total_size);
       }
 
-      Consume(total_size);
-
-      return true;
+      if (*maybe_dest_id != kBroadcastId) {
+        Consume(total_size);
+        return true;
+      }
     }
 
     base::BufferWriteStream buffer_write_stream{
@@ -554,9 +555,11 @@ class MicroServer::Impl {
     const auto maybe_value = ReadValue(type, str);
     if (!maybe_value) { return true; }
 
-    const auto error = server_->Write(*maybe_register, *maybe_value);
-    if (error) {
-      EmitWriteError(response, *maybe_register, error);
+    if (server_) {
+      const auto error = server_->Write(*maybe_register, *maybe_value);
+      if (error) {
+        EmitWriteError(response, *maybe_register, error);
+      }
     }
 
     return false;
@@ -576,9 +579,11 @@ class MicroServer::Impl {
       const auto maybe_value = ReadValue(type, str);
       if (!maybe_value) { return true; }
 
-      const auto error = server_->Write(current_register, *maybe_value);
-      if (error) {
-        EmitWriteError(response, current_register, error);
+      if (server_) {
+        const auto error = server_->Write(current_register, *maybe_value);
+        if (error) {
+          EmitWriteError(response, current_register, error);
+        }
       }
       current_register++;
     }
@@ -622,7 +627,8 @@ class MicroServer::Impl {
     const auto maybe_register = str.ReadVaruint();
     if (!maybe_register) { return true; }
 
-    const auto read_result = server_->Read(*maybe_register, type);
+    const auto read_result =
+        server_ ? server_->Read(*maybe_register, type) : uint32_t(1);
     EmitRead(response, *maybe_register, read_result);
     return false;
   }
@@ -640,7 +646,8 @@ class MicroServer::Impl {
     auto current_register = *start_register;
 
     for (size_t i = 0; i < *num_registers; i++) {
-      const auto read_result = server_->Read(current_register, type);
+      const auto read_result =
+          server_ ? server_->Read(current_register, type) : uint32_t(1);
 
       // For now, we will emit reads as individual responses rather
       // than coalescing them into a kReplyMultiple.
