@@ -134,7 +134,15 @@ class CommandRunner {
     BOOST_ASSERT(!options_.targets.empty());
 
     tunnel_ = client_->MakeTunnel(options_.targets.at(0), 1);
-    copy_.emplace(tunnel_.get(), stdio_.get());
+    copy_.emplace(service_, tunnel_.get(), stdio_.get(),
+                  std::bind(&CommandRunner::HandleDone, this, pl::_1));
+  }
+
+  void HandleDone(const mjlib::base::error_code& ec) {
+    if (ec == boost::asio::error::eof) {
+      std::exit(1);
+    }
+    mjlib::base::FailIf(ec);
   }
 
   void RunRegister() {

@@ -25,9 +25,13 @@ namespace io {
 
 class StreamCopy {
  public:
-  StreamCopy(AsyncReadStream* read_stream, AsyncWriteStream* write_stream)
-      : read_stream_(read_stream),
-        write_stream_(write_stream) {
+  StreamCopy(boost::asio::io_service& service,
+             AsyncReadStream* read_stream, AsyncWriteStream* write_stream,
+             ErrorCallback done_callback)
+      : service_(service),
+        read_stream_(read_stream),
+        write_stream_(write_stream),
+        done_callback_(done_callback) {
     StartRead();
   }
 
@@ -40,7 +44,13 @@ class StreamCopy {
   }
 
   void HandleRead(const base::error_code& ec, size_t size) {
-    base::FailIf(ec);
+    if (ec) {
+      if (done_callback_) {
+        service_.post(std::bind(done_callback_, ec));
+        done_callback_ = {};
+      }
+      return;
+    }
     boost::asio::async_write(
         *write_stream_,
         boost::asio::buffer(buffer_, size),
@@ -49,24 +59,49 @@ class StreamCopy {
   }
 
   void HandleWrite(const base::error_code& ec, size_t) {
-    base::FailIf(ec);
+    if (ec) {
+      if (done_callback_) {
+        service_.post(std::bind(done_callback_, ec));
+        done_callback_ = {};
+      }
+      return;
+    }
     StartRead();
   }
 
+  boost::asio::io_service& service_;
   AsyncReadStream* const read_stream_;
   AsyncWriteStream* const write_stream_;
   char buffer_[4096] = {};
+  ErrorCallback done_callback_;
 };
 
 class BidirectionalStreamCopy {
  public:
-  BidirectionalStreamCopy(AsyncStream* left, AsyncStream* right)
-      : copy1_(left, right),
-        copy2_(right, left) {}
+  BidirectionalStreamCopy(boost::asio::io_service& service,
+                          AsyncStream* left, AsyncStream* right,
+                          ErrorCallback done_callback)
+      : service_(service),
+        copy1_(service, left, right, std::bind(
+                   &BidirectionalStreamCopy::HandleDone, this,
+                   std::placeholders::_1)),
+        copy2_(service, right, left, std::bind(
+                   &BidirectionalStreamCopy::HandleDone, this,
+                   std::placeholders::_1)),
+        done_callback_(done_callback) {}
 
  private:
+  void HandleDone(const base::error_code& ec) {
+    if (!done_callback_) { return; }
+
+    service_.post(std::bind(done_callback_, ec));
+    done_callback_ = {};
+  }
+
+  boost::asio::io_service& service_;
   StreamCopy copy1_;
   StreamCopy copy2_;
+  ErrorCallback done_callback_;
 };
 
 }

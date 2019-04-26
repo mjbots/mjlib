@@ -36,8 +36,10 @@ namespace po = boost::program_options;
 namespace {
 class Communicator {
  public:
-  Communicator(io::StreamFactory* stream_factory,
-               const io::StreamFactory::Options& options) {
+  Communicator(boost::asio::io_service& service,
+               io::StreamFactory* stream_factory,
+               const io::StreamFactory::Options& options)
+      : service_(service) {
     io::StreamFactory::Options stdio_options;
     stdio_options.type = io::StreamFactory::Type::kStdio;
 
@@ -67,9 +69,19 @@ class Communicator {
     if (!stdio_) { return; }
     if (!remote_) { return; }
 
-    copy_.emplace(stdio_.get(), remote_.get());
+    copy_.emplace(service_, stdio_.get(), remote_.get(),
+                  std::bind(&Communicator::HandleDone, this, pl::_1));
   }
 
+  void HandleDone(const base::error_code& ec) {
+    if (ec == boost::asio::error::eof) {
+      // This is a normal exit path.
+      std::exit(0);
+    }
+    base::FailIf(ec);
+  }
+
+  boost::asio::io_service& service_;
   io::SharedStream stdio_;
   io::SharedStream remote_;
   std::optional<io::BidirectionalStreamCopy> copy_;
@@ -95,7 +107,7 @@ int main(int argc, char** argv) {
     return 1;
   }
 
-  Communicator communicator{&factory, options};
+  Communicator communicator{service, &factory, options};
 
   service.run();
   return 0;
