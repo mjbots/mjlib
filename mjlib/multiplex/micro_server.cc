@@ -444,6 +444,17 @@ class MicroServer::Impl {
         continue;
       }
 
+      if (subframe_type == u8(Subframe::kClientPollServer)) {
+        if (ProcessSubframeClientPollServer(
+                buffer_stream, str,
+                response_buffer_stream,
+                response_stream)) {
+          stats_.malformed_subframe++;
+          return;
+        }
+        continue;
+      }
+
       bool register_handler_found = false;
       for (const auto& handler : register_handlers) {
         if ((subframe_type & ~0x03) == handler.base_register) {
@@ -511,6 +522,51 @@ class MicroServer::Impl {
               tunnel.write_buffer_.size(),
               response_buffer_stream->remaining() -
               (kMaxVaruintSize + kCrcSize + kExtraPadding));
+      response_stream->WriteVaruint(to_copy);
+      if (to_copy > 0) {
+        response_stream->base()->write(tunnel.write_buffer_.substr(0, to_copy));
+
+        tunnel.write_buffer_ = {};
+        auto cbk = tunnel.write_callback_;
+        tunnel.write_callback_ = {};
+        cbk({}, to_copy);
+      }
+    }
+
+    return false;
+  }
+
+  bool ProcessSubframeClientPollServer(
+      base::BufferReadStream&,
+      ReadStream& str,
+      base::BufferWriteStream* response_buffer_stream,
+      WriteStream* response_stream) {
+    const auto maybe_channel = str.ReadVaruint();
+    const auto maybe_max_bytes = str.ReadVaruint();
+    if (!maybe_channel || !maybe_max_bytes) {
+      // Malformed.
+      return true;
+    }
+
+    auto maybe_tunnel = FindTunnel(*maybe_channel);
+    if (!maybe_tunnel) {
+      return true;
+    }
+
+    auto& tunnel = *maybe_tunnel;
+
+    if (response_stream) {
+      response_stream->WriteVaruint(static_cast<uint8_t>(Subframe::kServerToClient));
+      response_stream->WriteVaruint(*maybe_channel);
+
+      const ssize_t kExtraPadding = 16;
+      const auto to_copy =
+          std::min<std::streamsize>(
+              *maybe_max_bytes,
+              std::min<std::streamsize>(
+                  tunnel.write_buffer_.size(),
+                  response_buffer_stream->remaining() -
+                  (kMaxVaruintSize + kCrcSize + kExtraPadding)));
       response_stream->WriteVaruint(to_copy);
       if (to_copy > 0) {
         response_stream->base()->write(tunnel.write_buffer_.substr(0, to_copy));

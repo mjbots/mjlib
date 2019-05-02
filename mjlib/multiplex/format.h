@@ -118,10 +118,17 @@
 ///    - varuint => channel
 ///    - varuint => number of bytes sent from server
 ///    - N x uint8_t bytes
+///  0x42 - client poll server
+///    - varuint => channel
+///    - varuint => maximum number of bytes to reply
 ///
 /// In response to receiving a frame with the 0x40 subframe, the slave
 /// should respond with a 0x41 subframe whether or not it currently
 /// has data.
+///
+/// In response to receiving a 0x42 subframe, the slave should respond
+/// with an 0x41 subframe whether or not it has data, with a maximum
+/// size as specified by the client.
 ///
 /// A frame that contains a tunneled stream subframe may contain
 /// exactly 1 subframe total.
@@ -174,6 +181,7 @@ struct Format {
     // # Tunneled Stream #
     kClientToServer = 0x40,
     kServerToClient = 0x41,
+    kClientPollServer = 0x42,
   };
 
   using Register = uint32_t;

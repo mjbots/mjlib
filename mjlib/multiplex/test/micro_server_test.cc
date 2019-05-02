@@ -335,6 +335,73 @@ BOOST_FIXTURE_TEST_CASE(ServerSendTest, Fixture) {
 }
 
 namespace {
+const uint8_t kClientToServerPoll[] = {
+  0x54, 0xab,  // header
+  0x82,  // source id
+  0x01,  // destination id
+  0x03,  // payload size
+    0x42,  // client->server data
+      0x09,  // channel 9
+      0x05,  // data len
+  0x0a, 0x8c,  // CRC
+  0x00,  // null terminator
+};
+}
+
+BOOST_FIXTURE_TEST_CASE(ServerSendPollTest, Fixture) {
+  int write_count = 0;
+  ssize_t write_size = 0;
+  tunnel->AsyncWriteSome(
+      "stuff to test",
+      [&](micro::error_code ec, ssize_t size) {
+        BOOST_TEST(!ec);
+        write_count++;
+        write_size = size;
+      });
+
+  event_queue.Poll();
+  BOOST_TEST(write_count == 0);
+
+  char receive_buffer[256] = {};
+  int read_count = 0;
+  ssize_t read_size = 0;
+  dut_stream.side_a()->AsyncReadSome(
+      receive_buffer, [&](micro::error_code ec, ssize_t size) {
+        BOOST_TEST(!ec);
+        read_count++;
+        read_size = size;
+      });
+
+  event_queue.Poll();
+  BOOST_TEST(write_count == 0);
+  BOOST_TEST(read_count == 0);
+
+  AsyncWrite(*dut_stream.side_a(), str(kClientToServerPoll),
+             [](micro::error_code ec) { BOOST_TEST(!ec); });
+
+  event_queue.Poll();
+
+  BOOST_TEST(write_count == 1);
+  BOOST_TEST(read_count == 1);
+
+  const uint8_t kExpectedResponse[] = {
+    0x54, 0xab,
+    0x01,  // source id
+    0x02,  // dest id
+    0x08,  // payload size
+     0x41,  // server->client
+      0x09,  // channel 9
+      0x05,  // 13 bytes of data
+      's', 't', 'u', 'f', 'f',
+    0xc5, 0xa8,  // CRC
+    0x00,  // null terminator
+  };
+
+  BOOST_TEST(std::string_view(receive_buffer, read_size) ==
+             str(kExpectedResponse));
+}
+
+namespace {
 const uint8_t kWriteSingle[] = {
   0x54, 0xab,  // header
   0x82,  // source id
