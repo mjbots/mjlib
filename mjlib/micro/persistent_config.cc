@@ -209,6 +209,11 @@ class PersistentConfig::Impl {
 
       element.serializable->ReadBinary(flash_stream);
     }
+
+    // Notify everyone that they have changed.
+    for (auto& element: elements_) {
+      element.second.updated();
+    }
   }
 
   uint32_t CalculateSchemaCrc(SerializableHandlerBase* base) const {
