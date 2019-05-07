@@ -108,11 +108,10 @@ cc_library(
     ],
 )
 
-cc_binary(
-    name = "multiplex_tool",
-    srcs = [
-        "multiplex_tool.cc",
-    ],
+cc_library(
+    name = "libmultiplex_tool",
+    hdrs = ["multiplex_tool.h"],
+    srcs = ["multiplex_tool.cc"],
     deps = [
         ":asio_client",
         "//mjlib/base:error_code",
@@ -123,6 +122,12 @@ cc_binary(
         "@boost",
         "@fmt",
     ],
+)
+
+cc_binary(
+    name = "multiplex_tool",
+    srcs = ["multiplex_tool_main.cc"],
+    deps = [":libmultiplex_tool"],
 )
 
 cc_test(

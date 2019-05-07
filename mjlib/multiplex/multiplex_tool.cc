@@ -33,11 +33,12 @@
 #include "mjlib/io/stream_factory.h"
 #include "mjlib/multiplex/asio_client.h"
 
-namespace base = mjlib::base;
-namespace io = mjlib::io;
 namespace mp = mjlib::multiplex;
 namespace po = boost::program_options;
 namespace pl = std::placeholders;
+
+namespace mjlib {
+namespace multiplex {
 
 namespace {
 constexpr char kDelimiters[] = "\r\n;";
@@ -400,7 +401,7 @@ class CommandRunner {
 };
 }
 
-int main(int argc, char** argv) {
+int multiplex_main(int argc, char** argv) {
   boost::asio::io_service service;
   io::StreamFactory factory{service};
 
@@ -431,4 +432,7 @@ int main(int argc, char** argv) {
   service.run();
 
   return 0;
+}
+
+}
 }
