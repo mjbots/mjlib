@@ -1,4 +1,4 @@
-// Copyright 2014-2015 Josh Pieper, jjp@pobox.com.
+// Copyright 2014-2019 Josh Pieper, jjp@pobox.com.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,16 +17,48 @@
 ///@file
 ///
 /// These classes and macros support instances of the Visitor pattern.
-/// Objects which wish to be visited implement a templated "Serialize"
-/// method which takes a single templated "Archive*" argument.  It
-/// then calls the "Visit" method on the archive multiple times, each
-/// passing something modeling the NameValuePair concept.
+///
+/// Objects can configure to be visited by either:
+///
+///  1) implementing a templated "Serialize" method, which takes a single
+///     templated "Archive*" argument.
+///   OR
+///  2) specializing the mjlib::base::ExternalSerializer class
+///     template for the given type
+///
+/// In either case, the Serialize or
+/// mjlib::base::ExternalSerializer::Serialize method must call the
+/// "Visit" method on the archive for each member.  Each call should
+/// pass something modeling the NameValuePair concept.
 
 #include <tuple>
 #include <type_traits>
 
+#include "mjlib/base/detail/serialize.h"
+
 namespace mjlib {
 namespace base {
+
+// template <typename T>
+// struct ExternalSerializer {
+//   template <typename Archive>
+//   void Serialize(T* object, Archive* archive);
+// };
+
+/// This function object may be used to invoke the "correct" Serialize
+/// method for a given type.
+inline constexpr auto Serialize =
+    [](auto&& object, auto&& archive) ->
+    decltype(mjlib::base::detail::Serialize(std::forward<decltype(object)>(object), std::forward<decltype(archive)>(archive))) {
+  return mjlib::base::detail::Serialize(std::forward<decltype(object)>(object), std::forward<decltype(archive)>(archive));
+};
+
+/// This returns 'true' if the object is a structure which can be
+/// serialized.
+template <typename T>
+inline constexpr bool IsSerializable(T* = 0) {
+  return mjlib::base::detail::IsSerializable<T>();
+}
 
 /// template <typename T>
 /// class NameValuePair {

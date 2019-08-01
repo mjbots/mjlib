@@ -1,4 +1,4 @@
-// Copyright 2015-2018 Josh Pieper, jjp@pobox.com.
+// Copyright 2015-2019 Josh Pieper, jjp@pobox.com.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,6 +14,9 @@
 
 #pragma once
 
+#include "mjlib/base/priority_tag.h"
+#include "mjlib/base/visitor.h"
+
 namespace mjlib {
 namespace base {
 
@@ -24,13 +27,13 @@ template <typename Derived>
 struct VisitArchive {
   template <typename Serializable>
   Derived& Accept(Serializable* serializable) {
-    serializable->Serialize(static_cast<Derived*>(this));
+    mjlib::base::Serialize(serializable, static_cast<Derived*>(this));
     return *static_cast<Derived*>(this);
   }
 
   template <typename NameValuePair>
   void Visit(const NameValuePair& pair) {
-    VisitHelper(pair, pair.value(), 0);
+    VisitHelper(pair, pair.value(), PriorityTag<1>());
   }
 
   template <typename NameValuePair>
@@ -45,27 +48,26 @@ struct VisitArchive {
 
  private:
   template <typename NameValuePair, typename T>
-  auto VisitHelper(const NameValuePair& pair, T*, int) ->
-      decltype(pair.value()->Serialize(
-                   static_cast<Derived*>(nullptr))) {
+  void VisitHelper(const NameValuePair& pair, T*, PriorityTag<1>,
+                   std::enable_if_t<IsSerializable<T>(), int> = 0) {
     static_cast<Derived*>(this)->VisitSerializable(pair);
   }
 
   template <typename NameValuePair, typename T>
-  auto VisitHelper(const NameValuePair& pair, T*, int) ->
+  auto VisitHelper(const NameValuePair& pair, T*, PriorityTag<1>) ->
       decltype(pair.enumeration_mapper) {
     static_cast<Derived*>(this)->VisitEnumeration(pair);
     return pair.enumeration_mapper;
   }
 
   template <typename NameValuePair, typename T, size_t N>
-  int VisitHelper(const NameValuePair& pair, std::array<T, N>*, int)  {
+  int VisitHelper(const NameValuePair& pair, std::array<T, N>*, PriorityTag<1>)  {
     static_cast<Derived*>(this)->VisitArray(pair);
     return 0;
   }
 
   template <typename NameValuePair, typename T>
-  void VisitHelper(const NameValuePair& pair, T*, long) {
+  void VisitHelper(const NameValuePair& pair, T*, PriorityTag<0>) {
     static_cast<Derived*>(this)->VisitScalar(pair);
   }
 };

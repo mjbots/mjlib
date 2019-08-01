@@ -86,13 +86,23 @@ cc_library(
 )
 
 cc_library(
+    name = "priority_tag",
+    hdrs = ["priority_tag.h"],
+)
+
+cc_library(
     name = "visitor",
-    hdrs = ["visitor.h"],
+    hdrs = [
+        "visitor.h",
+        "detail/serialize.h",
+    ],
+    deps = [":priority_tag"],
 )
 
 cc_library(
     name = "visit_archive",
     hdrs = ["visit_archive.h"],
+    deps = [":priority_tag", ":visitor"],
 )
 
 cc_library(
@@ -169,6 +179,7 @@ cc_test(
         "test/buffer_stream_test.cc",
         "test/crc_stream_test.cc",
         "test/error_code_test.cc",
+        "test/external_serialize_test.cc",
         "test/pid_test.cc",
         "test/program_options_archive_test.cc",
         "test/string_span_test.cc",
