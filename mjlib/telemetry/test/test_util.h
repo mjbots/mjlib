@@ -1,4 +1,4 @@
-// Copyright 2014 Josh Pieper, jjp@pobox.com.
+// Copyright 2019 Josh Pieper, jjp@pobox.com.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,12 +12,29 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#define BOOST_TEST_MODULE mjlib
-#define BOOST_TEST_NO_MAIN
-#include <boost/test/unit_test.hpp>
+#include <fmt/format.h>
 
-extern "C" {
-int main(int argc, char** argv) {
-  return boost::unit_test::unit_test_main(&init_unit_test, argc, argv);
+namespace mjlib {
+namespace telemetry {
+namespace test {
+
+template <typename T>
+inline std::string Hexify(const T& value) {
+  std::string result;
+  size_t count = 0;
+  for (const auto& item : value) {
+    result += fmt::format("{:02x}", static_cast<uint8_t>(item));
+    count++;
+    if ((count % 4) == 0) { result += " "; }
+  }
+  return result;
+}
+
+template <typename T1, typename T2>
+void Compare(const T1& lhs, const T2& rhs) {
+  BOOST_TEST(Hexify(lhs) == Hexify(rhs));
+}
+
+}
 }
 }

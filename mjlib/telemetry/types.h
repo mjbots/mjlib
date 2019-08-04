@@ -1,4 +1,4 @@
-// Copyright 2014 Josh Pieper, jjp@pobox.com.
+// Copyright 2015-2019 Josh Pieper, jjp@pobox.com.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,12 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#define BOOST_TEST_MODULE mjlib
-#define BOOST_TEST_NO_MAIN
-#include <boost/test/unit_test.hpp>
+#pragma once
 
-extern "C" {
-int main(int argc, char** argv) {
-  return boost::unit_test::unit_test_main(&init_unit_test, argc, argv);
+#include <cstdint>
+#include <vector>
+
+namespace mjlib {
+namespace telemetry {
+
+struct Bytes : std::vector<uint8_t> {
+  using std::vector<uint8_t>::vector;
+};
+
 }
 }
