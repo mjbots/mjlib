@@ -34,7 +34,7 @@ enum class TestEnumeration : int {
   kAnotherValue = 20,
 };
 
-std::map<TestEnumeration, const char*> TestEnumerationMapper() {
+inline std::map<TestEnumeration, const char*> TestEnumerationMapper() {
   using TE = TestEnumeration;
   return {
     { TE::kValue1, "kValue1" },

@@ -243,14 +243,6 @@ class ReadStream {
     return (encoded >> 1) - (encoded & 1) * encoded;
   }
 
- private:
-  template <typename T>
-  T ReadScalar() {
-    T result = T{};
-    RawRead(reinterpret_cast<char*>(&result), sizeof(result));
-    return result;
-  }
-
   void RawRead(char* out, std::streamsize size) {
     base_.read({out, size});
     if (base_.gcount() != size) {
@@ -260,6 +252,14 @@ class ReadStream {
       MJ_ASSERT(false);
 #endif
     }
+  }
+
+ private:
+  template <typename T>
+  T ReadScalar() {
+    T result = T{};
+    RawRead(reinterpret_cast<char*>(&result), sizeof(result));
+    return result;
   }
 
   base::ReadStream& base_;

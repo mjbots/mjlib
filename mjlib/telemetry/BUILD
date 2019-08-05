@@ -38,6 +38,21 @@ cc_library(
     deps = [
         ":format",
         "//mjlib/base:priority_tag",
+        "//mjlib/base:stream",
+        "//mjlib/base:visitor",
+        "//mjlib/base:visit_archive",
+    ],
+)
+
+cc_library(
+    name = "binary_read_archive",
+    hdrs = [
+        "binary_read_archive.h",
+    ],
+    deps = [
+        ":format",
+        "//mjlib/base:priority_tag",
+        "//mjlib/base:stream",
         "//mjlib/base:visitor",
         "//mjlib/base:visit_archive",
     ],
@@ -81,6 +96,7 @@ cc_library(
 cc_test(
     name = "test",
     srcs = [
+        "test/binary_read_archive_test.cc",
         "test/binary_write_archive_test.cc",
         "test/format_test.cc",
         "test/telemetry_archive_test.cc",
@@ -91,6 +107,7 @@ cc_test(
     ],
     deps = [
         ":format",
+        ":binary_read_archive",
         ":binary_write_archive",
         ":telemetry_archive",
         ":telemetry_util",
