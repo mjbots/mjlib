@@ -22,31 +22,41 @@ package(default_visibility = ["//visibility:public"])
 
 ts_library(
     name = "telemetry",
-    srcs = [
-        "lib/telemetry.ts",
-    ],
+    srcs = ["telemetry.ts",],
     module_name = "@mjlib/telemetry",
     deps = [
+        "@npm//@types/node",
+    ],
+)
+
+ts_library(
+    name = "app",
+    srcs = ["app.ts",],
+    deps = [
+        ":telemetry",
+        "@npm//@types/node",
     ],
 )
 
 rollup_bundle(
-    name = "telemetry_bundle",
-    entry_point = ":lib/telemetry.ts",
+    name = "bundle",
+    entry_point = ":app.ts",
     deps = [
-        ":telemetry",
+        ":app",
     ]
-)
-
-ts_devserver(
-    name = "devserver",
-    deps = [":telemetry"],
 )
 
 filegroup(
     name = "js",
     srcs = [
-        "telemetry_bundle",
+        "bundle",
+    ],
+)
+
+ts_devserver(
+    name = "devserver",
+    deps = [
+        ":js",
     ],
 )
 
@@ -56,6 +66,7 @@ ts_library(
     deps = [
         ":telemetry",
         "@npm//@types/jasmine",
+        "@npm//@types/node",
     ],
 )
 

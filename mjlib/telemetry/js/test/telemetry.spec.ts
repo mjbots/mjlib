@@ -14,10 +14,37 @@
  * limitations under the License.
  */
 
-import * as telemetry from "../lib/telemetry"
+import * as telemetry from "../telemetry"
 
-describe('decrementing', () => {
-  it('should do that', () => {
-    expect(telemetry.decrement(1)).toBe(0);
+describe('ReadStream', () => {
+  it('construction', () => {
+    var dut = new telemetry.ReadStream(Buffer.from([]));
+    expect(dut).toBeDefined();
+  });
+
+  it('ignore', () => {
+    var dut = new telemetry.ReadStream(Buffer.from([0x01, 0x02, 0x03]));
+    dut.ignore(1);
+    expect(dut.pos).toBe(1);
+    expect(function() { dut.ignore(3);}).toThrow(Error("eof"));
+  });
+
+  it('varuint', () => {
+    var dut = new telemetry.ReadStream(Buffer.from([0x00, 0x01, 0x80, 0x01]));
+    expect(dut.readVaruint()).toBe(0);
+    expect(dut.readVaruint()).toBe(1);
+    expect(dut.readVaruint()).toBe(128);
+  });
+
+  // it ('varuint_big', () => {
+  //   var dut = new telemetry.ReadStream(Buffer.from([0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x01]));
+  //   expect(dut.readVaruint()).toBe(BigInt("18446744073709551615"));
+  // });
+
+  it('ints', () => {
+    expect((new telemetry.ReadStream(Buffer.from([0x08]))).readu8()).toBe(8);
+    expect((new telemetry.ReadStream(Buffer.from([0x08, 0x01]))).readu16()).toBe(256 + 8);
+    expect((new telemetry.ReadStream(Buffer.from([0x08, 0x00, 0x00, 0x01]))).readu32()).toBe(16777216 + 8);
+    // expect((new telemetry.ReadStream(Buffer.from([0x08, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x02]))).readu64()).toBe(BigInt("0x0200000100000008"));
   });
 });
