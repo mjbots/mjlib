@@ -15,6 +15,7 @@
 # limitations under the License.
 
 load("@npm_bazel_typescript//:index.bzl", "ts_library", "ts_devserver")
+load("@npm_bazel_jasmine//:index.bzl", "jasmine_node_test")
 load("@build_bazel_rules_nodejs//:defs.bzl", "rollup_bundle")
 
 package(default_visibility = ["//visibility:public"])
@@ -47,4 +48,19 @@ filegroup(
     srcs = [
         "telemetry_bundle",
     ],
+)
+
+ts_library(
+    name = "telemetry_spec",
+    srcs = ["test/telemetry.spec.ts"],
+    deps = [
+        ":telemetry",
+        "@npm//@types/jasmine",
+    ],
+)
+
+jasmine_node_test(
+    name = "test",
+    srcs = [":telemetry_spec"],
+    deps = [":telemetry"],
 )

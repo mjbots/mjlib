@@ -14,6 +14,10 @@
  * limitations under the License.
  */
 
-export function decrement(n: number) {
-  return n - 1;
-}
+import * as telemetry from "../lib/telemetry"
+
+describe('decrementing', () => {
+  it('should do that', () => {
+    expect(telemetry.decrement(1)).toBe(0);
+  });
+});
