@@ -114,4 +114,7 @@ cc_test(
         "@boost//:test",
         "@fmt",
     ],
+    data = [
+        "//mjlib/telemetry/js",
+    ],
 )

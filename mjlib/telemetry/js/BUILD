@@ -1,6 +1,6 @@
 # -*- python -*-
 
-# Copyright 2018-2019 Josh Pieper, jjp@pobox.com.
+# Copyright 2019 Josh Pieper, jjp@pobox.com.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,23 +14,37 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+load("@npm_bazel_typescript//:index.bzl", "ts_library", "ts_devserver")
+load("@build_bazel_rules_nodejs//:defs.bzl", "rollup_bundle")
+
 package(default_visibility = ["//visibility:public"])
 
-test_suite(
-    name = "host",
-    tests = [
-        "//mjlib:host",
-        "//moteus:host",
+ts_library(
+    name = "telemetry",
+    srcs = [
+        "lib/telemetry.ts",
     ],
+    module_name = "@mjlib/telemetry",
+    deps = [
+    ],
+)
+
+rollup_bundle(
+    name = "telemetry_bundle",
+    entry_point = ":lib/telemetry.ts",
+    deps = [
+        ":telemetry",
+    ]
+)
+
+ts_devserver(
+    name = "devserver",
+    deps = [":telemetry"],
 )
 
 filegroup(
-    name = "target",
+    name = "js",
     srcs = [
-        "//moteus:moteus",
-        "//moteus:imu_junction",
-        "//moteus:bootloader",
+        "telemetry_bundle",
     ],
 )
-
-exports_files(["tsconfig.json"])

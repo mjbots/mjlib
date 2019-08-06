@@ -1,0 +1,25 @@
+{
+  "name": "@mjlib/telemetry",
+  "version": "0.1.0",
+  "author": "Josh Pieper <jjp@pobox.com>",
+  "description": "mjlib telemetry implementation",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mjbots/mjlib"
+  },
+  "main": "./lib",
+  "browser": {
+    "./lib": "etc/browser/telemetry.js",
+  },
+  "dependencies": {
+  },
+  "devDependencies": {
+    "typescript": "=3.5.3",
+    "@bazel/jasmine": "=3.4.0"
+  },
+  "noAnalyze": "true",
+  "license": "Apache-2.0",
+  "engine": {
+    "node": "=10.16.0"
+  }
+}
