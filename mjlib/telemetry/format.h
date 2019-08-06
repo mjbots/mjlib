@@ -233,6 +233,7 @@ class ReadStream {
       value = Read<uint8_t>();
       result |= static_cast<uint64_t>(value & 0x7f) << position;
       position += 7;
+      // TODO jpieper: Handle malformed values that overflow a uint64.
     } while (value >= 0x80);
 
     return result;
