@@ -125,16 +125,16 @@ export abstract class Type {
    */
   static fromBinary(schemaStream: ReadStream) : Type {
     var typeIndex = schemaStream.readVaruint();
-    var thisType = TYPES[typeIndex];
+    var thisType = TypesFromBinary[typeIndex];
     if (thisType === undefined) {
       throw Error(`Unknown type ${typeIndex}`);
     }
-    return new thisType(schemaStream);
+    return thisType(schemaStream);
   }
 }
 
 export class FinalType implements Type {
-  constructor(schemaStream: ReadStream) {}
+  static fromBinary(schemaStream: ReadStream) : FinalType { return new FinalType(); }
 
   read(dataStream: ReadStream) : any {
     throw Error("invalid");
@@ -142,7 +142,7 @@ export class FinalType implements Type {
 }
 
 export class NullType implements Type {
-  constructor(schemaStream: ReadStream) {}
+  static fromBinary(schemaStream: ReadStream) : NullType { return new NullType(); }
 
   read(dataStream: ReadStream) : any {
     return null;
@@ -150,7 +150,7 @@ export class NullType implements Type {
 }
 
 export class BooleanType implements Type {
-  constructor(schemaStream: ReadStream) {}
+  static fromBinary(schemaStream: ReadStream) : BooleanType { return new BooleanType(); }
 
   read(stream: ReadStream) : any {
     return !!stream.readu8();
@@ -158,10 +158,11 @@ export class BooleanType implements Type {
 }
 
 export class FixedIntType implements Type {
-  fieldSize : number;
+  static fromBinary(schemaStream: ReadStream) : FixedIntType {
+    return new FixedIntType(schemaStream.readu8());
+  }
 
-  constructor(schemaStream: ReadStream) {
-    this.fieldSize = schemaStream.readu8();
+  constructor(public fieldSize : number) {
     if (this.fieldSize != 1 &&
         this.fieldSize != 2 &&
         this.fieldSize != 4 &&
@@ -187,10 +188,11 @@ export class FixedIntType implements Type {
 }
 
 export class FixedUIntType implements Type {
-  fieldSize : number;
+  static fromBinary(schemaStream: ReadStream) : FixedUIntType {
+    return new FixedUIntType(schemaStream.readu8());
+  }
 
-  constructor(schemaStream: ReadStream) {
-    this.fieldSize = schemaStream.readu8();
+  constructor(public fieldSize : number) {
     if (this.fieldSize != 1 &&
         this.fieldSize != 2 &&
         this.fieldSize != 4 &&
@@ -216,7 +218,9 @@ export class FixedUIntType implements Type {
 }
 
 export class VarintType implements Type {
-  constructor(schemaStream: ReadStream) {}
+  static fromBinary(schemaStream: ReadStream) : VarintType {
+    return new VarintType();
+  }
 
   read(stream: ReadStream) : any {
     throw Error("not implemented");
@@ -224,7 +228,9 @@ export class VarintType implements Type {
 }
 
 export class VaruintType implements Type {
-  constructor(schemaStream: ReadStream) {}
+  static fromBinary(schemaStream: ReadStream) : VaruintType {
+    return new VaruintType();
+  }
 
   read(stream: ReadStream) : any {
     return stream.readVaruint();
@@ -232,7 +238,9 @@ export class VaruintType implements Type {
 }
 
 export class Float32Type implements Type {
-  constructor(schemaStream: ReadStream) {}
+  static fromBinary(schemaStream: ReadStream) : Float32Type {
+    return new Float32Type();
+  }
 
   read(stream: ReadStream) : any {
     return stream.readf32();
@@ -240,7 +248,9 @@ export class Float32Type implements Type {
 }
 
 export class Float64Type implements Type {
-  constructor(schemaStream: ReadStream) {}
+  static fromBinary(schemaStream: ReadStream) : Float64Type {
+    return new Float64Type();
+  }
 
   read(stream: ReadStream) : any {
     return stream.readf64();
@@ -248,7 +258,9 @@ export class Float64Type implements Type {
 }
 
 export class BytesType implements Type {
-  constructor(schemaStream: ReadStream) {}
+  static fromBinary(schemaStream: ReadStream) : BytesType {
+    return new BytesType();
+  }
 
   read(stream: ReadStream) : any {
     return stream.readBytes();
@@ -256,7 +268,9 @@ export class BytesType implements Type {
 }
 
 export class StringType implements Type {
-  constructor(schemaStream: ReadStream) {}
+  static fromBinary(schemaStream: ReadStream) : StringType {
+    return new StringType();
+  }
 
   read(stream: ReadStream) : any {
     return stream.readString();
@@ -275,8 +289,10 @@ export class ObjectType implements Type {
   flags : number = 0;
   fields : Field[] = [];
 
-  constructor(schemaStream: ReadStream) {
-    this.flags = schemaStream.readVaruint();
+  static fromBinary(schemaStream: ReadStream) : ObjectType {
+    var result = new ObjectType();
+
+    result.flags = schemaStream.readVaruint();
 
     do {
       var flags = schemaStream.readVaruint();
@@ -292,8 +308,10 @@ export class ObjectType implements Type {
       if (type instanceof FinalType) {
         break;
       }
-      this.fields.push(new Field(flags, name, aliases, type, defaultValue));
+      result.fields.push(new Field(flags, name, aliases, type, defaultValue));
     } while(true);
+
+    return result;
   }
 
   read(stream: ReadStream) : any {
@@ -309,14 +327,16 @@ export class EnumType implements Type {
   type: Type;
   items : string[] = [];
 
-  constructor(schemaStream: ReadStream) {
-    this.type = Type.fromBinary(schemaStream);
+  static fromBinary(schemaStream: ReadStream) : EnumType {
+    var result = new EnumType();
+    result.type = Type.fromBinary(schemaStream);
     var nvalues = schemaStream.readVaruint();
     for (var i = 0; i < nvalues; i++) {
       var key = schemaStream.readVaruint();
       var name = schemaStream.readString();
-      this.items[key] = name;
+      result.items[key] = name;
     }
+    return result;
   }
 
   read(stream: ReadStream) : any {
@@ -328,8 +348,10 @@ export class EnumType implements Type {
 export class ArrayType implements Type {
   type: Type;
 
-  constructor(schemaStream: ReadStream) {
-    this.type = Type.fromBinary(schemaStream);
+  static fromBinary(schemaStream: ReadStream) : ArrayType {
+    var result = new ArrayType();
+    result.type = Type.fromBinary(schemaStream);
+    return result;
   }
 
   read(stream: ReadStream) : any {
@@ -346,8 +368,10 @@ export class ArrayType implements Type {
 export class MapType implements Type {
   type: Type;
 
-  constructor(schemaStream: ReadStream) {
-    this.type = Type.fromBinary(schemaStream);
+  static fromBinary(schemaStream: ReadStream) : MapType {
+    var result = new MapType();
+    result.type = Type.fromBinary(schemaStream);
+    return result;
   }
 
   read(stream: ReadStream) : any {
@@ -365,12 +389,14 @@ export class MapType implements Type {
 export class UnionType implements Type {
   type: Type[] = [];
 
-  constructor(schemaStream: ReadStream) {
+  static fromBinary(schemaStream: ReadStream) : UnionType {
+    var result = new UnionType();
     do {
       var thisType = Type.fromBinary(schemaStream);
       if (thisType instanceof FinalType) { break; }
-      this.type.push(thisType);
+      result.type.push(thisType);
     } while (true);
+    return result;
   }
 
   read(stream: ReadStream) : any {
@@ -380,7 +406,9 @@ export class UnionType implements Type {
 }
 
 export class TimestampType implements Type {
-  constructor(schemaStream: ReadStream) {}
+  static fromBinary(schemaStream: ReadStream) : TimestampType {
+    return new TimestampType();
+  }
 
   read(stream: ReadStream) : any {
     var usSinceEpoch = stream.readi64();
@@ -391,7 +419,9 @@ export class TimestampType implements Type {
 }
 
 export class DurationType implements Type {
-  construct(schemaStream: ReadStream) {}
+  static fromBinary(schemaStream: ReadStream) : DurationType {
+    return new DurationType();
+  }
 
   read(stream: ReadStream) : any {
     var us = stream.readi64();
@@ -425,3 +455,6 @@ var TYPES  = [
   TimestampType,  // 21
   DurationType,   // 22
 ];
+
+var TypesFromBinary = TYPES.map(
+  (type : any) => (type === undefined) ? undefined : type.fromBinary)
