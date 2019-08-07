@@ -51,7 +51,7 @@ describe('ReadStream', () => {
 
 describe('createBinaryType', () => {
   function makeBinaryType(data : Number[]) {
-    return telemetry.createBinaryType(new telemetry.ReadStream(Buffer.from(data)));
+    return telemetry.Type.fromBinary(new telemetry.ReadStream(Buffer.from(data)));
   }
 
   function readBinary(schema: Number[], data: Number[]) {
@@ -156,5 +156,61 @@ describe('createBinaryType', () => {
     ], [0x01, 0x05]);
     expect(result.test).toBe(true);
     expect(result.tes2).toBe(5);
+  });
+
+  it('enum', () => {
+    var result = readBinary([
+      0x11,  // "enum"
+       0x06,  // type: "varuint"
+       0x03,  // nvalues
+        0x02, 0x03, 0x76, 0x6c, 0x31,  // 2 = "vl1"
+        0x05, 0x02, 0x76, 0x32, // 5 = "v2"
+        0x09, 0x03, 0x76, 0x6c, 0x33,  // 9 = "vl3"
+    ], [0x05]);
+    expect(result).toBe("v2");
+  });
+
+  it('array', () => {
+    var result = readBinary([
+      0x12,
+      0x04, 0x01,
+    ], [0x02, 0x04, 0x09]);
+    expect(result.length).toBe(2);
+    expect(result[0]).toBe(4);
+    expect(result[1]).toBe(9);
+  });
+
+  it('map', () => {
+    var result = readBinary([
+      0x13,
+      0x04, 0x01,
+    ], [
+      0x02,
+      0x02, 0x76, 0x31,   0x06,  // v1 : 6
+      0x03, 0x76, 0x61, 0x32,  0x08,  // va2 : 8
+    ]);
+    expect(result.v1).toBe(6);
+    expect(result.va2).toBe(8);
+  });
+
+  it('union', () => {
+    var result = readBinary([
+      0x14,
+      0x01,
+      0x02,
+      0x03, 0x02,
+      0x00,
+    ], [0x01, 0x01]);
+    expect(result).toBe(true);
+  });
+
+  it('timestamp', () => {
+    var result = readBinary([0x15], [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00]);
+    expect(result.toISOString()).toBe("1978-12-02T19:29:36.710Z");
+  });
+
+  it('duration', () => {
+    var result = readBinary([0x16], [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00]);
+    expect(result).toBe(281474976.710656);
   });
 });

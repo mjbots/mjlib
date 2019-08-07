@@ -116,11 +116,24 @@ export class ReadStream {
   }
 }
 
-abstract class Type {
+export abstract class Type {
   abstract read(dataStream: ReadStream) : any;
+
+  /***
+   * Given a binary schema, return a type which can convert binary data
+   * into native javascript objects.
+   */
+  static fromBinary(schemaStream: ReadStream) : Type {
+    var typeIndex = schemaStream.readVaruint();
+    var thisType = TYPES[typeIndex];
+    if (thisType === undefined) {
+      throw Error(`Unknown type ${typeIndex}`);
+    }
+    return new thisType(schemaStream);
+  }
 }
 
-class FinalType implements Type {
+export class FinalType implements Type {
   constructor(schemaStream: ReadStream) {}
 
   read(dataStream: ReadStream) : any {
@@ -128,7 +141,7 @@ class FinalType implements Type {
   }
 }
 
-class NullType implements Type {
+export class NullType implements Type {
   constructor(schemaStream: ReadStream) {}
 
   read(dataStream: ReadStream) : any {
@@ -136,7 +149,7 @@ class NullType implements Type {
   }
 }
 
-class BooleanType implements Type {
+export class BooleanType implements Type {
   constructor(schemaStream: ReadStream) {}
 
   read(stream: ReadStream) : any {
@@ -144,7 +157,7 @@ class BooleanType implements Type {
   }
 }
 
-class FixedIntType implements Type {
+export class FixedIntType implements Type {
   fieldSize : number;
 
   constructor(schemaStream: ReadStream) {
@@ -173,7 +186,7 @@ class FixedIntType implements Type {
   }
 }
 
-class FixedUIntType implements Type {
+export class FixedUIntType implements Type {
   fieldSize : number;
 
   constructor(schemaStream: ReadStream) {
@@ -202,7 +215,7 @@ class FixedUIntType implements Type {
   }
 }
 
-class VarintType implements Type {
+export class VarintType implements Type {
   constructor(schemaStream: ReadStream) {}
 
   read(stream: ReadStream) : any {
@@ -210,7 +223,7 @@ class VarintType implements Type {
   }
 }
 
-class VaruintType implements Type {
+export class VaruintType implements Type {
   constructor(schemaStream: ReadStream) {}
 
   read(stream: ReadStream) : any {
@@ -218,7 +231,7 @@ class VaruintType implements Type {
   }
 }
 
-class Float32Type implements Type {
+export class Float32Type implements Type {
   constructor(schemaStream: ReadStream) {}
 
   read(stream: ReadStream) : any {
@@ -226,7 +239,7 @@ class Float32Type implements Type {
   }
 }
 
-class Float64Type implements Type {
+export class Float64Type implements Type {
   constructor(schemaStream: ReadStream) {}
 
   read(stream: ReadStream) : any {
@@ -234,7 +247,7 @@ class Float64Type implements Type {
   }
 }
 
-class BytesType implements Type {
+export class BytesType implements Type {
   constructor(schemaStream: ReadStream) {}
 
   read(stream: ReadStream) : any {
@@ -242,7 +255,7 @@ class BytesType implements Type {
   }
 }
 
-class StringType implements Type {
+export class StringType implements Type {
   constructor(schemaStream: ReadStream) {}
 
   read(stream: ReadStream) : any {
@@ -250,7 +263,7 @@ class StringType implements Type {
   }
 }
 
-class Field {
+export class Field {
   constructor(public flags : Number,
               public name : string,
               public aliases : string[],
@@ -258,7 +271,7 @@ class Field {
               public defaultValue : any) {}
 }
 
-class ObjectType implements Type {
+export class ObjectType implements Type {
   flags : number = 0;
   fields : Field[] = [];
 
@@ -273,7 +286,7 @@ class ObjectType implements Type {
       for (var i = 0; i < naliases; i++) {
         aliases.push(schemaStream.readString());
       }
-      var type = createBinaryType(schemaStream);
+      var type = Type.fromBinary(schemaStream);
       var isDefault = !!schemaStream.readu8();
       var defaultValue = isDefault ? type.read(schemaStream) : null;
       if (type instanceof FinalType) {
@@ -289,6 +302,101 @@ class ObjectType implements Type {
       result[field.name] = field.type.read(stream);
     }
     return result;
+  }
+}
+
+export class EnumType implements Type {
+  type: Type;
+  items : string[] = [];
+
+  constructor(schemaStream: ReadStream) {
+    this.type = Type.fromBinary(schemaStream);
+    var nvalues = schemaStream.readVaruint();
+    for (var i = 0; i < nvalues; i++) {
+      var key = schemaStream.readVaruint();
+      var name = schemaStream.readString();
+      this.items[key] = name;
+    }
+  }
+
+  read(stream: ReadStream) : any {
+    var key = this.type.read(stream);
+    return this.items[key];
+  }
+}
+
+export class ArrayType implements Type {
+  type: Type;
+
+  constructor(schemaStream: ReadStream) {
+    this.type = Type.fromBinary(schemaStream);
+  }
+
+  read(stream: ReadStream) : any {
+    var result : any[] = [];
+
+    var nvalues = stream.readVaruint();
+    for (var i = 0; i < nvalues; i++) {
+      result.push(this.type.read(stream));
+    }
+    return result;
+  }
+}
+
+export class MapType implements Type {
+  type: Type;
+
+  constructor(schemaStream: ReadStream) {
+    this.type = Type.fromBinary(schemaStream);
+  }
+
+  read(stream: ReadStream) : any {
+    var result : { [key: string]: any } = {};
+    var nitems = stream.readVaruint();
+    for (var i = 0; i < nitems; i++) {
+      var key = stream.readString();
+      var value = this.type.read(stream);
+      result[key] = value;
+    }
+    return result;
+  }
+}
+
+export class UnionType implements Type {
+  type: Type[] = [];
+
+  constructor(schemaStream: ReadStream) {
+    do {
+      var thisType = Type.fromBinary(schemaStream);
+      if (thisType instanceof FinalType) { break; }
+      this.type.push(thisType);
+    } while (true);
+  }
+
+  read(stream: ReadStream) : any {
+    var index = stream.readVaruint();
+    return this.type[index].read(stream);
+  }
+}
+
+export class TimestampType implements Type {
+  constructor(schemaStream: ReadStream) {}
+
+  read(stream: ReadStream) : any {
+    var usSinceEpoch = stream.readi64();
+    var result : any = new Date(usSinceEpoch / 1000);
+    result['valueUs'] = usSinceEpoch;
+    return result;
+  }
+}
+
+export class DurationType implements Type {
+  construct(schemaStream: ReadStream) {}
+
+  read(stream: ReadStream) : any {
+    var us = stream.readi64();
+    // For now, represent this as floating point seconds.
+    return us / 1000000.0;
   }
 }
 
@@ -310,18 +418,10 @@ var TYPES  = [
   undefined,      // 14
   undefined,      // 15
   ObjectType,     // 16
+  EnumType,       // 17
+  ArrayType,      // 18
+  MapType,        // 19
+  UnionType,      // 20
+  TimestampType,  // 21
+  DurationType,   // 22
 ];
-
-
-/***
- * Given a binary schema, return a type which can convert binary data
- * into native javascript objects.
- */
-export function createBinaryType(schemaStream: ReadStream) : Type {
-  var typeIndex = schemaStream.readVaruint();
-  var thisType = TYPES[typeIndex];
-  if (thisType === undefined) {
-    throw Error(`Unknown type ${typeIndex}`);
-  }
-  return new thisType(schemaStream);
-}

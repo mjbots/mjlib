@@ -299,7 +299,7 @@ Each of the fields is serialized as follows for binary purposes.
  - `union`
    - `index` : `varuint`  The zero based offset describing which type is selected
    - The serialization of the appropriate type
- - `timestamp` / `duration` : As per their underlying types
+ - `timestamp` / `duration` : fixedi64
 
 # Data JSON Serialization #
 
