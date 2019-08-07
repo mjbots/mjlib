@@ -53,7 +53,7 @@ struct Format {
     kBytes,
     kString,
 
-    kObject = 64,
+    kObject = 16,
     kEnum,
     kArray,
     kMap,

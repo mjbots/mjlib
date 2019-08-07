@@ -55,13 +55,13 @@ export class ReadStream {
   readString() : string {
     var size = this.readVaruint();
     var start = this.advance(Number(size));
-    return this.buf.toString('utf8', start, Number(size));
+    return this.buf.toString('utf8', start, start + Number(size));
   }
 
   readBytes() : Buffer {
     var size = this.readVaruint();
     var start = this.advance(Number(size));
-    return Buffer.from(this.buf, start, start + Number(size));
+    return this.buf.slice(start, start + Number(size));
   }
 
   readf32() : number {
@@ -114,4 +114,214 @@ export class ReadStream {
     }
     return start;
   }
+}
+
+abstract class Type {
+  abstract read(dataStream: ReadStream) : any;
+}
+
+class FinalType implements Type {
+  constructor(schemaStream: ReadStream) {}
+
+  read(dataStream: ReadStream) : any {
+    throw Error("invalid");
+  }
+}
+
+class NullType implements Type {
+  constructor(schemaStream: ReadStream) {}
+
+  read(dataStream: ReadStream) : any {
+    return null;
+  }
+}
+
+class BooleanType implements Type {
+  constructor(schemaStream: ReadStream) {}
+
+  read(stream: ReadStream) : any {
+    return !!stream.readu8();
+  }
+}
+
+class FixedIntType implements Type {
+  fieldSize : number;
+
+  constructor(schemaStream: ReadStream) {
+    this.fieldSize = schemaStream.readu8();
+    if (this.fieldSize != 1 &&
+        this.fieldSize != 2 &&
+        this.fieldSize != 4 &&
+        this.fieldSize != 8) {
+      throw Error("invalid fixedint size")
+    }
+  }
+
+  read(stream: ReadStream) : any {
+    switch (this.fieldSize) {
+    case 1:
+      return stream.readi8();
+    case 2:
+      return stream.readi16();
+    case 4:
+      return stream.readi32();
+    case 8:
+      return stream.readi64();
+    default:
+      throw Error("unreachable");
+    }
+  }
+}
+
+class FixedUIntType implements Type {
+  fieldSize : number;
+
+  constructor(schemaStream: ReadStream) {
+    this.fieldSize = schemaStream.readu8();
+    if (this.fieldSize != 1 &&
+        this.fieldSize != 2 &&
+        this.fieldSize != 4 &&
+        this.fieldSize != 8) {
+      throw Error("invalid fixedint size")
+    }
+  }
+
+  read(stream: ReadStream) : any {
+    switch (this.fieldSize) {
+    case 1:
+      return stream.readu8();
+    case 2:
+      return stream.readu16();
+    case 4:
+      return stream.readu32();
+    case 8:
+      return stream.readu64();
+    default:
+      throw Error("unreachable");
+    }
+  }
+}
+
+class VarintType implements Type {
+  constructor(schemaStream: ReadStream) {}
+
+  read(stream: ReadStream) : any {
+    throw Error("not implemented");
+  }
+}
+
+class VaruintType implements Type {
+  constructor(schemaStream: ReadStream) {}
+
+  read(stream: ReadStream) : any {
+    return stream.readVaruint();
+  }
+}
+
+class Float32Type implements Type {
+  constructor(schemaStream: ReadStream) {}
+
+  read(stream: ReadStream) : any {
+    return stream.readf32();
+  }
+}
+
+class Float64Type implements Type {
+  constructor(schemaStream: ReadStream) {}
+
+  read(stream: ReadStream) : any {
+    return stream.readf64();
+  }
+}
+
+class BytesType implements Type {
+  constructor(schemaStream: ReadStream) {}
+
+  read(stream: ReadStream) : any {
+    return stream.readBytes();
+  }
+}
+
+class StringType implements Type {
+  constructor(schemaStream: ReadStream) {}
+
+  read(stream: ReadStream) : any {
+    return stream.readString();
+  }
+}
+
+class Field {
+  constructor(public flags : Number,
+              public name : string,
+              public aliases : string[],
+              public type : Type,
+              public defaultValue : any) {}
+}
+
+class ObjectType implements Type {
+  flags : number = 0;
+  fields : Field[] = [];
+
+  constructor(schemaStream: ReadStream) {
+    this.flags = schemaStream.readVaruint();
+
+    do {
+      var flags = schemaStream.readVaruint();
+      var name = schemaStream.readString();
+      var naliases = schemaStream.readVaruint();
+      var aliases : string[] = [];
+      for (var i = 0; i < naliases; i++) {
+        aliases.push(schemaStream.readString());
+      }
+      var type = createBinaryType(schemaStream);
+      var isDefault = !!schemaStream.readu8();
+      var defaultValue = isDefault ? type.read(schemaStream) : null;
+      if (type instanceof FinalType) {
+        break;
+      }
+      this.fields.push(new Field(flags, name, aliases, type, defaultValue));
+    } while(true);
+  }
+
+  read(stream: ReadStream) : any {
+    var result : { [key: string]: any} = {};
+    for (let field of this.fields) {
+      result[field.name] = field.type.read(stream);
+    }
+    return result;
+  }
+}
+
+var TYPES  = [
+  FinalType,      // 0
+  NullType,       // 1
+  BooleanType,    // 2
+  FixedIntType,   // 3
+  FixedUIntType,  // 4
+  VarintType,     // 5
+  VaruintType,    // 6
+  Float32Type,    // 7
+  Float64Type,    // 8
+  BytesType,      // 9
+  StringType,     // 10
+  undefined,      // 11
+  undefined,      // 12
+  undefined,      // 13
+  undefined,      // 14
+  undefined,      // 15
+  ObjectType,     // 16
+];
+
+
+/***
+ * Given a binary schema, return a type which can convert binary data
+ * into native javascript objects.
+ */
+export function createBinaryType(schemaStream: ReadStream) : Type {
+  var typeIndex = schemaStream.readVaruint();
+  var thisType = TYPES[typeIndex];
+  if (thisType === undefined) {
+    throw Error(`Unknown type ${typeIndex}`);
+  }
+  return new thisType(schemaStream);
 }

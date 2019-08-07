@@ -167,13 +167,13 @@ The type is encoded as a `varuint` with the following mapping:
  - `float64` : 8
  - `bytes`: 9
  - `string`: 10
- - `object`: 64
- - `enum`: 65
- - `array`: 66
- - `map`: 67
- - `union` : 68
- - `timestamp` : 69
- - `duration` : 70
+ - `object`: 16
+ - `enum`: 17
+ - `array`: 18
+ - `map`: 19
+ - `union` : 20
+ - `timestamp` : 21
+ - `duration` : 22
 
 The following additional attributes follow these given types:
 

@@ -61,7 +61,7 @@ BOOST_AUTO_TEST_CASE(BinarySchemaArchive) {
   dut.Accept(&all_types);
 
   const std::vector<uint8_t> expected = {
-    0x40,  // kObject
+    0x10,  // kObject
      0x00,  // ObjectFlags
       0x00,  // FieldFlags
        0x0a, 'v', 'a', 'l', 'u', 'e', '_', 'b', 'o', 'o', 'l',
@@ -145,7 +145,7 @@ BOOST_AUTO_TEST_CASE(BinarySchemaArchive) {
       0x00,  // FieldFlags
        0x0c, 'v', 'a', 'l', 'u', 'e', '_', 'o', 'b', 'j', 'e', 'c', 't',
        0x00,  // naliases
-       0x40,  // object
+       0x10,  // object
 
         0x00,  // ObjectFlags
 
@@ -166,7 +166,7 @@ BOOST_AUTO_TEST_CASE(BinarySchemaArchive) {
       0x00,  // FieldFlags
        0x0a, 'v', 'a', 'l', 'u', 'e', '_', 'e', 'n', 'u', 'm',
        0x00,  // naliases
-       0x41,  // enum
+       0x11,  // enum
        0x06,  // kVaruint
        0x03,  // nvalues
         0x00,  0x07, 'k', 'V', 'a', 'l', 'u', 'e', '1',
@@ -178,9 +178,9 @@ BOOST_AUTO_TEST_CASE(BinarySchemaArchive) {
       0x00,  // FieldFlags
        0x0b, 'v', 'a', 'l', 'u', 'e', '_', 'a', 'r', 'r', 'a', 'y',
        0x00,  // naliases
-       0x42,  // array
+       0x12,  // array
 
-        0x40,  // object
+        0x10,  // object
 
          0x00,  // ObjectFlags
 
@@ -201,7 +201,7 @@ BOOST_AUTO_TEST_CASE(BinarySchemaArchive) {
       0x00,  // FieldFlags
        0x0e, 'v', 'a', 'l', 'u', 'e', '_', 'o', 'p', 't', 'i', 'o', 'n', 'a', 'l',
        0x00,  // naliases
-       0x44,  // union
+       0x14,  // union
 
         0x01,  // null
         0x03, 0x04,  // fixedint32
@@ -214,13 +214,13 @@ BOOST_AUTO_TEST_CASE(BinarySchemaArchive) {
        0x0f, 'v', 'a', 'l', 'u', 'e', '_',
              't', 'i', 'm', 'e', 's', 't', 'a', 'm', 'p',
        0x00,  // naliases
-       0x45,  // timestamp
+       0x15,  // timestamp
        0x01, 0x40, 0x42, 0x0f, 0x00, 0x00, 0x00, 0x00, 0x00,
 
       0x00,  // FieldFlags
        0x0e, 'v', 'a', 'l', 'u', 'e', '_', 'd', 'u', 'r', 'a', 't', 'i', 'o', 'n',
        0x00,  // naliases
-       0x46,  // timestamp
+       0x16,  // timestamp
        0x01, 0x20, 0xa1, 0x07, 0x00, 0x00, 0x00, 0x00, 0x00,
 
       0x00,  // FieldFlags
