@@ -35,17 +35,27 @@ class SerialStream : public AsyncStream {
   SerialStream(boost::asio::io_service& service,
                const StreamFactory::Options& options)
       : service_(service),
-        port_(service, options.serial_port) {
-    BOOST_ASSERT(options.type == StreamFactory::Type::kSerial);
+        options_(options),
+        port_(service) {}
+
+  void Open(mjlib::base::error_code* ec) {
+    boost::system::error_code boost_ec;
+    port_.open(options_.serial_port, boost_ec);
+    if (boost_ec) {
+      *ec = boost_ec;
+      return;
+    }
+
+    BOOST_ASSERT(options_.type == StreamFactory::Type::kSerial);
     port_.set_option(
-        boost::asio::serial_port_base::baud_rate(options.serial_baud));
+        boost::asio::serial_port_base::baud_rate(options_.serial_baud));
     port_.set_option(
-        boost::asio::serial_port_base::character_size(options.serial_data_bits));
+        boost::asio::serial_port_base::character_size(options_.serial_data_bits));
 
     {
       struct serial_struct serial;
       ioctl(port_.native_handle(), TIOCGSERIAL, &serial);
-      if (options.serial_low_latency) {
+      if (options_.serial_low_latency) {
         serial.flags |= ASYNC_LOW_LATENCY;
       } else {
         serial.flags &= ~ASYNC_LOW_LATENCY;
@@ -65,7 +75,7 @@ class SerialStream : public AsyncStream {
       throw base::system_error::einval("unknown parity: " + string);
     };
     port_.set_option(
-        boost::asio::serial_port_base::parity(make_parity(options.serial_parity)));
+        boost::asio::serial_port_base::parity(make_parity(options_.serial_parity)));
   }
 
   ~SerialStream() override {}
@@ -88,6 +98,7 @@ class SerialStream : public AsyncStream {
 
  private:
   boost::asio::io_service& service_;
+  const StreamFactory::Options options_;
   boost::asio::serial_port port_;
 };
 }
@@ -96,9 +107,15 @@ void AsyncCreateSerial(
     boost::asio::io_service& service,
     const StreamFactory::Options& options,
     StreamHandler handler) {
-  service.post(
-      std::bind(handler, base::error_code(),
-                std::make_shared<SerialStream>(service, options)));
+  auto stream = std::make_shared<SerialStream>(service, options);
+  base::error_code ec;
+  stream->Open(&ec);
+
+  if (ec) {
+    ec.Append("When opening: '" + options.serial_port + "'");
+  }
+
+  service.post(std::bind(handler, ec, stream));
 }
 
 }

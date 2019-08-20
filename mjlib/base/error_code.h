@@ -81,7 +81,7 @@ class error_code {
   }
 
  private:
-  const boost::system::error_code ec_;
+  boost::system::error_code ec_;
   std::string message_;
 };
 
