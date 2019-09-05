@@ -21,6 +21,7 @@
 
 #include "mjlib/base/crc_stream.h"
 #include "mjlib/base/fail.h"
+#include "mjlib/base/fast_stream.h"
 #include "mjlib/io/deadline_timer.h"
 #include "mjlib/io/streambuf_read_stream.h"
 #include "mjlib/multiplex/format.h"
@@ -44,6 +45,19 @@ class FrameStream::Impl {
     boost::asio::async_write(
         *stream_,
         boost::asio::buffer(write_buffer_),
+        [callback](auto&& ec, auto&&) { callback(ec); });
+  }
+
+  void AsyncWriteMultiple(const std::vector<const Frame*>& frames,
+                          io::ErrorCallback callback) {
+    multiple_tx_stream_.data()->clear();
+
+    for (auto& frame : frames) {
+      frame->encode(&multiple_tx_stream_);
+    }
+    boost::asio::async_write(
+        *stream_,
+        boost::asio::buffer(multiple_tx_stream_.view()),
         [callback](auto&& ec, auto&&) { callback(ec); });
   }
 
@@ -196,6 +210,7 @@ class FrameStream::Impl {
 
   io::AsyncStream* const stream_;
   std::string write_buffer_;
+  base::FastOStringStream multiple_tx_stream_;
 
   bool read_outstanding_ = false;
   boost::asio::streambuf streambuf_;
@@ -214,6 +229,11 @@ FrameStream::~FrameStream() {}
 
 void FrameStream::AsyncWrite(const Frame* frame, io::ErrorCallback callback) {
   impl_->AsyncWrite(frame, callback);
+}
+
+void FrameStream::AsyncWriteMultiple(
+    const std::vector<const Frame*>& frames, io::ErrorCallback callback) {
+  impl_->AsyncWriteMultiple(frames, callback);
 }
 
 void FrameStream::AsyncRead(Frame* frame,

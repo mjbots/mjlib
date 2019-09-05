@@ -17,6 +17,8 @@
 #include <cstdint>
 #include <string>
 
+#include "mjlib/base/stream.h"
+
 namespace mjlib {
 namespace multiplex {
 
@@ -31,6 +33,7 @@ struct Frame {
         dest_id(dest_id_in),
         payload(payload_in) {}
 
+  void encode(base::WriteStream*) const;
   std::string encode() const;
 
   uint8_t source_id = 0;

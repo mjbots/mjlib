@@ -63,6 +63,36 @@ BOOST_FIXTURE_TEST_CASE(FrameStreamWriteTest, Fixture) {
              std::string("\x54\xab\x01\x02\x00\x03\x28", 7));
 }
 
+BOOST_FIXTURE_TEST_CASE(FrameStreamWriteMultipleTest, Fixture) {
+  Frame to_send1;
+  Frame to_send2;
+  to_send1.source_id = 1;
+  to_send1.dest_id = 2;
+  to_send1.request_reply = false;
+
+  to_send2.source_id = 4;
+  to_send2.dest_id = 5;
+  to_send2.request_reply = false;
+
+  const std::vector<const Frame*> frames = {&to_send1, &to_send2};
+
+  int write_done = 0;
+  dut.AsyncWriteMultiple(frames, [&](const mjlib::base::error_code& ec) {
+      mjlib::base::FailIf(ec);
+      write_done++;
+    });
+
+  BOOST_TEST(write_done == 0);
+  Poll();
+
+  BOOST_TEST(write_done == 1);
+  const auto actual = server_reader.data();
+  const auto expected =
+      std::string(
+          "\x54\xab\x01\x02\x00\x03\x28\x54\xab\x04\x05\x00\x64\x5a", 14);
+  BOOST_TEST(actual == expected);
+}
+
 BOOST_FIXTURE_TEST_CASE(FrameStreamReadTest, Fixture) {
   Frame to_receive;
   int read_done = 0;

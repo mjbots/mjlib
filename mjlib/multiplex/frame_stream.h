@@ -14,6 +14,8 @@
 
 #pragma once
 
+#include <vector>
+
 #include <boost/date_time/posix_time/posix_time_types.hpp>
 
 #include "mjlib/io/async_stream.h"
@@ -31,6 +33,9 @@ class FrameStream {
   ~FrameStream();
 
   void AsyncWrite(const Frame*, io::ErrorCallback);
+
+  void AsyncWriteMultiple(const std::vector<const Frame*>&,
+                          io::ErrorCallback);
 
   /// If @p timeout is not-special, @p callback will be invoked with
   /// boost::asio::error::operation_aborted after that much time has

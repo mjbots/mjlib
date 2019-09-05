@@ -26,7 +26,12 @@ namespace multiplex {
 
 std::string Frame::encode() const {
   base::FastOStringStream stream;
-  base::CrcWriteStream<boost::crc_ccitt_type> crc_stream{stream};
+  encode(&stream);
+  return std::string(stream.str());
+}
+
+void Frame::encode(base::WriteStream* stream) const {
+  base::CrcWriteStream<boost::crc_ccitt_type> crc_stream{*stream};
   WriteStream writer{crc_stream};
 
   writer.Write<uint16_t>(Format::kHeader);
@@ -36,8 +41,6 @@ std::string Frame::encode() const {
   crc_stream.write(payload);
   const uint16_t checksum = crc_stream.checksum();
   writer.Write(checksum);
-
-  return std::string(stream.str());
 }
 
 }

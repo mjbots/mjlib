@@ -65,6 +65,35 @@ class AsioClient::Impl {
       handler);
   }
 
+  void AsyncRegisterMultiple(const std::vector<IdRequest>& requests,
+                             io::ErrorCallback handler) {
+    lock_.Invoke([this, requests](io::ErrorCallback handler) {
+        tx_frames_.resize(requests.size());
+        tx_frame_ptrs_.clear();
+
+        for (size_t i = 0; i < requests.size(); i++) {
+          tx_frames_[i].source_id = this->options_.source_id;
+          tx_frames_[i].dest_id = requests[i].id;
+          BOOST_ASSERT(!requests[i].request.request_reply());
+          tx_frames_[i].request_reply = false;
+          tx_frames_[i].payload = requests[i].request.buffer();
+          tx_frame_ptrs_.push_back(&tx_frames_[i]);
+        }
+
+        RegisterHandler reg_handler = [handler](
+            const base::error_code& ec,
+            const RegisterReply&) {
+          handler(ec);
+        };
+
+        frame_stream_.AsyncWriteMultiple(
+            tx_frame_ptrs_, std::bind(
+                &Impl::HandleWrite, this, pl::_1,
+                reg_handler, false));
+      },
+      handler);
+  }
+
   void HandleWrite(const base::error_code& ec,
                    RegisterHandler handler,
                    bool request_reply) {
@@ -319,6 +348,8 @@ class AsioClient::Impl {
 
   Frame rx_frame_;
   Frame tx_frame_;
+  std::vector<Frame> tx_frames_;
+  std::vector<const Frame*> tx_frame_ptrs_;
 };
 
 AsioClient::AsioClient(io::AsyncStream* stream, const Options& options)
@@ -330,6 +361,12 @@ void AsioClient::AsyncRegister(uint8_t id,
                                const RegisterRequest& request,
                                RegisterHandler handler) {
   impl_->AsyncRegister(id, request, handler);
+}
+
+void AsioClient::AsyncRegisterMultiple(
+    const std::vector<IdRequest>& requests,
+    io::ErrorCallback handler) {
+  impl_->AsyncRegisterMultiple(requests, handler);
 }
 
 io::SharedStream AsioClient::MakeTunnel(

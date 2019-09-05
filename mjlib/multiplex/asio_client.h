@@ -39,11 +39,21 @@ class AsioClient {
   using RegisterHandler = std::function<
     void (const base::error_code&, const RegisterReply&)>;
 
+  struct IdRequest {
+    uint8_t id = 0;
+    RegisterRequest request;
+  };
+
   /// Make a single register request.  The handler will always be
   /// invoked.  If a reply was requested, it will only be invoked on
   /// error or the reply.  If no reply was requested, it will be
   /// invoked once the write has been completed.
   void AsyncRegister(uint8_t id, const RegisterRequest&, RegisterHandler);
+
+  /// If only commands (and no queries are sent), multiple devices may
+  /// be addressed in a single operation.
+  void AsyncRegisterMultiple(const std::vector<IdRequest>&,
+                             io::ErrorCallback);
 
   struct TunnelOptions {
     // Poll this often for data to be received.
