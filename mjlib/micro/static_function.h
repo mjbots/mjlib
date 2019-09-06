@@ -67,7 +67,30 @@ inline void FastMemclr(long* data) {
 }
 
 template <>
+inline void FastMemclr<std::integral_constant<int, 8>>(long* data) {
+  FastMemclr<std::integral_constant<int, 4>>(data);
+  FastMemclr<std::integral_constant<int, 4>>(data + 4);
+}
+
+template <>
 inline void FastMemclr<std::integral_constant<int, 0>>(long*) {}
+
+template <typename T>
+inline bool FastNonzero(const long* data) {
+  if (*data) { return true; }
+  return FastNonzero<std::integral_constant<int, T::value - 1>>(data + 1);
+}
+
+template <>
+inline bool FastNonzero<std::integral_constant<int, 8>>(const long* data) {
+  return FastNonzero<std::integral_constant<int, 4>>(data) ||
+      FastNonzero<std::integral_constant<int, 4>>(data + 4);
+}
+
+template <>
+inline bool FastNonzero<std::integral_constant<int, 0>>(const long*) {
+  return false;
+}
 }
 
 /// This is like std::function, but is guaranteed to never dynamically
@@ -138,10 +161,7 @@ struct StaticFunction<R(Args...), Size>
   }
 
   bool valid() const {
-    for (size_t i = 0; i < storage_.size(); i++) {
-      if (storage_[i] != 0) { return true; }
-    }
-    return false;
+    return detail::FastNonzero<std::integral_constant<int, Size>>(&storage_[0]);
   }
 
   std::size_t size() const { return getImpl().size(); }
