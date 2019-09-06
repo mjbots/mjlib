@@ -43,6 +43,7 @@ class BufferWriteStream : public WriteStream {
   std::streamsize offset() const noexcept { return offset_; }
   std::streamsize remaining() const noexcept { return buffer_.size() - offset_; }
   std::streamsize size() const noexcept { return buffer_.size(); }
+  char* position() { return &buffer_[offset_]; }
 
  private:
   const string_span buffer_;
