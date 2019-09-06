@@ -21,7 +21,7 @@
 namespace mjlib {
 namespace base {
 
-template <typename T, size_t Size>
+template <typename T, size_t Size,  typename AccumType>
 class WindowedAverage {
  public:
   static_assert(
@@ -50,7 +50,7 @@ class WindowedAverage {
 
  private:
   T data_[Size] = {};
-  int64_t total_ = 0;
+  AccumType total_ = 0;
   size_t size_ = 0;
   size_t pos_ = 0;
 };

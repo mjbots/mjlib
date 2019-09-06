@@ -66,6 +66,22 @@ class PID {
     float pd = 0.0f;
     float command = 0.0f;
 
+    void Clear() {
+      // We implement this solely for speed, because on at least
+      // Cortex-M4, just calling the constructor delegates to memset,
+      // which is much slower than memberwise assignment.
+      integral = 0.0f;
+
+      desired = std::numeric_limits<float>::quiet_NaN();
+
+      error = 0.0f;
+      error_rate = 0.0f;
+      p = 0.0f;
+      d = 0.0f;
+      pd = 0.0f;
+      command = 0.0f;
+    }
+
     template <typename Archive>
     void Serialize(Archive* a) {
       a->Visit(MJ_NVP(integral));

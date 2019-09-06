@@ -19,7 +19,7 @@
 using namespace mjlib::base;
 
 BOOST_AUTO_TEST_CASE(WindowedAverageTest) {
-  WindowedAverage<int16_t, 4> dut;
+  WindowedAverage<int16_t, 4, int32_t> dut;
   BOOST_TEST(dut.average() == 0);
 
   dut.Add(2);
