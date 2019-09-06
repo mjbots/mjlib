@@ -55,13 +55,28 @@ struct StaticFunctionBase {
   };
 };
 
+namespace detail {
+/// This is just a std::memset of 0, but exposed in a way that the
+/// compiler can optimize it better.  In practice, this makes a pretty
+/// big difference for these things that have a small fixed size.  The
+/// compiler unrolls the recursion and makes one instruction per word.
+template <typename T>
+inline void FastMemclr(long* data) {
+  *data = 0;
+  FastMemclr<std::integral_constant<int, T::value - 1>>(data + 1);
+}
+
+template <>
+inline void FastMemclr<std::integral_constant<int, 0>>(long*) {}
+}
+
 /// This is like std::function, but is guaranteed to never dynamically
 /// allocate memory.
 template <typename R, typename ...Args, std::size_t Size>
 struct StaticFunction<R(Args...), Size>
     : public StaticFunctionBase<R, Args...> {
   StaticFunction() {
-    std::memset(&storage_[0], 0, sizeof(storage_));
+    detail::FastMemclr<std::integral_constant<int, Size>>(&storage_[0]);
   }
 
   using Base = typename StaticFunctionBase<R, Args...>::Base;
@@ -85,8 +100,8 @@ struct StaticFunction<R(Args...), Size>
     }
   }
 
-    StaticFunction(const StaticFunction& rhs) {
-    std::memset(&storage_[0], 0, sizeof(storage_));
+  StaticFunction(const StaticFunction& rhs) {
+    detail::FastMemclr<std::integral_constant<int, Size>>(&storage_[0]);
     if (rhs.valid()) {
       rhs.getImpl().clone(data());
     }
@@ -94,7 +109,7 @@ struct StaticFunction<R(Args...), Size>
 
   StaticFunction& operator=(const StaticFunction& rhs) {
     if (valid()) { getImpl().~Base(); }
-    std::memset(&storage_[0], 0, sizeof(storage_));
+    detail::FastMemclr<std::integral_constant<int, Size>>(&storage_[0]);
     if (rhs.valid()) {
       rhs.getImpl().clone(data());
     }
@@ -102,7 +117,7 @@ struct StaticFunction<R(Args...), Size>
   }
 
   StaticFunction(StaticFunction&& rhs) noexcept : storage_(rhs.storage_) {
-    std::memset(&rhs.storage_[0], 0, sizeof(rhs.storage_));
+    detail::FastMemclr<std::integral_constant<int, Size>>(&rhs.storage_[0]);
   }
 
   template <std::size_t Amount=3>
