@@ -27,6 +27,7 @@ cc_library(
     deps = [
         ":format",
         "//mjlib/base:assert",
+        "//mjlib/base:buffer_stream",
         "//mjlib/base:stream",
     ],
 )

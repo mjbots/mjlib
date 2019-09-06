@@ -27,6 +27,8 @@ template <typename T>
 uint32_t u32(T value) {
   return static_cast<uint32_t>(value);
 }
+
+using BaseReadStream = multiplex::ReadStream<base::ReadStream>;
 }
 
 void RegisterRequest::ExpectResponse(bool value) {
@@ -91,7 +93,8 @@ std::string_view RegisterRequest::buffer() const {
 }
 
 namespace {
-std::optional<Format::Value> ReadValue(ReadStream& stream, size_t type_index) {
+std::optional<Format::Value> ReadValue(BaseReadStream& stream,
+                                       size_t type_index) {
   MJ_ASSERT(type_index <= 3);
   if (type_index == 0) {
     return stream.Read<int8_t>();
@@ -105,7 +108,7 @@ std::optional<Format::Value> ReadValue(ReadStream& stream, size_t type_index) {
   base::AssertNotReached();
 }
 
-std::optional<RegisterReply> ParseSubframe(ReadStream& stream) {
+std::optional<RegisterReply> ParseSubframe(BaseReadStream& stream) {
   const auto maybe_subframe_id = stream.ReadVaruint();
   if (!maybe_subframe_id) { return {}; }
   const auto subframe_id = *maybe_subframe_id;
