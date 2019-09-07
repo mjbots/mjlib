@@ -704,15 +704,34 @@ class MicroServer::Impl {
     const auto num_registers = str.ReadVaruint();
     if (!num_registers) { return true; }
 
+    // Save our write position, in case we need to abort and emit an
+    // error.
+    auto* const start = response->base()->position();
+
+    const uint8_t subframe_id = 0x24 | type;
+    response->WriteVaruint(subframe_id);
+    response->WriteVaruint(*start_register);
+    response->WriteVaruint(*num_registers);
+
     auto current_register = *start_register;
 
     for (size_t i = 0; i < *num_registers; i++) {
       const auto read_result =
           server_ ? server_->Read(current_register, type) : uint32_t(1);
 
-      // For now, we will emit reads as individual responses rather
-      // than coalescing them into a kReplyMultiple.
-      EmitRead(response, current_register, read_result);
+      if (read_result.index() == 0) {
+        // We successfully read something.
+        std::visit([&](auto actual_value) {
+            response->Write(actual_value);
+          }, std::get<0>(read_result));
+      } else {
+        // Nope, an error.  Pretend we wrote nothing, and instead emit
+        // the read error we got back.
+        response->base()->reset(start);
+        EmitReadError(response, current_register,
+                      std::get<uint32_t>(read_result));
+        return true;
+      }
 
       current_register++;
     }

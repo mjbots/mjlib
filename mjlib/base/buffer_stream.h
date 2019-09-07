@@ -40,6 +40,12 @@ class BufferWriteStream : public WriteStream {
     offset_ += amount;
   }
 
+  void reset(char* position) {
+    MJ_ASSERT(position >= &buffer_[0] &&
+              position < &buffer_[buffer_.size()]);
+    offset_ = position - &buffer_[0];
+  }
+
   std::streamsize offset() const noexcept { return offset_; }
   std::streamsize remaining() const noexcept { return buffer_.size() - offset_; }
   std::streamsize size() const noexcept { return buffer_.size(); }

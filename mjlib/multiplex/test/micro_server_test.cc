@@ -639,14 +639,13 @@ BOOST_FIXTURE_TEST_CASE(ReadMultipleTest, Fixture) {
     0x54, 0xab,
     0x01,  // source id
     0x02,  // dest id
-    0x0c,  // payload size
-     0x23,  // reply single float
+    0x0b,  // payload size
+     0x27,  // reply multiple float
       0x0a,  // register
+      0x02,  // num registers
       0x00, 0x00, 0x80, 0x3f,  // value
-     0x23,  // reply single float
-      0x0b,
       0x00, 0x00, 0x00, 0x40,
-    0x31, 0x1b,  // CRC
+    0x9e, 0x83,  // CRC
     0x00,  // null terminator
   };
 
