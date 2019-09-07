@@ -24,6 +24,12 @@ cc_library(
 )
 
 cc_library(
+    name = "inplace_function",
+    hdrs = ["inplace_function.h"],
+    deps = [":assert"],
+)
+
+cc_library(
     name = "fail",
     hdrs = ["fail.h"],
     srcs = ["fail.cc"],
@@ -180,6 +186,7 @@ cc_test(
         "test/crc_stream_test.cc",
         "test/error_code_test.cc",
         "test/external_serialize_test.cc",
+        "test/inplace_function_test.cc",
         "test/pid_test.cc",
         "test/program_options_archive_test.cc",
         "test/string_span_test.cc",
@@ -194,6 +201,7 @@ cc_test(
         ":error_code",
         ":fail",
         ":fast_stream",
+        ":inplace_function",
         ":pid",
         ":program_options_archive",
         ":string_span",

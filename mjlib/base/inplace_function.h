@@ -30,11 +30,12 @@
 #include <utility>
 #include <functional>
 
-#ifndef SG14_INPLACE_FUNCTION_THROW
-#define SG14_INPLACE_FUNCTION_THROW(x) throw (x)
-#endif
+#include "mjlib/base/assert.h"
 
-namespace stdext {
+#define SG14_INPLACE_FUNCTION_THROW(x)
+
+namespace mjlib {
+namespace base {
 
 namespace inplace_function_detail {
 
@@ -95,8 +96,10 @@ template<class R, class... Args> struct vtable
     const destructor_ptr_t destructor_ptr;
 
     explicit constexpr vtable() noexcept :
-        invoke_ptr{ [](storage_ptr_t, Args&&...) -> R
-            { SG14_INPLACE_FUNCTION_THROW(std::bad_function_call()); }
+         invoke_ptr{ [](storage_ptr_t, Args&&...) -> R {
+           MJ_ASSERT(false);
+           return {};
+         }
         },
         copy_ptr{ [](storage_ptr_t, storage_ptr_t) -> void {} },
         relocate_ptr{ [](storage_ptr_t, storage_ptr_t) -> void {} },
@@ -141,10 +144,6 @@ vtable<R, Args...> empty_vtable{};
 template<size_t DstCap, size_t DstAlign, size_t SrcCap, size_t SrcAlign>
 struct is_valid_inplace_dst : std::true_type
 {
-    static_assert(DstCap >= SrcCap,
-        "Can't squeeze larger inplace_function into a smaller one"
-    );
-
     static_assert(DstAlign % SrcAlign == 0,
         "Incompatible inplace_function alignments"
     );
@@ -242,6 +241,7 @@ public:
             "inplace_function cannot be constructed from object with this (large) alignment"
         );
 
+        size_ = sizeof(C);
         static const vtable_t vt{inplace_function_detail::wrapper<C>{}};
         vtable_ptr_ = std::addressof(vt);
 
@@ -250,8 +250,9 @@ public:
 
     template<size_t Cap, size_t Align>
     inplace_function(const inplace_function<R(Args...), Cap, Align>& other)
-        : inplace_function(other.vtable_ptr_, other.vtable_ptr_->copy_ptr, std::addressof(other.storage_))
+        : inplace_function(other.vtable_ptr_, other.vtable_ptr_->copy_ptr, std::addressof(other.storage_), other.size_)
     {
+        MJ_ASSERT(other.size_ <= Cap);
         static_assert(inplace_function_detail::is_valid_inplace_dst<
             Capacity, Alignment, Cap, Align
         >::value, "conversion not allowed");
@@ -259,8 +260,9 @@ public:
 
     template<size_t Cap, size_t Align>
     inplace_function(inplace_function<R(Args...), Cap, Align>&& other) noexcept
-        : inplace_function(other.vtable_ptr_, other.vtable_ptr_->relocate_ptr, std::addressof(other.storage_))
+        : inplace_function(other.vtable_ptr_, other.vtable_ptr_->relocate_ptr, std::addressof(other.storage_), other.size_)
     {
+        MJ_ASSERT(other.size_ <= Cap);
         static_assert(inplace_function_detail::is_valid_inplace_dst<
             Capacity, Alignment, Cap, Align
         >::value, "conversion not allowed");
@@ -269,10 +271,12 @@ public:
     }
 
     inplace_function(std::nullptr_t) noexcept :
+        size_{0},
         vtable_ptr_{std::addressof(inplace_function_detail::empty_vtable<R, Args...>)}
     {}
 
     inplace_function(const inplace_function& other) :
+        size_{other.size_},
         vtable_ptr_{other.vtable_ptr_}
     {
         vtable_ptr_->copy_ptr(
@@ -282,6 +286,7 @@ public:
     }
 
     inplace_function(inplace_function&& other) noexcept :
+        size_{other.size_},
         vtable_ptr_{std::exchange(other.vtable_ptr_, std::addressof(inplace_function_detail::empty_vtable<R, Args...>))}
     {
         vtable_ptr_->relocate_ptr(
@@ -294,6 +299,7 @@ public:
     {
         vtable_ptr_->destructor_ptr(std::addressof(storage_));
         vtable_ptr_ = std::addressof(inplace_function_detail::empty_vtable<R, Args...>);
+        size_ = 0;
         return *this;
     }
 
@@ -306,7 +312,14 @@ public:
             std::addressof(storage_),
             std::addressof(other.storage_)
         );
+        size_ = other.size_;
         return *this;
+    }
+
+    template <std::size_t Amount=12>
+    inplace_function<R(Args...), Capacity-Amount, Alignment>
+    shrink() const {
+      return *this;
     }
 
     ~inplace_function()
@@ -358,6 +371,7 @@ public:
         );
 
         std::swap(vtable_ptr_, other.vtable_ptr_);
+        std::swap(size_, other.size_);
     }
 
     friend void swap(inplace_function& lhs, inplace_function& rhs) noexcept
@@ -366,17 +380,20 @@ public:
     }
 
 private:
+    size_t size_;
     vtable_ptr_t vtable_ptr_;
     mutable storage_t storage_;
 
     inplace_function(
         vtable_ptr_t vtable_ptr,
         typename vtable_t::process_ptr_t process_ptr,
-        typename vtable_t::storage_ptr_t storage_ptr
-    ) : vtable_ptr_{vtable_ptr}
+        typename vtable_t::storage_ptr_t storage_ptr,
+        size_t size
+    ) : size_{size}, vtable_ptr_{vtable_ptr}
     {
         process_ptr(std::addressof(storage_), storage_ptr);
     }
 };
 
-} // namespace stdext
+} // namespace base
+} // namespace mjlib
