@@ -17,9 +17,9 @@
 #include <array>
 
 #include "mjlib/base/assert.h"
+#include "mjlib/base/inplace_function.h"
 
 #include "mjlib/micro/async_types.h"
-#include "mjlib/micro/static_function.h"
 
 namespace mjlib {
 namespace micro {
@@ -33,7 +33,7 @@ class AsyncExclusive {
   /// each operation when it is ready to be started.
   AsyncExclusive(T* resource) : resource_(resource) {}
 
-  using Operation = StaticFunction<void (T*, VoidCallback)>;
+  using Operation = base::inplace_function<void (T*, VoidCallback)>;
 
   /// Invoke @p operation when the resource is next available.  It
   /// will be passed a callback that can be used to relinquish
@@ -50,7 +50,7 @@ class AsyncExclusive {
 
     // Try to queue it.
     for (auto& item : callbacks_) {
-      if (!item.valid()) {
+      if (!item) {
         item = operation;
         return;
       }
@@ -65,7 +65,7 @@ class AsyncExclusive {
     MJ_ASSERT(!outstanding_);
 
     for (auto& item : callbacks_) {
-      if (item.valid()) {
+      if (!!item) {
         // We'll do this one.
         auto copy = item;
         item = {};

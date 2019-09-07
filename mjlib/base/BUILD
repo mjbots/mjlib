@@ -24,16 +24,16 @@ cc_library(
 )
 
 cc_library(
-    name = "inplace_function",
-    hdrs = ["inplace_function.h"],
-    deps = [":assert"],
-)
-
-cc_library(
     name = "fail",
     hdrs = ["fail.h"],
     srcs = ["fail.cc"],
     deps = [":error_code"],
+)
+
+cc_library(
+    name = "inplace_function",
+    hdrs = ["inplace_function.h"],
+    deps = [":assert"],
 )
 
 cc_library(

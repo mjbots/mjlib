@@ -14,15 +14,16 @@
 
 #pragma once
 
+#include "mjlib/base/inplace_function.h"
+
 #include "mjlib/micro/error_code.h"
-#include "mjlib/micro/static_function.h"
 
 namespace mjlib {
 namespace micro {
 
-using VoidCallback = StaticFunction<void (void)>;
-using ErrorCallback = StaticFunction<void (const error_code&)>;
-using SizeCallback = StaticFunction<void (const error_code&, ssize_t)>;
+using VoidCallback = base::inplace_function<void (void)>;
+using ErrorCallback = base::inplace_function<void (const error_code&)>;
+using SizeCallback = base::inplace_function<void (const error_code&, ssize_t)>;
 
 }
 }

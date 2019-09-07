@@ -605,8 +605,15 @@ BOOST_AUTO_TEST_CASE(InplaceShrink) {
   base::inplace_function<int(int), 40> start = [](int v) { return v + 1; };
   BOOST_TEST(start(10) == 11);
 
-  auto smaller = start.shrink();
+  auto smaller = start.shrink<32>();
   BOOST_TEST(smaller(12) == 13);
 
   static_assert(sizeof(smaller) < sizeof(start), "");
+}
+
+BOOST_AUTO_TEST_CASE(EmptyDelete) {
+  {
+    base::inplace_function<int()> dut;
+  }
+  BOOST_TEST(true);
 }

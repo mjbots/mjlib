@@ -39,7 +39,7 @@ namespace base {
 
 namespace inplace_function_detail {
 
-static constexpr size_t InplaceFunctionDefaultCapacity = 32;
+static constexpr size_t InplaceFunctionDefaultCapacity = 10 * sizeof(long);
 
 #ifndef SG14_USE_STD_ALIGNED_STORAGE
 // https://gcc.gnu.org/bugzilla/show_bug.cgi?id=61458
@@ -96,14 +96,15 @@ template<class R, class... Args> struct vtable
     const destructor_ptr_t destructor_ptr;
 
     explicit constexpr vtable() noexcept :
-         invoke_ptr{ [](storage_ptr_t, Args&&...) -> R {
-           MJ_ASSERT(false);
-           return {};
-         }
+        invoke_ptr{ [](storage_ptr_t, Args&&...) -> R {
+            MJ_ASSERT(false);
+            return R();
+          }
         },
-        copy_ptr{ [](storage_ptr_t, storage_ptr_t) -> void {} },
-        relocate_ptr{ [](storage_ptr_t, storage_ptr_t) -> void {} },
-        destructor_ptr{ [](storage_ptr_t) -> void {} }
+        copy_ptr{ [](storage_ptr_t, storage_ptr_t) -> void { } },
+        relocate_ptr{ [](storage_ptr_t, storage_ptr_t) -> void {   } },
+        destructor_ptr{ [](storage_ptr_t) -> void { } }
+
     {}
 
     template<class C> explicit constexpr vtable(wrapper<C>) noexcept :
@@ -252,7 +253,7 @@ public:
     inplace_function(const inplace_function<R(Args...), Cap, Align>& other)
         : inplace_function(other.vtable_ptr_, other.vtable_ptr_->copy_ptr, std::addressof(other.storage_), other.size_)
     {
-        MJ_ASSERT(other.size_ <= Cap);
+        MJ_ASSERT(other.size_ <= Capacity);
         static_assert(inplace_function_detail::is_valid_inplace_dst<
             Capacity, Alignment, Cap, Align
         >::value, "conversion not allowed");
@@ -262,7 +263,7 @@ public:
     inplace_function(inplace_function<R(Args...), Cap, Align>&& other) noexcept
         : inplace_function(other.vtable_ptr_, other.vtable_ptr_->relocate_ptr, std::addressof(other.storage_), other.size_)
     {
-        MJ_ASSERT(other.size_ <= Cap);
+        MJ_ASSERT(other.size_ <= Capacity);
         static_assert(inplace_function_detail::is_valid_inplace_dst<
             Capacity, Alignment, Cap, Align
         >::value, "conversion not allowed");
@@ -316,9 +317,10 @@ public:
         return *this;
     }
 
-    template <std::size_t Amount=12>
+    template <std::size_t Amount=3 * sizeof(long)>
     inplace_function<R(Args...), Capacity-Amount, Alignment>
     shrink() const {
+      MJ_ASSERT(size_ <= (Capacity - Amount));
       return *this;
     }
 
@@ -380,9 +382,9 @@ public:
     }
 
 private:
-    size_t size_;
-    vtable_ptr_t vtable_ptr_;
     mutable storage_t storage_;
+    size_t size_ = 0;
+    vtable_ptr_t vtable_ptr_ = nullptr;
 
     inplace_function(
         vtable_ptr_t vtable_ptr,

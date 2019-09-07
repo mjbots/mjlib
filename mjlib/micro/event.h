@@ -14,13 +14,13 @@
 
 #pragma once
 
-#include "static_function.h"
+#include "mjlib/base/inplace_function.h"
 
 namespace mjlib {
 namespace micro {
 
 /// This type is used to post events onto some event queue.
-using EventPoster = StaticFunction<void (VoidCallback)>;
+using EventPoster = base::inplace_function<void (VoidCallback)>;
 
 }
 }

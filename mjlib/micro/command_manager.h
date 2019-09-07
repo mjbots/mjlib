@@ -16,11 +16,12 @@
 
 #include <string_view>
 
+#include "mjlib/base/inplace_function.h"
+
 #include "mjlib/micro/async_exclusive.h"
 #include "mjlib/micro/async_stream.h"
 #include "mjlib/micro/async_types.h"
 #include "mjlib/micro/pool_ptr.h"
-#include "mjlib/micro/static_function.h"
 
 namespace mjlib {
 namespace micro {
@@ -46,7 +47,7 @@ class CommandManager {
     Response() {}
   };
 
-  using CommandFunction = StaticFunction<
+  using CommandFunction = base::inplace_function<
     void (const std::string_view&, const Response&)>;
   void Register(const std::string_view& name, CommandFunction);
 

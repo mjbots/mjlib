@@ -76,7 +76,7 @@ class PersistentConfig::Impl {
 
   struct Element {
     SerializableHandlerBase* serializable = nullptr;
-    StaticFunction<void ()> updated;
+    base::inplace_function<void ()> updated;
   };
 
   using ElementMap = PoolMap<std::string_view, Element>;
@@ -314,7 +314,7 @@ void PersistentConfig::Load() {
 
 void PersistentConfig::RegisterDetail(
     const std::string_view& name, SerializableHandlerBase* base,
-    StaticFunction<void ()> updated) {
+    base::inplace_function<void ()> updated) {
   Impl::Element element;
   element.serializable = base;
   element.updated = updated;

@@ -51,7 +51,7 @@ BOOST_AUTO_TEST_CASE(BasicAsyncStream) {
 
   {
     BOOST_TEST(dut_stream.write_data_.empty() == true);
-    BOOST_TEST(dut_stream.write_cbk_.valid() == false);
+    BOOST_TEST(!dut_stream.write_cbk_);
 
     error_code write_error;
     AsyncWrite(dut_stream, std::string_view("test of sending"),
@@ -60,7 +60,7 @@ BOOST_AUTO_TEST_CASE(BasicAsyncStream) {
                });
 
     BOOST_TEST(dut_stream.write_data_.size() == 15);
-    BOOST_TEST(dut_stream.write_cbk_.valid() == true);
+    BOOST_TEST(!!dut_stream.write_cbk_);
     BOOST_TEST(dut_stream.write_count_ == 1);
     BOOST_TEST(!write_error);
 
@@ -77,7 +77,7 @@ BOOST_AUTO_TEST_CASE(BasicAsyncStream) {
 
   {
     BOOST_TEST(dut_stream.read_data_.empty() == true);
-    BOOST_TEST(dut_stream.read_cbk_.valid() == false);
+    BOOST_TEST(!dut_stream.read_cbk_);
 
     char buffer_to_read_into[10] = "";
 
@@ -90,7 +90,7 @@ BOOST_AUTO_TEST_CASE(BasicAsyncStream) {
               });
 
     BOOST_TEST(dut_stream.read_data_.size() == 10);
-    BOOST_TEST(dut_stream.read_cbk_.valid() == true);
+    BOOST_TEST(!!dut_stream.read_cbk_);
     BOOST_TEST(dut_stream.read_count_ == 1);
     BOOST_TEST(!read_error);
 

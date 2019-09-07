@@ -14,12 +14,13 @@
 
 #pragma once
 
+#include "mjlib/base/inplace_function.h"
+
 #include "mjlib/micro/async_exclusive.h"
 #include "mjlib/micro/async_stream.h"
 #include "mjlib/micro/command_manager.h"
 #include "mjlib/micro/pool_ptr.h"
 #include "mjlib/micro/serializable_handler.h"
-#include "mjlib/micro/static_function.h"
 
 namespace mjlib {
 namespace micro {
@@ -41,7 +42,7 @@ class TelemetryManager {
   /// @return a function which can be used to indicate that a new
   /// version of the structure is available.
   template <typename Serializable>
-  StaticFunction<void ()> Register(
+  base::inplace_function<void ()> Register(
       const std::string_view& name, Serializable* serializable) {
     PoolPtr<SerializableHandler<Serializable>> concrete(pool(), serializable);
     return RegisterDetail(name, concrete.get());
@@ -51,7 +52,7 @@ class TelemetryManager {
   void PollMillisecond();
 
  private:
-  StaticFunction<void ()> RegisterDetail(
+  base::inplace_function<void ()> RegisterDetail(
       const std::string_view& name, SerializableHandlerBase*);
 
   Pool* pool() const;

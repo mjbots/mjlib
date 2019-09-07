@@ -176,8 +176,8 @@ class TelemetryManager::Impl {
     }
   }
 
-  typedef StaticFunction<void (Element*,
-                               base::WriteStream*)> WorkFunction;
+  typedef base::inplace_function<void (Element*,
+                                       base::WriteStream*)> WorkFunction;
   void Emit(const std::string_view& prefix,
             Element* element,
             WorkFunction work,
@@ -376,7 +376,7 @@ void TelemetryManager::PollMillisecond() {
 
 Pool* TelemetryManager::pool() const { return impl_->pool_; }
 
-StaticFunction<void ()> TelemetryManager::RegisterDetail(
+base::inplace_function<void ()> TelemetryManager::RegisterDetail(
     const std::string_view& name, SerializableHandlerBase* base) {
   Impl::Element element;
   element.name = name;

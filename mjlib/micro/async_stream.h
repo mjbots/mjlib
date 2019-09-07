@@ -21,7 +21,6 @@
 
 #include "mjlib/micro/async_types.h"
 #include "mjlib/micro/error_code.h"
-#include "mjlib/micro/static_function.h"
 
 namespace mjlib {
 namespace micro {
@@ -53,7 +52,9 @@ void AsyncWrite(Stream& stream, const std::string_view& data,
     return;
   }
 
-  auto continuation = [stream=&stream, data, cbk=callback.shrink<4>()]
+  auto continuation = [stream=&stream,
+                       data,
+                       cbk=callback.shrink<6 * sizeof(long)>()]
       (error_code error, ssize_t size) {
     if (error) {
       cbk(error);
@@ -81,7 +82,9 @@ void AsyncRead(Stream& stream, const base::string_span& data,
     return;
   }
 
-  auto continuation = [stream=&stream, data, cbk=callback.shrink<4>()]
+  auto continuation = [stream=&stream,
+                       data,
+                       cbk=callback.shrink<6 * sizeof(long)>()]
       (error_code error, ssize_t size) {
     if (error) {
       cbk(error);

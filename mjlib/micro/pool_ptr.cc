@@ -14,21 +14,22 @@
 
 #include "pool_ptr.h"
 
+#include <memory>
+
 #include "mjlib/base/assert.h"
 
 namespace mjlib {
 namespace micro {
 
 void* Pool::Allocate(std::size_t size, std::size_t alignment) {
-  std::size_t start = position_;
+  void* ptr = data_ + position_;
+  std::size_t space = size_ - position_;
+  const auto result = std::align(alignment, size, ptr, space);
 
-  // Advance to the next appropriate alignment.
-  start = (start + alignment - 1) & (-alignment);
+  MJ_ASSERT(result != nullptr);
 
-  MJ_ASSERT(start + size < size_);
-
-  position_ = start + size;
-  return data_ + start;
+  position_ = reinterpret_cast<char*>(result) - data_ + size;
+  return result;
 }
 
 }

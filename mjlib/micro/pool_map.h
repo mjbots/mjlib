@@ -38,9 +38,19 @@ class PoolMap {
   using const_iterator = const Node*;
 
   PoolMap(Pool* pool, size_t max_elements)
-      : data_(static_cast<Node*>(pool->Allocate(sizeof(Node) * max_elements,
-                                                alignof(Node)))),
-        max_size_(max_elements) {}
+      : max_size_(max_elements) {
+    data_ = static_cast<Node*>(pool->Allocate(sizeof(Node) * max_elements,
+                                              alignof(Node)));
+    for (size_t i = 0; i < max_elements; i++) {
+      ::new (data_ + i) Node{};
+    }
+  }
+
+  ~PoolMap() {
+    for (size_t i = 0; i < max_size_; i++) {
+      (&data_[i])->~Node();
+    }
+  }
 
   iterator begin() { return data_; }
   iterator end() { return data_ + size_; }
@@ -103,7 +113,7 @@ class PoolMap {
   }
 
  private:
-  Node* const data_;
+  Node* data_;
   size_t size_ = 0;
   const size_t max_size_;
 };

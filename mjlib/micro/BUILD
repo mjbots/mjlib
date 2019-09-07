@@ -17,17 +17,11 @@
 package(default_visibility = ["//visibility:public"])
 
 cc_library(
-    name = "static_function",
-    hdrs = ["static_function.h"],
-    deps = ["//mjlib/base:assert"],
-)
-
-cc_library(
     name = "async_types",
     hdrs = ["async_types.h"],
     deps = [
-        ":static_function",
         ":error_code",
+        "//mjlib/base:inplace_function",
     ],
 )
 
@@ -36,8 +30,8 @@ cc_library(
     hdrs = ["async_exclusive.h"],
     deps = [
         ":async_types",
-        ":static_function",
         "//mjlib/base:assert",
+        "//mjlib/base:inplace_function",
     ],
 )
 
@@ -47,7 +41,6 @@ cc_library(
     deps = [
         ":async_types",
         ":error_code",
-        ":static_function",
         "//mjlib/base:noncopyable",
         "//mjlib/base:string_span",
     ],
@@ -103,7 +96,7 @@ cc_library(
         ":async_types",
         ":pool_map",
         ":pool_ptr",
-        ":static_function",
+        "//mjlib/base:inplace_function",
         "//mjlib/base:string_span",
         "//mjlib/base:tokenizer",
     ],
@@ -112,7 +105,7 @@ cc_library(
 cc_library(
     name = "event",
     hdrs = ["event.h"],
-    deps = [":static_function"],
+    deps = ["//mjlib/base:inplace_function"],
 )
 
 cc_library(
@@ -141,6 +134,7 @@ cc_library(
     deps = [
         ":async_stream",
         ":async_types",
+        "//mjlib/base:inplace_function",
         "//mjlib/base:stream",
         "//mjlib/base:string_span",
         "//mjlib/base:tokenizer",
@@ -160,8 +154,8 @@ cc_library(
         ":pool_map",
         ":pool_ptr",
         ":serializable_handler",
-        ":static_function",
         "//mjlib/base:buffer_stream",
+        "//mjlib/base:inplace_function",
         "//mjlib/base:stream",
         "//mjlib/base:tokenizer",
     ],
@@ -189,6 +183,7 @@ cc_library(
         "//mjlib/base:assert",
         "//mjlib/base:buffer_stream",
         "//mjlib/base:crc",
+        "//mjlib/base:inplace_function",
         "//mjlib/base:noncopyable",
         "//mjlib/base:tokenizer",
     ],

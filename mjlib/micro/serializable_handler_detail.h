@@ -19,6 +19,7 @@
 #include <cstdlib>
 #include <type_traits>
 
+#include "mjlib/base/inplace_function.h"
 #include "mjlib/base/visit_archive.h"
 #include "mjlib/base/visitor.h"
 #include "mjlib/base/tokenizer.h"
@@ -37,7 +38,7 @@ struct EnumerateArchive : public mjlib::base::VisitArchive<EnumerateArchive> {
     uint16_t current_field_index_to_write = 0;
     AsyncWriteStream* stream = nullptr;
     ErrorCallback callback;
-    StaticFunction<bool ()> evaluate_enumerate_archive;
+    base::inplace_function<bool ()> evaluate_enumerate_archive;
   };
 
   EnumerateArchive(Context* context,

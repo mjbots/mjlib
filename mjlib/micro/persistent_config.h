@@ -14,6 +14,8 @@
 
 #pragma once
 
+#include "mjlib/base/inplace_function.h"
+
 #include "mjlib/micro/async_stream.h"
 #include "mjlib/micro/command_manager.h"
 #include "mjlib/micro/flash.h"
@@ -34,7 +36,7 @@ class PersistentConfig {
   /// remain valid forever.
   template <typename Serializable>
   void Register(const std::string_view& name, Serializable* serializable,
-                StaticFunction<void ()> updated) {
+                base::inplace_function<void ()> updated) {
     PoolPtr<SerializableHandler<Serializable>> concrete(pool(), serializable);
     RegisterDetail(name, concrete.get(), updated);
   }
@@ -48,7 +50,7 @@ class PersistentConfig {
   /// This aliases Base, which must remain valid for the lifetime of
   /// the PersistentConfig.
   void RegisterDetail(const std::string_view& name, SerializableHandlerBase*,
-                      StaticFunction<void ()> updated);
+                      base::inplace_function<void ()> updated);
 
   Pool* pool() const;
 
