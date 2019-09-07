@@ -113,6 +113,15 @@ ReadStream<base::BufferReadStream>::ReadVaruint() {
   return std::numeric_limits<uint32_t>::max();
 }
 
+template <>
+template <typename T>
+inline std::optional<T>
+ReadStream<base::BufferReadStream>::ReadScalar() {
+  const T* const position = reinterpret_cast<const T*>(istr_.position());
+  istr_.ignore(sizeof(T));
+  return *position;
+}
+
 template <typename Base = base::WriteStream>
 class WriteStream {
  public:
