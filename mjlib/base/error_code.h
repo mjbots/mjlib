@@ -34,7 +34,9 @@ class error_code {
   error_code(int val, const boost::system::error_category& category,
              const std::string& message = "")
       : error_code(boost::system::error_code(val, category)) {
-    if (!message.empty()) { message_ += "\n" + message; }
+    if (!message.empty()) {
+      message_ += "\n" + message;
+    }
   }
 
   template <typename ErrorCodeEnum>
@@ -55,7 +57,7 @@ class error_code {
 
   /// @return a string describing the message, along with all context
   /// which has been added.
-  std::string message() const { return message_; }
+  std::string message() const;
 
   /// @return the boost error_code associated with this error.
   const boost::system::error_code& boost_error_code() const { return ec_; }

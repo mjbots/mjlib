@@ -22,8 +22,11 @@ namespace mjlib {
 namespace base {
 
 error_code::error_code(const boost::system::error_code& ec)
-    : ec_(ec),
-      message_(ec ? (Stringify(ec) + " " + ec.message()) : "") {}
+    : ec_(ec) {}
+
+std::string error_code::message() const {
+  return (ec_ ? (Stringify(ec_) + " " + ec_.message()) : "") + message_;
+}
 
 }
 }
