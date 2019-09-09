@@ -23,7 +23,7 @@ namespace base {
 
 error_code::error_code(const boost::system::error_code& ec)
     : ec_(ec),
-      message_(Stringify(ec) + " " + ec.message()) {}
+      message_(ec ? (Stringify(ec) + " " + ec.message()) : "") {}
 
 }
 }
