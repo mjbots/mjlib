@@ -41,23 +41,26 @@ class FrameStream::Impl {
   Impl(io::AsyncStream* stream) : stream_(stream) {}
 
   void AsyncWrite(const Frame* frame, io::ErrorCallback callback) {
-    write_buffer_ = frame->encode();
+    write_buffer_.data()->clear();
+
+    frame->encode(&write_buffer_);
+
     boost::asio::async_write(
         *stream_,
-        boost::asio::buffer(write_buffer_),
+        boost::asio::buffer(write_buffer_.view()),
         [callback](auto&& ec, auto&&) { callback(ec); });
   }
 
   void AsyncWriteMultiple(const std::vector<const Frame*>& frames,
                           io::ErrorCallback callback) {
-    multiple_tx_stream_.data()->clear();
+    write_buffer_.data()->clear();
 
     for (auto& frame : frames) {
-      frame->encode(&multiple_tx_stream_);
+      frame->encode(&write_buffer_);
     }
     boost::asio::async_write(
         *stream_,
-        boost::asio::buffer(multiple_tx_stream_.view()),
+        boost::asio::buffer(write_buffer_.view()),
         [callback](auto&& ec, auto&&) { callback(ec); });
   }
 
@@ -209,8 +212,7 @@ class FrameStream::Impl {
   }
 
   io::AsyncStream* const stream_;
-  std::string write_buffer_;
-  base::FastOStringStream multiple_tx_stream_;
+  base::FastOStringStream write_buffer_;
 
   bool read_outstanding_ = false;
   boost::asio::streambuf streambuf_;
