@@ -77,6 +77,22 @@ cc_library(
 )
 
 cc_library(
+    name = "now",
+    hdrs = ["now.h"],
+    deps = [":debug_time"],
+)
+
+cc_library(
+    name = "repeating_timer",
+    hdrs = ["repeating_timer.h"],
+    srcs = ["repeating_timer.cc"],
+    deps = [
+        ":debug_time",
+        ":now",
+    ],
+)
+
+cc_library(
     name = "exclusive_command",
     hdrs = ["exclusive_command.h"],
     deps = ["@boost",],
@@ -139,6 +155,7 @@ cc_test(
         "test/async_stream_test.cc",
         "test/exclusive_command_test.cc",
         "test/offset_buffer_test.cc",
+        "test/repeating_timer_test.cc",
         "test/streambuf_read_stream_test.cc",
         "test/test_main.cc",
         "test/virtual_deadline_timer_test.cc",
@@ -148,6 +165,7 @@ cc_test(
         ":debug_time",
         ":exclusive_command",
         ":offset_buffer",
+        ":repeating_timer",
         ":streambuf_read_stream",
         ":stream_factory",
         "@boost//:test",
