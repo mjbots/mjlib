@@ -35,7 +35,7 @@ class error_code {
              const std::string& message = "")
       : error_code(boost::system::error_code(val, category)) {
     if (!message.empty()) {
-      message_ += "\n" + message;
+      message_ += message;
     }
   }
 

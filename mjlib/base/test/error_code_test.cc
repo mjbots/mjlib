@@ -30,6 +30,12 @@ BOOST_AUTO_TEST_CASE(DefaultErrorCodeTest) {
   BOOST_TEST(dut.message() == "message");
 }
 
+BOOST_AUTO_TEST_CASE(Append) {
+  auto dut = error_code::einval("");
+  dut.Append("stuff");
+  BOOST_TEST(dut.message() == "generic:22 Invalid argument\nstuff");
+}
+
 BOOST_AUTO_TEST_CASE(ErrorCodeTest) {
   auto dut = error_code::einval("failure");
   BOOST_TEST(!!dut);
