@@ -88,7 +88,7 @@ BOOST_FIXTURE_TEST_CASE(AsioClientRegisterReply, Fixture) {
   int write_done = 0;
   boost::asio::async_write(
       *server_side,
-      boost::asio::buffer("\x54\xab\x02\x00\x03\x20\x03\x04\x9a\xf8", 10),
+      boost::asio::buffer("\x54\xab\x02\x00\x03\x21\x03\x04\xaa\xcf", 10),
       [&](auto&& ec, size_t) {
         base::FailIf(ec);
         write_done++;
@@ -162,4 +162,45 @@ BOOST_FIXTURE_TEST_CASE(AsioClientTunnelRead, Fixture) {
   BOOST_TEST(read_done == 1);
   BOOST_TEST(size == 2);
   BOOST_TEST(std::string(buf, 2) == "ab");
+}
+
+BOOST_FIXTURE_TEST_CASE(AsioClientTunnelReadCancel, Fixture) {
+  auto tunnel = dut.MakeTunnel(2, 3);
+
+  char buf[10] = {};
+  int read_done = 0;
+  size_t size = 0;
+  tunnel->async_read_some(
+      boost::asio::buffer(buf),
+      [&](auto&&ec, size_t size_in) {
+        BOOST_TEST(!!ec);
+        read_done++;
+        size = size_in;
+      });
+
+  BOOST_TEST(read_done == 0);
+
+  Poll();
+
+  BOOST_TEST(read_done == 0);
+  BOOST_TEST(server_reader.data() ==
+             std::string("\x54\xab\x80\x02\x03\x40\x03\x00\x96\x38", 10));
+
+  tunnel->cancel();
+
+  Poll();
+
+  BOOST_TEST(read_done == 1);
+
+  // Now respond with some data.
+  boost::asio::async_write(
+      *server_side,
+      boost::asio::buffer("\x54\xab\x02\x00\x05\x41\x03\x02\x61\x62\xa8\x40", 12),
+      [&](auto&& ec, size_t) {
+        base::FailIf(ec);
+      });
+
+  Poll();
+
+  BOOST_TEST(read_done == 1);
 }

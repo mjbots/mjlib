@@ -155,9 +155,10 @@ class AsioClient::Impl {
       // way the lock can be released in between polls.  Boy would
       // this ever be more clear if we could express it with
       // coroutines.
-      auto maybe_retry = [this, buffers, handler](const base::error_code& ec,
-                                                  size_t bytes_read) {
+      auto maybe_retry = [this, buffers](const base::error_code& ec,
+                                         size_t bytes_read) {
         base::FailIf(ec);
+        if (!read_handler_) { return; }
 
         if (parent_->frame_stream_.read_data_queued() &&
             bytes_read < boost::asio::buffer_size(buffers)) {
@@ -170,8 +171,10 @@ class AsioClient::Impl {
           // stream.
 
           auto handler_wrapper =
-              [handler, bytes_read](const base::error_code& ec, size_t size) {
-            handler(ec, bytes_read + size);
+              [this, bytes_read](const base::error_code& ec, size_t size) {
+            auto copy = this->read_handler_;
+            this->read_handler_ = {};
+            copy(ec, bytes_read + size);
           };
 
           this->async_read_some(
@@ -184,21 +187,25 @@ class AsioClient::Impl {
         if (bytes_read > 0) {
           // No need to retry, we're done.
           parent_->service_.post(
-              std::bind(handler, base::error_code(), bytes_read));
+              std::bind(read_handler_, base::error_code(), bytes_read));
+          read_handler_ = {};
           return;
         }
 
         // Yep, we failed to get anything this time.  Wait our polling
         // period and try again.
         poll_timer_.expires_from_now(options_.poll_rate);
-        poll_timer_.async_wait([this, buffers, handler](auto&& ec) {
+        poll_timer_.async_wait([this, buffers](auto&& ec) {
             if (ec == boost::asio::error::operation_aborted) { return; }
-            this->async_read_some(buffers, handler);
+            this->async_read_some(buffers, read_handler_);
           });
       };
 
-      parent_->lock_.Invoke(
+      read_handler_ = handler;
+
+      read_nonce_ = parent_->lock_.Invoke(
           [this, buffers](io::SizeCallback handler) {
+            read_nonce_ = {};
             MakeFrame(boost::asio::buffer("", 0), true);
 
             parent_->frame_stream_.AsyncWrite(
@@ -211,19 +218,23 @@ class AsioClient::Impl {
 
     void async_write_some(io::ConstBufferSequence buffers,
                           io::WriteHandler handler) override {
-      parent_->lock_.Invoke([this, buffers](io::WriteHandler handler) {
-          const auto size = boost::asio::buffer_size(buffers);
-          MakeFrame(buffers, false);
+      write_handler_ = handler;
+      write_nonce_ = parent_->lock_.Invoke(
+          [this, buffers](io::WriteHandler handler) {
+            write_nonce_ = {};
+            write_handler_ = {};
+            const auto size = boost::asio::buffer_size(buffers);
+            MakeFrame(buffers, false);
 
-          parent_->frame_stream_.AsyncWrite(
-              &parent_->tx_frame_,
-              [handler, size](auto&& ec) {
-                if (ec) {
-                  handler(ec, 0);
-                } else {
-                  handler(ec, size);
-                }
-              });
+            parent_->frame_stream_.AsyncWrite(
+                &parent_->tx_frame_,
+                [handler, size](auto&& ec) {
+                  if (ec) {
+                    handler(ec, 0);
+                  } else {
+                    handler(ec, size);
+                  }
+                });
         },
         handler);
     }
@@ -233,6 +244,26 @@ class AsioClient::Impl {
     }
 
     void cancel() override {
+      parent_->lock_.remove(read_nonce_);
+      poll_timer_.cancel();
+      parent_->frame_stream_.cancel();
+
+      if (read_handler_) {
+        get_io_service().post(
+            std::bind(read_handler_,
+                      boost::asio::error::operation_aborted, 0));
+      }
+      read_handler_ = {};
+
+      if (parent_->lock_.remove(write_nonce_)) {
+        get_io_service().post(
+            std::bind(write_handler_,
+                      boost::asio::error::operation_aborted, 0));
+      }
+      write_handler_ = {};
+
+      read_nonce_ = {};
+      write_nonce_ = {};
     }
 
    private:
@@ -337,6 +368,11 @@ class AsioClient::Impl {
 
     io::DeadlineTimer poll_timer_{parent_->service_};
     std::vector<char> temp_data_;
+
+    io::ExclusiveCommand::Nonce read_nonce_;
+    io::ExclusiveCommand::Nonce write_nonce_;
+    io::WriteHandler write_handler_;
+    io::ReadHandler read_handler_;
   };
 
   io::AsyncStream* const stream_;
