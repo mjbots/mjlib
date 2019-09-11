@@ -83,6 +83,11 @@ class FrameStream::Impl {
     MaybeStartRead();
   }
 
+  void cancel() {
+    timer_.cancel();
+    stream_->cancel();
+  }
+
   bool read_data_queued() const {
     return streambuf_.size() > 0;
   }
@@ -106,6 +111,14 @@ class FrameStream::Impl {
   }
 
   void HandleRead(const base::error_code& ec, size_t size) {
+    if (ec == boost::asio::error::operation_aborted) {
+      if (current_callback_) {
+        auto copy = *current_callback_;
+        current_callback_ = {};
+        copy(ec);
+      }
+      return;
+    }
     base::FailIf(ec);
 
     streambuf_.commit(size);
@@ -162,7 +175,7 @@ class FrameStream::Impl {
       const auto read_checksum = reader.Read<uint16_t>();
 
       // We have enough data. Lets see if the checksum matches.
-      if (calculated_checksum != read_checksum) {
+      if (calculated_checksum != *read_checksum) {
         // Nope.  Skip this header and try again.
         streambuf_.consume(2);
         continue;
@@ -242,6 +255,10 @@ void FrameStream::AsyncRead(Frame* frame,
                             boost::posix_time::time_duration timeout,
                             io::ErrorCallback callback) {
   impl_->AsyncRead(frame, timeout, callback);
+}
+
+void FrameStream::cancel() {
+  impl_->cancel();
 }
 
 bool FrameStream::read_data_queued() const {

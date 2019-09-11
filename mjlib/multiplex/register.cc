@@ -39,7 +39,7 @@ void RegisterRequest::ReadSingle(Register reg, size_t type_index) {
   WriteStream stream{buffer_};
 
   MJ_ASSERT(type_index <= 3);
-  stream.WriteVaruint(u32(Format::Subframe::kReadSingleBase) + type_index);
+  stream.WriteVaruint(u32(Format::Subframe::kReadBase) + type_index * 4 + 1);
   stream.WriteVaruint(reg);
 
   request_reply_ = true;
@@ -47,12 +47,16 @@ void RegisterRequest::ReadSingle(Register reg, size_t type_index) {
 
 void RegisterRequest::ReadMultiple(Register reg, uint32_t num_registers,
                                    size_t type_index) {
+  MJ_ASSERT(num_registers > 0);
   WriteStream stream{buffer_};
 
   MJ_ASSERT(type_index <= 3);
-  stream.WriteVaruint(u32(Format::Subframe::kReadMultipleBase) + type_index);
+  const int encoded_length = (num_registers < 4) ? num_registers : 0;
+
+  stream.WriteVaruint(u32(Format::Subframe::kReadBase) +
+                      type_index * 4 + encoded_length);
+  if (!encoded_length) { stream.WriteVaruint(num_registers); }
   stream.WriteVaruint(reg);
-  stream.WriteVaruint(num_registers);
 
   request_reply_ = true;
 }
@@ -70,7 +74,7 @@ void WriteValue(base::WriteStream* stream, const Format::Value& value) {
 void RegisterRequest::WriteSingle(Register reg, Format::Value value) {
   WriteStream stream{buffer_};
 
-  stream.WriteVaruint(u32(Format::Subframe::kWriteSingleBase) + value.index());
+  stream.WriteVaruint(u32(Format::Subframe::kWriteBase) + value.index() * 4 + 1);
   stream.WriteVaruint(reg);
   WriteValue(stream.base(), value);
 }
@@ -79,10 +83,13 @@ void RegisterRequest::WriteMultiple(Register start_reg,
                                     const std::vector<Format::Value>& values) {
   MJ_ASSERT(!values.empty());
   WriteStream stream{buffer_};
-  stream.WriteVaruint(u32(Format::Subframe::kWriteMultipleBase) +
-                      values.front().index());
+
+  const int encoded_length = (values.size() < 4) ? values.size() : 0;
+
+  stream.WriteVaruint(u32(Format::Subframe::kWriteBase) +
+                      values.front().index() * 4 + encoded_length);
+  if (!encoded_length) { stream.WriteVaruint(values.size()); }
   stream.WriteVaruint(start_reg);
-  stream.WriteVaruint(values.size());
   for (const auto& value : values) {
     WriteValue(stream.base(), value);
   }
@@ -115,25 +122,24 @@ std::optional<RegisterReply> ParseSubframe(BaseReadStream& stream) {
 
   RegisterReply this_result;
 
-  if ((subframe_id & ~0x03) == u32(Format::Subframe::kReplySingleBase)) {
-    const auto maybe_this_reg = stream.ReadVaruint();
-    if (!maybe_this_reg) { return {}; }
+  if (subframe_id >= u32(Format::Subframe::kReplyBase) &&
+      subframe_id <= (u32(Format::Subframe::kReplyBase) + 16)) {
+    const int encoded_length = subframe_id & 0x03;
+    const int type =
+        (subframe_id - u32(Format::Subframe::kReplyBase)) / 4;
 
-    const auto maybe_value = ReadValue(stream, subframe_id & 0x03);
-    if (!maybe_value) { return {}; }
+    const auto maybe_num_registers =
+        (encoded_length == 0) ? stream.ReadVaruint() :
+        std::make_optional<uint32_t>(encoded_length);
+    if (!maybe_num_registers) { return {}; }
+    const auto num_registers = *maybe_num_registers;
 
-    this_result[*maybe_this_reg] = *maybe_value;
-  } else if ((subframe_id & ~0x03) == u32(Format::Subframe::kReplyMultipleBase)) {
     const auto maybe_start_reg = stream.ReadVaruint();
     if (!maybe_start_reg) { return {}; }
     const auto start_reg = *maybe_start_reg;
 
-    const auto maybe_num_registers = stream.ReadVaruint();
-    if (!maybe_num_registers) { return {}; }
-    const auto num_registers = *maybe_num_registers;
-
     for (size_t i = 0; i < num_registers; i++) {
-      const auto maybe_value = ReadValue(stream, subframe_id & 0x03);
+      const auto maybe_value = ReadValue(stream, type);
       if (!maybe_value) { return {}; }
       this_result[start_reg + i] = *maybe_value;
     }

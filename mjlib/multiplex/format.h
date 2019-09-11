@@ -70,31 +70,24 @@
 ///   (int8_t, int16_t, int32_t, float)
 ///
 /// ## Subframes ##
-///   0x10, 0x11, 0x12, 0x13 - write single (int8_t|int16_t|int32_t|float)
-///     - varuint => register #
-///     - (int8_t|int16_t|int32_t|float) => value
-///   0x14, 0x15, 0x16, 0x17 - write multiple (int8_t|int16_t|int32_t|float)
+///   0x00, 0x04, 0x08, 0x0c - write (int8_t|int16_t|int32_t|float)
+///     - varuint => number of registers (may be optionally encoded as
+///       a non-zero 2 LSBs)
 ///     - varuint => start register #
-///     - varuint => number of registers
 ///     - N x (int8_t|int16_t|int32_t|float) => values
-///
-///   0x18, 0x19, 0x1a, 0x1b - read single (int8_t|int16_t|int32_t|float)
-///     - varuint => register #
-///   0x1c, 0x1d, 0x1e, 0x1f - read multiple (int8_t|int16_t|int32_t|float)
+///   0x10, 0x14, 0x18, 0x1c - read (int8_t|int16_t|int32_t|float)
+///     - varuint => number of registers (may be optionally encoded as
+///       a non-zero 2 LSBs)
 ///     - varuint => start register #
-///     - varuint => number of registers
-///
-///   0x20, 0x21, 0x22, 0x23 - reply single (int8_t|int16_t|int32_t|float)
-///     - varuint => register #
-///     - (int8_t|int16_t|int32_t|float) => value
-///   0x24, 0x25, 0x26, 0x27 - reply multiple (int8_t|int16_t|int32_t|float)
+///   0x20, 0x24, 0x28, 0x2c - reply (int8_t|int16_t|int32_t|float)
+///     - varuint => number of registers (may be optionally encoded as
+///       a non-zero 2 LSBs)
 ///     - varuint => start register #
-///     - varuint => number of registers
 ///     - N x (int8_t|int16_t|int32_t|float) => values
-///   0x28 - write error
+///   0x30 - write error
 ///     - varuint => register #
 ///     - varuint => error #
-///   0x29 - read error
+///   0x31 - read error
 ///     - varuint => register #
 ///     - varuint => error #
 ///
@@ -149,34 +142,26 @@ struct Format {
 
   enum class Subframe : uint8_t {
     // # Register RPC #
-    kWriteSingleBase = 0x10,
-    kWriteSingleInt8 = 0x10,
-    kWriteSingleInt16 = 0x11,
-    kWriteSingleInt32 = 0x12,
-    kWriteSingleFloat = 0x13,
+    kWriteBase = 0x00,
+    kWriteInt8 = 0x00,
+    kWriteInt16 = 0x04,
+    kWriteInt32 = 0x08,
+    kWriteFloat = 0x0c,
 
-    kWriteMultipleBase = 0x14,
-    kWriteMultipleInt8 = 0x14,
-    kWriteMultipleInt16 = 0x15,
-    kWriteMultipleInt32 = 0x16,
-    kWriteMultipleFloat = 0x17,
+    kReadBase = 0x10,
+    kReadInt8 = 0x10,
+    kReadInt16 = 0x14,
+    kReadInt32 = 0x18,
+    kReadFloat = 0x1c,
 
-    kReadSingleBase = 0x18,
-    kReadSingleInt8 = 0x18,
-    kReadSingleInt16 = 0x19,
-    kReadSingleInt32 = 0x1a,
-    kReadSingleFloat = 0x1b,
+    kReplyBase = 0x20,
+    kReplyInt8 = 0x20,
+    kReplyInt16 = 0x24,
+    kReplyInt32 = 0x28,
+    kReplyFloat = 0x2c,
 
-    kReadMultipleBase = 0x1c,
-    kReadMultipleInt8 = 0x1c,
-    kReadMultipleInt16 = 0x1d,
-    kReadMultipleInt32 = 0x1e,
-    kReadMultipleFloat = 0x1f,
-
-    kReplySingleBase = 0x20,
-    kReplyMultipleBase = 0x24,
-    kWriteError = 0x28,
-    kReadError = 0x29,
+    kWriteError = 0x30,
+    kReadError = 0x31,
 
     // # Tunneled Stream #
     kClientToServer = 0x40,

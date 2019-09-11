@@ -407,10 +407,10 @@ const uint8_t kWriteSingle[] = {
   0x82,  // source id
   0x01,  // destination id
   0x03,  // payload size
-    0x10,  // write single int8_t
+    0x01,  // write single int8_t
       0x02,  // register 2
       0x20,  // value
-  0x99, 0x14,  // CRC
+  0xca, 0x60,  // CRC
   0x00,  // null terminator
 };
 }
@@ -437,10 +437,10 @@ const uint8_t kWriteSingleBroadcast[] = {
   0x82,  // source id
   0x7f,  // destination id
   0x03,  // payload size
-    0x10,  // write single int8_t
+    0x01,  // write single int8_t
       0x02,  // register 2
       0x20,  // value
-  0xb7, 0xc6,  // CRC
+  0xe4, 0xb2,  // CRC
   0x00,  // null terminator
 };
 }
@@ -466,14 +466,13 @@ const uint8_t kWriteMultiple[] = {
   0x54, 0xab,  // header
   0x82,  // source id
   0x01,  // destination id
-  0x09,  // payload size
-    0x15,  // write multiple int16_t
+  0x08,  // payload size
+    0x07,  // write int16_t * 3
       0x05,  // start register
-      0x03,  // 3x registers
       0x01, 0x03,  // value1
       0x03, 0x03,  // value1
       0x05, 0x03,  // value1
-  0xda, 0xa6,  // CRC
+  0x87, 0xcc,  // CRC
   0x00,  // null terminator
 };
 }
@@ -533,10 +532,10 @@ BOOST_FIXTURE_TEST_CASE(WriteErrorTest, Fixture) {
     0x01,  // source id
     0x02,  // dest id
     0x03,  // payload size
-     0x28,  // write error
+     0x30,  // write error
       0x02,  // register
       0x76,  // error
-    0xbc, 0xb6,  // CRC
+    0x7e, 0x5c,  // CRC
     0x00,  // null terminator
   };
 
@@ -550,9 +549,9 @@ const uint8_t kReadSingle[] = {
   0x82,  // source id
   0x01,  // destination id
   0x02,  // payload size
-    0x1a,  // read single int32_t
+    0x19,  // read single int32_t
       0x09,  // register
-  0x03, 0xfb,  // CRC
+  0x50, 0xae,  // CRC
   0x00,  // null terminator
 };
 }
@@ -586,10 +585,10 @@ BOOST_FIXTURE_TEST_CASE(ReadSingleTest, Fixture) {
     0x01,  // source id
     0x02,  // dest id
     0x06,  // payload size
-     0x22,  // reply single int32_t
+     0x29,  // reply single int32_t
       0x09,  // register
       0x06, 0x07, 0x08, 0x09,  // value
-    0x00, 0xdb,  // CRC
+    0xa2, 0x18,  // CRC
     0x00,  // null terminator
   };
 
@@ -602,11 +601,10 @@ const uint8_t kReadMultiple[] = {
   0x54, 0xab,  // header
   0x82,  // source id
   0x01,  // destination id
-  0x03,  // payload size
-    0x1f,  // read multiple float
+  0x02,  // payload size
+    0x1e,  // read multiple float x2
       0x0a,  // register
-      0x02,  // two things
-  0x21, 0xb5,  // CRC
+  0xa4, 0x07,  // CRC
   0x00,  // null terminator
 };
 }
@@ -639,13 +637,12 @@ BOOST_FIXTURE_TEST_CASE(ReadMultipleTest, Fixture) {
     0x54, 0xab,
     0x01,  // source id
     0x02,  // dest id
-    0x0b,  // payload size
-     0x27,  // reply multiple float
+    0x0a,  // payload size
+     0x2e,  // reply multiple float x2
       0x0a,  // register
-      0x02,  // num registers
       0x00, 0x00, 0x80, 0x3f,  // value
       0x00, 0x00, 0x00, 0x40,
-    0x9e, 0x83,  // CRC
+    0xad, 0x46,  // CRC
     0x00,  // null terminator
   };
 

@@ -43,6 +43,9 @@ class FrameStream {
   void AsyncRead(Frame*, boost::posix_time::time_duration timeout,
                  io::ErrorCallback callback);
 
+  /// Cancel any outstanding operations.
+  void cancel();
+
   /// @return true if there is data available to be read.  This means
   /// an AsyncRead *may* be able to complete without touching the
   /// operating system.

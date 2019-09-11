@@ -30,6 +30,11 @@ namespace multiplex {
 namespace {
 using BufferReadStream = multiplex::ReadStream<base::BufferReadStream>;
 using BufferWriteStream = multiplex::WriteStream<base::BufferWriteStream>;
+
+template <typename T>
+constexpr uint8_t u8(T value) {
+  return static_cast<uint8_t>(value);
+}
 }
 
 class MicroServer::Impl {
@@ -411,20 +416,14 @@ class MicroServer::Impl {
     base::BufferReadStream buffer_stream(subframes);
     BufferReadStream str(buffer_stream);
 
-    auto u8 = [](auto value) {
-      return static_cast<uint8_t>(value);
-    };
-
     struct RegisterHandler {
       uint8_t base_register = 0;
       bool (Impl::* handler)(uint8_t, BufferReadStream&, BufferWriteStream*);
     };
 
     constexpr RegisterHandler register_handlers[] = {
-      { u8(Subframe::kWriteSingleBase), &Impl::ProcessSubframeWriteSingle },
-      { u8(Subframe::kWriteMultipleBase), &Impl::ProcessSubframeWriteMultiple },
-      { u8(Subframe::kReadSingleBase), &Impl::ProcessSubframeReadSingle },
-      { u8(Subframe::kReadMultipleBase), &Impl::ProcessSubframeReadMultiple },
+      { u8(Subframe::kWriteBase), &Impl::ProcessSubframeWrite },
+      { u8(Subframe::kReadBase), &Impl::ProcessSubframeRead },
     };
 
     while (buffer_stream.remaining()) {
@@ -462,9 +461,11 @@ class MicroServer::Impl {
 
       bool register_handler_found = false;
       for (const auto& handler : register_handlers) {
-        if ((subframe_type & ~0x03) == handler.base_register) {
+        if ((subframe_type >= handler.base_register &&
+             subframe_type <= (handler.base_register + 16))) {
           if ((this->*handler.handler)(
-                  subframe_type & 0x03, str, response_stream)) {
+                  subframe_type - handler.base_register,
+                  str, response_stream)) {
             stats_.malformed_subframe++;
             return;
           }
@@ -608,31 +609,18 @@ class MicroServer::Impl {
     response->WriteVaruint(error);
   }
 
-  bool ProcessSubframeWriteSingle(uint8_t type, BufferReadStream& str,
-                                  BufferWriteStream* response) {
-    const auto maybe_register = str.ReadVaruint();
-    if (!maybe_register) { return true; }
+  bool ProcessSubframeWrite(uint8_t type_length,
+                            BufferReadStream& str,
+                            BufferWriteStream* response) {
+    const auto encoded_length = type_length % 4;
+    const auto type = type_length / 4;
 
-    const auto maybe_value = ReadValue(type, str);
-    if (!maybe_value) { return true; }
+    const auto num_registers = (encoded_length == 0) ? str.ReadVaruint()
+        : std::make_optional<uint32_t>(encoded_length);
+    if (!num_registers) { return true; }
 
-    if (server_) {
-      const auto error = server_->Write(*maybe_register, *maybe_value);
-      if (error) {
-        EmitWriteError(response, *maybe_register, error);
-      }
-    }
-
-    return false;
-  }
-
-  bool ProcessSubframeWriteMultiple(uint8_t type, BufferReadStream& str,
-                                    BufferWriteStream* response) {
     const auto start_register = str.ReadVaruint();
     if (!start_register) { return true; }
-
-    const auto num_registers = str.ReadVaruint();
-    if (!num_registers) { return true; }
 
     auto current_register = *start_register;
 
@@ -681,37 +669,34 @@ class MicroServer::Impl {
     }
   }
 
-  bool ProcessSubframeReadSingle(uint8_t type, BufferReadStream& str,
-                                 BufferWriteStream* response) {
+  bool ProcessSubframeRead(uint8_t type_length,
+                           BufferReadStream& str,
+                           BufferWriteStream* response) {
     if (!response) { return false; }
 
-    const auto maybe_register = str.ReadVaruint();
-    if (!maybe_register) { return true; }
+    const auto encoded_length = type_length % 4;
+    const auto type = type_length / 4;
 
-    const auto read_result =
-        server_ ? server_->Read(*maybe_register, type) : uint32_t(1);
-    EmitRead(response, *maybe_register, read_result);
-    return false;
-  }
+    const auto num_registers = (encoded_length == 0) ? str.ReadVaruint()
+        : std::make_optional<uint32_t>(encoded_length);
+    if (!num_registers) { return true; }
 
-  bool ProcessSubframeReadMultiple(uint8_t type, BufferReadStream& str,
-                                   BufferWriteStream* response) {
-    if (!response) { return false; }
 
     const auto start_register = str.ReadVaruint();
     if (!start_register) { return true; }
 
-    const auto num_registers = str.ReadVaruint();
-    if (!num_registers) { return true; }
 
     // Save our write position, in case we need to abort and emit an
     // error.
     auto* const start = response->base()->position();
 
-    const uint8_t subframe_id = 0x24 | type;
+    const uint8_t subframe_id =
+        u8(Format::Subframe::kReplyBase) | (type * 4) | encoded_length;
     response->WriteVaruint(subframe_id);
+    if (encoded_length == 0) {
+      response->WriteVaruint(*num_registers);
+    }
     response->WriteVaruint(*start_register);
-    response->WriteVaruint(*num_registers);
 
     auto current_register = *start_register;
 
