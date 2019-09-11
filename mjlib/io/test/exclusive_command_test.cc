@@ -83,3 +83,58 @@ BOOST_AUTO_TEST_CASE(ExclusiveCommandTest) {
   item2_callback();
   BOOST_TEST(item2_done == 1);
 }
+
+BOOST_AUTO_TEST_CASE(CancelTest) {
+  boost::asio::io_service service;
+  ExclusiveCommand dut{service};
+  using Callback = io::VoidCallback;
+
+  int item1_started = 0;
+  int item1_done = 0;
+  Callback item1_callback;
+  const auto nonce1 = dut.Invoke(
+      [&](Callback done_callback) {
+        item1_started++;
+        item1_callback = done_callback;
+      },
+      [&]() {
+        item1_done++;
+      });
+
+  int item2_started = 0;
+  int item2_done = 0;
+  Callback item2_callback;
+  const auto nonce2 = dut.Invoke(
+      [&](Callback done_callback) {
+        item2_started++;
+        item2_callback = done_callback;
+      },
+      [&]() {
+        item2_done++;
+      });
+
+  {
+    const auto erased = dut.remove(nonce1);
+    // We can't cancel this, because it gets invoked right away.
+    BOOST_TEST(erased == 0);
+  }
+  {
+    const auto erased = dut.remove(nonce2);
+    // But we can remove this one.
+    BOOST_TEST(erased == 1);
+  }
+
+  service.poll();
+  service.reset();
+
+  BOOST_TEST(item1_started == 1);
+  BOOST_TEST(item1_done == 0);
+
+  item1_callback();
+
+  service.poll();
+  service.reset();
+
+  BOOST_TEST(item1_done == 1);
+  BOOST_TEST(item2_started == 0);
+}

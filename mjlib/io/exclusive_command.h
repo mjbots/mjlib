@@ -29,19 +29,37 @@ class ExclusiveCommand : boost::noncopyable {
  public:
   ExclusiveCommand(boost::asio::io_service& service) : service_(service) {}
 
+  class Base : boost::noncopyable {
+   public:
+    virtual ~Base() {}
+    virtual void Invoke() = 0;
+  };
+
+  using Nonce = std::shared_ptr<Base>;
+
   /// Invoke @p command when the resource is idle.
   ///
   /// Invoke @p handler will be passed to @p command when it is
   /// invoked.  This handler must be called when the operation is
   /// complete.
   template <typename Command, typename Handler>
-  void Invoke(Command command, Handler handler) {
+  Nonce Invoke(Command command, Handler handler) {
     auto ptr = std::make_shared<Concrete<Command, Handler>>(this, command, handler);
     queued_.push_back(ptr);
     MaybeStart();
+    return ptr;
   };
 
   boost::asio::io_service& get_io_service() { return service_; }
+
+  std::size_t remove(Nonce nonce) {
+    auto it = std::remove(queued_.begin(), queued_.end(), nonce);
+    if (it == queued_.end()) {
+      return 0;
+    }
+    queued_.erase(it, queued_.end());
+    return 1;
+  }
 
  private:
   void ItemDone() {
@@ -57,12 +75,6 @@ class ExclusiveCommand : boost::noncopyable {
     queued_.pop_front();
     service_.post([waiting=waiting_]() { waiting->Invoke(); });
   }
-
-  class Base : boost::noncopyable {
-   public:
-    virtual ~Base() {}
-    virtual void Invoke() = 0;
-  };
 
   template <typename Command, typename Handler>
   class Concrete : public Base {
