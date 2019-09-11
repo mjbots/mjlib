@@ -84,8 +84,14 @@ class FrameStream::Impl {
   }
 
   void cancel() {
-    timer_.cancel();
-    stream_->cancel();
+    if (current_callback_) {
+      auto ec = base::error_code(boost::asio::error::operation_aborted);
+      stream_->get_io_service().post(std::bind(current_callback_, ec));
+      current_callback_ = {};
+      current_frame_ = nullptr;
+    }
+    // We won't bother canceling writes, as they are unlikely to take
+    // long anyways.
   }
 
   bool read_data_queued() const {
@@ -111,14 +117,6 @@ class FrameStream::Impl {
   }
 
   void HandleRead(const base::error_code& ec, size_t size) {
-    if (ec == boost::asio::error::operation_aborted) {
-      if (current_callback_) {
-        auto copy = *current_callback_;
-        current_callback_ = {};
-        copy(ec);
-      }
-      return;
-    }
     base::FailIf(ec);
 
     streambuf_.commit(size);
@@ -187,7 +185,7 @@ class FrameStream::Impl {
 
       // Woot!  We have a full functioning frame.  Let's report that.
       current_frame_ = nullptr;
-      auto copy = *current_callback_;
+      auto copy = current_callback_;
       current_callback_ = {};
 
       stream_->get_io_service().post(
@@ -218,7 +216,7 @@ class FrameStream::Impl {
     if (current_callback_) {
       BOOST_ASSERT(current_frame_);
       current_frame_ = nullptr;
-      auto copy = *current_callback_;
+      auto copy = current_callback_;
       current_callback_ = {};
       copy(boost::asio::error::operation_aborted);
     }
@@ -235,7 +233,7 @@ class FrameStream::Impl {
   io::DeadlineTimer timer_{stream_->get_io_service()};
 
   Frame* current_frame_ = nullptr;
-  std::optional<io::ErrorCallback> current_callback_;
+  io::ErrorCallback current_callback_;
 };
 
 FrameStream::FrameStream(io::AsyncStream* stream)

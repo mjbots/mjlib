@@ -127,3 +127,55 @@ BOOST_FIXTURE_TEST_CASE(FrameStreamReadTest, Fixture) {
   BOOST_TEST(to_receive.dest_id == 5);
   BOOST_TEST(to_receive.payload == " ");
 }
+
+BOOST_FIXTURE_TEST_CASE(FrameStreamReadCancelTest, Fixture) {
+  Frame to_receive;
+  int read_done = 0;
+
+  dut.AsyncRead(&to_receive, {}, [&](auto&& ec) {
+      BOOST_TEST(ec == boost::asio::error::operation_aborted);
+      read_done++;
+    });
+
+  BOOST_TEST(read_done == 0);
+  Poll();
+  BOOST_TEST(read_done == 0);
+
+  // Cancel this.
+  dut.cancel();
+  Poll();
+
+  BOOST_TEST(read_done == 1);
+
+  int write_done = 0;
+  auto write = [&]() {
+    // Now write a frame into the server side.
+    boost::asio::async_write(
+        *server_side,
+        boost::asio::buffer("\x54\xab\x04\x05\x01\x20\xec\x88", 8),
+        [&](auto&& ec, size_t size) {
+          mjlib::base::FailIf(ec);
+          write_done++;
+          BOOST_TEST(size == 8);
+        });
+  };
+
+  // Writing should not result in any more reads.
+  write();
+  Poll();
+  BOOST_TEST(write_done == 1);
+  BOOST_TEST(read_done == 1);
+
+  // But we can read another time and get something new.
+  int read_done2 = 0;
+  dut.AsyncRead(&to_receive, {}, [&](auto&& ec) {
+      mjlib::base::FailIf(ec);
+      read_done2++;
+    });
+
+  Poll();
+  write();
+  Poll();
+
+  BOOST_TEST(read_done2 == 1);
+}
