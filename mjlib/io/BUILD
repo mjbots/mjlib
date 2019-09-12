@@ -26,6 +26,16 @@ cc_library(
 )
 
 cc_library(
+    name = "async_sequence",
+    hdrs = ["async_sequence.h"],
+    srcs = ["async_sequence.cc"],
+    deps = [
+        ":async_types",
+        "//mjlib/base:assert",
+    ],
+)
+
+cc_library(
     name = "async_stream",
     hdrs = ["async_stream.h"],
     deps = [
@@ -152,6 +162,7 @@ cc_binary(
 cc_test(
     name = "test",
     srcs = [
+        "test/async_sequence_test.cc",
         "test/async_stream_test.cc",
         "test/exclusive_command_test.cc",
         "test/offset_buffer_test.cc",
@@ -161,6 +172,7 @@ cc_test(
         "test/virtual_deadline_timer_test.cc",
     ],
     deps = [
+        ":async_sequence",
         ":async_stream",
         ":debug_time",
         ":exclusive_command",
