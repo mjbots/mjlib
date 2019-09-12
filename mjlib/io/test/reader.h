@@ -46,6 +46,7 @@ class Reader {
   void HandleRead(const base::error_code& ec, size_t size) {
     base::FailIf(ec);
     data_ += std::string(buffer_, size);
+    StartRead();
   }
 
   AsyncReadStream* const stream_;

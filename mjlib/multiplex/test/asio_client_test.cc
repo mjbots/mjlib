@@ -204,3 +204,123 @@ BOOST_FIXTURE_TEST_CASE(AsioClientTunnelReadCancel, Fixture) {
 
   BOOST_TEST(read_done == 1);
 }
+
+BOOST_FIXTURE_TEST_CASE(AsioClientTunnelReadFlush, Fixture) {
+  auto tunnel = dut.MakeTunnel(2, 3);
+
+  // Assume the device had some timing issues and sent a bunch of
+  // replies all at once.
+  char buf[10] = {};
+  int read_done = 0;
+  size_t size = 0;
+  tunnel->async_read_some(
+      boost::asio::buffer(buf),
+      [&](auto&&ec, size_t size_in) {
+        base::FailIf(ec);
+        read_done++;
+        size = size_in;
+      });
+
+  BOOST_TEST(read_done == 0);
+
+  Poll();
+
+  BOOST_TEST(read_done == 0);
+  BOOST_TEST(server_reader.data() ==
+             std::string("\x54\xab\x80\x02\x03\x40\x03\x00\x96\x38", 10));
+
+  // Now respond with some data.
+  boost::asio::async_write(
+      *server_side,
+      boost::asio::buffer(
+          "\x54\xab\x02\x00\x04\x41\x03\x01\x63\x95\x1f"
+          "\x54\xab\x02\x00\x03\x41\x03\x00\x45\x14"
+          "\x54\xab\x02\x00\x05\x41\x03\x02\x61\x62\xa8\x40"
+          "\x54\xab\x02\x00\x03\x41\x03\x00\x45\x14",
+          43),
+      [&](auto&& ec, size_t) {
+        base::FailIf(ec);
+      });
+
+  Poll();
+
+  BOOST_TEST(read_done == 1);
+  BOOST_TEST(size == 3);
+  BOOST_TEST(std::string(buf, 3) == "cab");
+
+  // And it shouldn't have emitted any more polls.
+  BOOST_TEST(server_reader.data() ==
+             std::string("\x54\xab\x80\x02\x03\x40\x03\x00\x96\x38", 10));
+}
+
+BOOST_FIXTURE_TEST_CASE(AsioClientTunnelReadFlushRace, Fixture) {
+  // Here, if there were multiple tunnels outstanding, and a bunch of
+  // data came in at once that needed a flush, we could assert because
+  // the tunnel was calling read outside of the ExclusiveCommand lock.
+
+  auto tunnel = dut.MakeTunnel(2, 3);
+  auto tunnel2 = dut.MakeTunnel(2, 4);
+
+  // Assume the device had some timing issues and sent a bunch of
+  // replies all at once.
+  char buf[10] = {};
+  int read_done = 0;
+  size_t size = 0;
+  tunnel->async_read_some(
+      boost::asio::buffer(buf),
+      [&](auto&&ec, size_t size_in) {
+        base::FailIf(ec);
+        read_done++;
+        size = size_in;
+      });
+
+  BOOST_TEST(read_done == 0);
+
+  // Kick off the second one as well so that it gets in the queue.
+  char buf2[10] = {};
+  int read2_done = 0;
+  size_t size2 = 0;
+  tunnel2->async_read_some(
+      boost::asio::buffer(buf2),
+      [&](auto&&ec, size_t size_in) {
+        base::FailIf(ec);
+        read2_done++;
+        size2 = size_in;
+      });
+
+  BOOST_TEST(read2_done == 0);
+
+  Poll();
+
+  BOOST_TEST(read_done == 0);
+  BOOST_TEST(server_reader.data() ==
+             std::string("\x54\xab\x80\x02\x03\x40\x03\x00\x96\x38", 10));
+
+  // Now respond with some data.
+  boost::asio::async_write(
+      *server_side,
+      boost::asio::buffer(
+          "\x54\xab\x02\x00\x04\x41\x03\x01\x63\x95\x1f"
+          "\x54\xab\x02\x00\x04\x41\x03\x01\x64\x72\x6f"
+          "\x54\xab\x02\x00\x05\x41\x03\x02\x61\x62\xa8\x40"
+          "\x54\xab\x02\x00\x05\x41\x03\x02\x65\x66\xe8\xcc"
+          "\x54\xab\x02\x00\x05\x41\x03\x02\x67\x68\x44\x4b"
+          "\x54\xab\x02\x00\x05\x41\x03\x02\x69\x6a\x09\x48",
+          70),
+      [&](auto&& ec, size_t) {
+        base::FailIf(ec);
+      });
+
+  Poll();
+
+  BOOST_TEST(read_done == 1);
+  BOOST_TEST(size == 10);
+  BOOST_TEST(std::string(buf, 10) == "cdabefghij");
+
+  // And now the second tunnel should have had a chance to send out a
+  // poll.
+  BOOST_TEST(server_reader.data() ==
+             std::string("\x54\xab\x80\x02\x03\x40\x03\x00\x96\x38"
+                         "\x54\xab\x80\x02\x03\x40\x04\x00\x01\xa1",
+                         20));
+}
