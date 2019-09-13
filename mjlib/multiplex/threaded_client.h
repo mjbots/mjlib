@@ -36,6 +36,8 @@ class ThreadedClient {
     std::string port;
     int baud_rate = 3000000;
 
+    double query_timeout_s = 0.001;
+
     // If set, then use the given file descriptor rather than opening
     // a serial port.
     int fd = -1;

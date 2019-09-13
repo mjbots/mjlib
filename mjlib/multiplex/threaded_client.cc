@@ -17,6 +17,7 @@
 #include <linux/serial.h>
 #include <sys/ioctl.h>
 #include <sys/types.h>
+#include <sys/select.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <termios.h>
@@ -114,6 +115,9 @@ class ThreadedClient::Impl {
     // TODO: Set realtime priority and lock memory.
 
     OpenPort();
+
+    select_timeout_.tv_sec = 0;
+    select_timeout_.tv_nsec = options_.query_timeout_s * 1000000000;
 
     boost::asio::io_service::work work(child_service_);
     child_service_.run();
@@ -271,8 +275,28 @@ class ThreadedClient::Impl {
 
   void ReadFrame(FrameItem* frame_item) {
     while (true) {
+      {
+        fd_set read_fds;
+        FD_ZERO(&read_fds);
+        FD_SET(static_cast<int>(fd_), &read_fds);
+        const int result = ::pselect(fd_ + 1, &read_fds, nullptr, nullptr,
+                                     &select_timeout_, nullptr);
+        if (result < 0 && errno == EINTR) {
+          // Try again.
+          continue;
+        }
+        ThrowIf(result < 0);
+        if (result == 0) {
+          // A timeout.
+          return;
+        }
+      }
       const int result = ::read(fd_, receive_buffer_ + receive_pos_,
-                          sizeof(receive_buffer_) - receive_pos_);
+                                sizeof(receive_buffer_) - receive_pos_);
+      if (result < 0 && errno == EINTR) {
+        // Try again.
+        continue;
+      }
       ThrowIf(result < 0);
 
       if (result == 0) {
@@ -317,9 +341,8 @@ class ThreadedClient::Impl {
 
       options.c_cflag = baud | CS8 | CLOCAL | CREAD;
 
-      // Set up timeouts: Calls to read() will return as soon as there is
-      // at least one byte available or when 500 ms has passed.
-      options.c_cc[VTIME] = 5;
+      // Set up timeouts: Calls to read() are basically non-blocking.
+      options.c_cc[VTIME] = 0;
       options.c_cc[VMIN] = 0;
 
       ThrowIf(::tcflush(fd, TCIOFLUSH) < 0);
@@ -363,6 +386,8 @@ class ThreadedClient::Impl {
 
   char receive_buffer_[256] = {};
   std::streamsize receive_pos_ = 0;
+
+  struct timespec select_timeout_ = {};
 };
 
 ThreadedClient::ThreadedClient(boost::asio::io_service& service,
