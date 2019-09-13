@@ -462,7 +462,8 @@ class MicroServer::Impl {
       bool register_handler_found = false;
       for (const auto& handler : register_handlers) {
         if ((subframe_type >= handler.base_register &&
-             subframe_type <= (handler.base_register + 16))) {
+             static_cast<int>(subframe_type) <=
+             (handler.base_register + 16))) {
           if ((this->*handler.handler)(
                   subframe_type - handler.base_register,
                   str, response_stream)) {
