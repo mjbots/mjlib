@@ -55,6 +55,7 @@ class Server : public MicroServer::Server {
 
   std::map<uint32_t, int32_t> int32_values = {
     { 9, 0x09080706, },
+    { 16, 0x19181716, },
   };
   std::map<uint32_t, float> float_values = {
     { 10, 1.0f },
@@ -548,10 +549,12 @@ const uint8_t kReadSingle[] = {
   0x54, 0xab,  // header
   0x82,  // source id
   0x01,  // destination id
-  0x02,  // payload size
+  0x04,  // payload size
     0x19,  // read single int32_t
       0x09,  // register
-  0x50, 0xae,  // CRC
+    0x19,  // read single int32_t
+      0x10,  // register
+  0xdb, 0x02,  // CRC
   0x00,  // null terminator
 };
 }
@@ -584,11 +587,14 @@ BOOST_FIXTURE_TEST_CASE(ReadSingleTest, Fixture) {
     0x54, 0xab,
     0x01,  // source id
     0x02,  // dest id
-    0x06,  // payload size
+    0x0c,  // payload size
      0x29,  // reply single int32_t
       0x09,  // register
       0x06, 0x07, 0x08, 0x09,  // value
-    0xa2, 0x18,  // CRC
+     0x29,  // reply single int32_t
+      0x10,  // register
+      0x16, 0x17, 0x18, 0x19,  // value
+    0x02, 0x72,  // CRC
     0x00,  // null terminator
   };
 

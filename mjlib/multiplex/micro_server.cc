@@ -721,7 +721,7 @@ class MicroServer::Impl {
       current_register++;
     }
 
-    return true;
+    return false;
   }
 
   TunnelStream* FindTunnel(uint32_t id) {
