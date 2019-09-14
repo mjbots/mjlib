@@ -25,8 +25,8 @@ template <typename T>
 struct ExternalSerializer {
   using NotSpecialized = int;
 
-  template <typename Archive>
-  void Serialize(T* object, Archive* archive);
+  template <typename PairReceiver>
+  void Serialize(T* object, PairReceiver);
 };
 
 namespace detail {
@@ -51,7 +51,7 @@ constexpr bool IsExternalSerializable() {
 struct NeverUsedTag {};
 
 template <typename T>
-constexpr auto IsInternalSerializableImpl(PriorityTag<1>) ->
+constexpr auto IsNativeSerializableImpl(PriorityTag<1>) ->
     std::enable_if_t<
       !std::is_same<
         NeverUsedTag,
@@ -62,14 +62,30 @@ constexpr auto IsInternalSerializableImpl(PriorityTag<1>) ->
 }
 
 template <typename T>
-constexpr bool IsInternalSerializableImpl(PriorityTag<0>) {
+constexpr bool IsNativeSerializableImpl(PriorityTag<0>) {
   return false;
 }
 
 template <typename T>
-constexpr bool IsInternalSerializable() {
-  return IsInternalSerializableImpl<T>(PriorityTag<1>{});
+constexpr bool IsNativeSerializable() {
+  return IsNativeSerializableImpl<T>(PriorityTag<1>{});
 }
+
+/// This class wraps something that looks like a NameValuePair, but
+/// provides an alternate name.
+template <typename Base>
+class NameValuePairNameOverride : public Base {
+ public:
+  NameValuePairNameOverride(const Base& base, const char* name_override)
+      : Base(base),
+        name_override_(name_override) {}
+
+  const char* name() const { return name_override_; }
+
+ private:
+  const char* const name_override_;
+};
+
 
 template <typename Serializable, typename Archive>
 void SerializeImpl(
@@ -78,7 +94,9 @@ void SerializeImpl(
     Archive* archive,
     std::enable_if_t<IsExternalSerializable<Serializable>(), int> = 0) {
   mjlib::base::ExternalSerializer<Serializable> serializer;
-  serializer.Serialize(serializable, archive);
+  serializer.Serialize(serializable, [&](auto&& nvp) {
+      nvp.value()->Serialize(archive);
+    });
 }
 
 template <typename Serializable, typename Archive>
@@ -86,18 +104,13 @@ void SerializeImpl(
     PriorityTag<0>,
     Serializable* serializable,
     Archive* archive,
-    std::enable_if_t<IsInternalSerializable<Serializable>(), int> = 0) {
+    std::enable_if_t<IsNativeSerializable<Serializable>(), int> = 0) {
   serializable->Serialize(archive);
 }
 
 template <typename Serializable, typename Archive>
 void Serialize(Serializable* serializable, Archive* archive) {
   SerializeImpl(PriorityTag<1>{}, serializable, archive);
-}
-
-template <typename T>
-inline constexpr bool IsSerializable() {
-  return IsInternalSerializable<T>() || IsExternalSerializable<T>();
 }
 
 }

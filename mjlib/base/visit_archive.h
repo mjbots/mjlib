@@ -14,6 +14,7 @@
 
 #pragma once
 
+#include "mjlib/base/detail/serialize.h"
 #include "mjlib/base/priority_tag.h"
 #include "mjlib/base/visitor.h"
 
@@ -49,8 +50,18 @@ struct VisitArchive {
  private:
   template <typename NameValuePair, typename T>
   void VisitHelper(const NameValuePair& pair, T*, PriorityTag<1>,
-                   std::enable_if_t<IsSerializable<T>(), int> = 0) {
+                   std::enable_if_t<IsNativeSerializable<T>(), int> = 0) {
     static_cast<Derived*>(this)->VisitSerializable(pair);
+  }
+
+  template <typename NameValuePair, typename T>
+  void VisitHelper(const NameValuePair& pair, T* value, PriorityTag<1>,
+                   std::enable_if_t<IsExternalSerializable<T>(), int> = 0) {
+    mjlib::base::ExternalSerializer<T> serializer;
+    serializer.Serialize(value, [&](const auto& nvp) {
+        detail::NameValuePairNameOverride old_name(nvp, pair.name());
+        Visit(old_name);
+      });
   }
 
   template <typename NameValuePair, typename T>

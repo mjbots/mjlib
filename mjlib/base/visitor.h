@@ -26,10 +26,13 @@
 ///  2) specializing the mjlib::base::ExternalSerializer class
 ///     template for the given type
 ///
-/// In either case, the Serialize or
-/// mjlib::base::ExternalSerializer::Serialize method must call the
-/// "Visit" method on the archive for each member.  Each call should
-/// pass something modeling the NameValuePair concept.
+/// With method 1, the Serialize method must call the "Visit" method
+/// on the archive for each member.  Each call should pass something
+/// modeling the NameValuePair concept.
+///
+/// With method 2, the external serializer needs to call the passed
+/// function object with something modeling the NameValuePair concept
+/// which satisfies method 1.
 
 #include <tuple>
 #include <type_traits>
@@ -41,8 +44,8 @@ namespace base {
 
 // template <typename T>
 // struct ExternalSerializer {
-//   template <typename Archive>
-//   void Serialize(T* object, Archive* archive);
+//   template <typename PairReceiver>
+//   void Serialize(T* object, PairReceiver);
 // };
 
 /// This function object may be used to invoke the "correct" Serialize
@@ -56,8 +59,15 @@ inline constexpr auto Serialize =
 /// This returns 'true' if the object is a structure which can be
 /// serialized.
 template <typename T>
-inline constexpr bool IsSerializable(T* = 0) {
-  return mjlib::base::detail::IsSerializable<T>();
+inline constexpr bool IsNativeSerializable(T* = 0) {
+  return mjlib::base::detail::IsNativeSerializable<T>();
+}
+
+/// This returns 'true' if the object is a structure which has an
+/// external serializer defined.
+template <typename T>
+inline constexpr bool IsExternalSerializable(T* = 0) {
+  return mjlib::base::detail::IsExternalSerializable<T>();
 }
 
 /// template <typename T>

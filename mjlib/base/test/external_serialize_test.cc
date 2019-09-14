@@ -30,16 +30,28 @@ struct Archive {
 
   std::vector<std::string> names;
 };
+
+struct NonNativeWrapper {
+  NonNativeWrapper(NonNativeStruct* wrapped) : wrapped_(wrapped) {}
+
+  template <typename Archive>
+  void Serialize(Archive* a) {
+    a->Visit(mjlib::base::MakeNameValuePair(&wrapped_->a, "a"));
+    a->Visit(mjlib::base::MakeNameValuePair(&wrapped_->b, "b"));
+  }
+
+  NonNativeStruct* wrapped_ = nullptr;
+};
 }
 
 namespace mjlib {
 namespace base {
 template <>
 struct ExternalSerializer<NonNativeStruct> {
-  template <typename Archive>
-  void Serialize(NonNativeStruct* o, Archive* a) {
-    a->Visit(mjlib::base::MakeNameValuePair(&o->a, "a"));
-    a->Visit(mjlib::base::MakeNameValuePair(&o->b, "b"));
+  template <typename PairReceiver>
+  void Serialize(NonNativeStruct* o, PairReceiver receiver) {
+    NonNativeWrapper wrapper(o);
+    receiver(mjlib::base::MakeNameValuePair(&wrapper, ""));
   }
 };
 }
@@ -65,16 +77,29 @@ struct NonNativeTemplate {
   T c = {};
   T d = {};
 };
+
+template <typename T>
+struct NonNativeTemplateWrapper {
+  NonNativeTemplateWrapper(NonNativeTemplate<T>* wrapped) : wrapped_(wrapped) {}
+
+  template <typename Archive>
+  void Serialize(Archive* a) {
+    a->Visit(mjlib::base::MakeNameValuePair(&wrapped_->c, "c"));
+    a->Visit(mjlib::base::MakeNameValuePair(&wrapped_->d, "d"));
+  }
+
+  NonNativeTemplate<T>* wrapped_ = nullptr;
+};
 }
 
 namespace mjlib {
 namespace base {
 template <typename T>
 struct ExternalSerializer<NonNativeTemplate<T>> {
-  template <typename Archive>
-  void Serialize(NonNativeTemplate<T>* o, Archive* a) {
-    a->Visit(mjlib::base::MakeNameValuePair(&o->c, "c"));
-    a->Visit(mjlib::base::MakeNameValuePair(&o->d, "d"));
+  template <typename PairReceiver>
+  void Serialize(NonNativeTemplate<T>* o, PairReceiver receiver) {
+    NonNativeTemplateWrapper<T> wrapper(o);
+    receiver(mjlib::base::MakeNameValuePair(&wrapper, ""));
   }
 };
 }
