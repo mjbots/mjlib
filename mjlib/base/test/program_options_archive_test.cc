@@ -22,11 +22,13 @@ namespace {
 struct MyStruct {
   int int_value = 1;
   std::string string_value = "2";
+  std::array<int, 3> array_value = {{ 4, 5, 6}};
 
   template <typename Archive>
   void Serialize(Archive* a) {
     a->Visit(MJ_NVP(int_value));
     a->Visit(MJ_NVP(string_value));
+    a->Visit(MJ_NVP(array_value));
   }
 };
 
@@ -47,5 +49,5 @@ BOOST_AUTO_TEST_CASE(ProgramOptionsArchiveTest) {
   std::stringstream ss;
   ss << desc;
   std::string no_spaces = StripSpaces(ss.str());
-  BOOST_TEST(no_spaces == "--int_value\n--string_value\n");
+  BOOST_TEST(no_spaces == "--int_value\n--string_value\n--array_value.0\n--array_value.1\n--array_value.2\n");
 }

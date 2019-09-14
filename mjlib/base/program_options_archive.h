@@ -44,6 +44,17 @@ class ProgramOptionsArchive : public VisitArchive<ProgramOptionsArchive> {
   }
 
   template <typename NameValuePair>
+  void VisitArray(const NameValuePair& pair) {
+    ProgramOptionsArchive sub(description_, prefix_ + pair.name() + ".");
+    auto* const value = pair.value();
+    for (size_t i = 0; i < value->size(); i++) {
+      const auto str = std::to_string(i);
+      mjlib::base::ReferenceNameValuePair sub_pair(&(*value)[i], str.c_str());
+      sub.Visit(sub_pair);
+    }
+  }
+
+  template <typename NameValuePair>
   void VisitScalar(const NameValuePair& pair) {
     VisitOptions(pair);
   }
