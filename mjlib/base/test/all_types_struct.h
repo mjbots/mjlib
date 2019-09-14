@@ -25,7 +25,7 @@
 #include "mjlib/base/bytes.h"
 
 namespace mjlib {
-namespace telemetry {
+namespace base {
 namespace test {
 
 enum class TestEnumeration : int {

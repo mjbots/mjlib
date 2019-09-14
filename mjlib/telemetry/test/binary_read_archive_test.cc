@@ -18,7 +18,7 @@
 
 #include "mjlib/base/fast_stream.h"
 
-#include "mjlib/telemetry/test/all_types_struct.h"
+#include "mjlib/base/test/all_types_struct.h"
 
 using namespace mjlib;
 
@@ -49,7 +49,7 @@ BOOST_AUTO_TEST_CASE(BinaryReadArchive) {
   base::FastIStringStream istr(source_str);
 
   telemetry::BinaryReadArchive dut(istr);
-  telemetry::test::AllTypesTest all_types;
+  base::test::AllTypesTest all_types;
   dut.Accept(&all_types);
 
   BOOST_TEST(all_types.value_bool == true);
@@ -67,7 +67,7 @@ BOOST_AUTO_TEST_CASE(BinaryReadArchive) {
   BOOST_TEST(all_types.value_bytes[0] == 0x08);
   BOOST_TEST(all_types.value_str == "test");
   BOOST_TEST(all_types.value_object.value_u32 == 6);
-  BOOST_TEST((all_types.value_enum == telemetry::test::TestEnumeration::kNextValue));
+  BOOST_TEST((all_types.value_enum == base::test::TestEnumeration::kNextValue));
   BOOST_TEST(all_types.value_array.size() == 0);
   BOOST_TEST(all_types.value_optional.has_value());
   BOOST_TEST(*all_types.value_optional == 9);

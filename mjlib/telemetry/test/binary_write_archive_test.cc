@@ -18,7 +18,8 @@
 
 #include "mjlib/base/fast_stream.h"
 
-#include "mjlib/telemetry/test/all_types_struct.h"
+#include "mjlib/base/test/all_types_struct.h"
+
 #include "mjlib/telemetry/test/test_util.h"
 
 using namespace mjlib;
@@ -26,7 +27,7 @@ using namespace mjlib;
 BOOST_AUTO_TEST_CASE(BinaryWriteArchive) {
   base::FastOStringStream ostr;
   telemetry::BinaryWriteArchive dut(ostr);
-  telemetry::test::AllTypesTest all_types;
+  base::test::AllTypesTest all_types;
   dut.Accept(&all_types);
 
   const std::vector<uint8_t> expected = {
@@ -57,7 +58,7 @@ BOOST_AUTO_TEST_CASE(BinaryWriteArchive) {
 BOOST_AUTO_TEST_CASE(BinarySchemaArchive) {
   base::FastOStringStream ostr;
   telemetry::BinarySchemaArchive dut(ostr);
-  telemetry::test::AllTypesTest all_types;
+  base::test::AllTypesTest all_types;
   dut.Accept(&all_types);
 
   const std::vector<uint8_t> expected = {

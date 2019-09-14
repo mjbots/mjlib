@@ -184,6 +184,13 @@ cc_library(
     ],
 )
 
+
+cc_library(
+    name = "all_types_struct",
+    hdrs = ["test/all_types_struct.h"],
+    deps = [":bytes"],
+)
+
 cc_test(
     name = "test",
     srcs = [

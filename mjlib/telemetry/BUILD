@@ -102,7 +102,6 @@ cc_test(
         "test/telemetry_archive_test.cc",
         "test/test_main.cc",
 
-        "test/all_types_struct.h",
         "test/test_util.h",
     ],
     deps = [
@@ -111,6 +110,7 @@ cc_test(
         ":binary_write_archive",
         ":telemetry_archive",
         ":telemetry_util",
+        "//mjlib/base:all_types_struct",
         "@boost//:test",
         "@fmt",
     ],
