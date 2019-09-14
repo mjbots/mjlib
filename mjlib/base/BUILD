@@ -188,7 +188,10 @@ cc_library(
 cc_library(
     name = "all_types_struct",
     hdrs = ["test/all_types_struct.h"],
-    deps = [":bytes"],
+    deps = [
+        ":bytes",
+        ":time_conversions",
+    ],
 )
 
 cc_test(

@@ -23,6 +23,7 @@
 #include <boost/date_time/posix_time/posix_time_types.hpp>
 
 #include "mjlib/base/bytes.h"
+#include "mjlib/base/time_conversions.h"
 
 namespace mjlib {
 namespace base {
