@@ -95,11 +95,54 @@ class Json5ReadArchive : public VisitArchive<Json5ReadArchive> {
   }
 
   template <typename NameValuePair>
+  void VisitSerializable(const NameValuePair& nvp) {
+    Json5ReadArchive sub_archive(istr_);
+    sub_archive.Accept(nvp.value());
+  }
+
+  template <typename NameValuePair>
   void VisitScalar(const NameValuePair& nvp) {
     VisitHelper(nvp, nvp.value(), base::PriorityTag<2>());
   }
 
  private:
+  template <typename NameValuePair, typename T>
+  void VisitHelper(const NameValuePair& nvp,
+                   std::vector<T>*,
+                   base::PriorityTag<1>) {
+    ReadLiteral("[");
+
+    std::vector<T> result;
+    while (true) {
+      IgnoreWhitespace();
+      {
+        const auto maybe_end = Peek();
+        if (maybe_end == ']') {
+          Get();
+          break;
+        }
+      }
+
+      T value;
+      Value(&value);
+      result.push_back(value);
+
+      IgnoreWhitespace();
+      const auto maybe_comma = Peek();
+      if (maybe_comma == ',') { Get(); }
+
+      IgnoreWhitespace();
+      {
+        const auto maybe_end = Peek();
+        if (maybe_end == ']') {
+          Get();
+          break;
+        }
+      }
+    }
+    nvp.set_value(result);
+  }
+
   template <typename NameValuePair, typename T>
   void VisitHelper(const NameValuePair& nvp,
                    std::optional<T>*,

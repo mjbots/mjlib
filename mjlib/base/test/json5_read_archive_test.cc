@@ -77,3 +77,34 @@ BOOST_AUTO_TEST_CASE(Json5ReadOptional) {
   BOOST_TEST((DUT::Read<std::optional<int>>("null") == std::optional<int>{}));
   BOOST_TEST((*DUT::Read<std::optional<int>>("1234") == 1234));
 }
+
+namespace {
+struct SimpleStruct {
+  int a = -1;
+
+  template <typename Archive>
+  void Serialize(Archive* ar) {
+    ar->Visit(MJ_NVP(a));
+  }
+
+  bool operator==(const SimpleStruct& rhs) const {
+    return a == rhs.a;
+  }
+};
+}
+
+BOOST_AUTO_TEST_CASE(Json5ReadSerializable) {
+  BOOST_TEST((DUT::Read<SimpleStruct>("{a:3}") ==
+              SimpleStruct{3}));
+}
+
+BOOST_AUTO_TEST_CASE(Json5ReadVector) {
+  BOOST_TEST(DUT::Read<std::vector<int>>("[]") == std::vector<int>());
+  BOOST_TEST(DUT::Read<std::vector<int>>("[1]") == std::vector<int>({1}));
+  BOOST_TEST(DUT::Read<std::vector<int>>("[1,]") == std::vector<int>({1}));
+  BOOST_TEST(DUT::Read<std::vector<int>>("[ 1 , 4 , 5  ]") ==
+             std::vector<int>({1, 4, 5}));
+
+  BOOST_TEST(DUT::Read<std::vector<SimpleStruct>>("[{a : 1}, {a : 2},]") ==
+             std::vector<SimpleStruct>({ {1}, {2}}));
+}
