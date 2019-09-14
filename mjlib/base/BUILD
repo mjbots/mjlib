@@ -198,6 +198,15 @@ cc_library(
 )
 
 cc_library(
+    name = "eigen",
+    hdrs = ["eigen.h"],
+    deps = [
+        ":visitor",
+        "@eigen",
+    ],
+)
+
+cc_library(
     name = "all_types_struct",
     hdrs = ["test/all_types_struct.h"],
     deps = [
@@ -211,6 +220,7 @@ cc_test(
     srcs = [
         "test/buffer_stream_test.cc",
         "test/crc_stream_test.cc",
+        "test/eigen_test.cc",
         "test/error_code_test.cc",
         "test/external_serialize_test.cc",
         "test/inplace_function_test.cc",
@@ -227,6 +237,7 @@ cc_test(
         ":all_types_struct",
         ":buffer_stream",
         ":crc_stream",
+        ":eigen",
         ":error_code",
         ":fail",
         ":fast_stream",
