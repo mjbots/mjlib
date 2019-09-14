@@ -63,3 +63,17 @@ BOOST_AUTO_TEST_CASE(Json5ReadValidStrings) {
                  "\"\\\\\\b\\f\\n\\r\\t\\v\\x20\\'\\\"\"") ==
              "\\\b\f\n\r\t\v '\"");
 }
+
+BOOST_AUTO_TEST_CASE(Json5ReadTime) {
+  BOOST_TEST(DUT::Read<boost::posix_time::ptime>(
+                 "\"2002-01-20 23:59:59.000\"") ==
+             boost::posix_time::time_from_string("2002-01-20 23:59:59.000"));
+  BOOST_TEST(DUT::Read<boost::posix_time::time_duration>(
+                 "\"23:59:59.000\"") ==
+             boost::posix_time::duration_from_string("23:59:59.000"));
+}
+
+BOOST_AUTO_TEST_CASE(Json5ReadOptional) {
+  BOOST_TEST((DUT::Read<std::optional<int>>("null") == std::optional<int>{}));
+  BOOST_TEST((*DUT::Read<std::optional<int>>("1234") == 1234));
+}

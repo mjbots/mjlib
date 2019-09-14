@@ -19,6 +19,8 @@
 #include <sstream>
 #include <stdexcept>
 
+#include <boost/date_time/posix_time/posix_time.hpp>
+
 #include <fmt/format.h>
 
 #include "mjlib/base/fail.h"
@@ -98,6 +100,37 @@ class Json5ReadArchive : public VisitArchive<Json5ReadArchive> {
   }
 
  private:
+  template <typename NameValuePair, typename T>
+  void VisitHelper(const NameValuePair& nvp,
+                   std::optional<T>*,
+                   base::PriorityTag<1>) {
+    const auto next = Peek();
+    if (next == 'n') {
+      ReadLiteral("null");
+      nvp.set_value(std::optional<T>{});
+    } else {
+      T value = {};
+      Value(&value);
+      nvp.set_value(value);
+    }
+  }
+
+  template <typename NameValuePair>
+  void VisitHelper(const NameValuePair& nvp,
+                   boost::posix_time::ptime*,
+                   base::PriorityTag<1>) {
+    nvp.set_value(boost::posix_time::time_from_string(
+                      Read_JSON5String()));
+  }
+
+  template <typename NameValuePair>
+  void VisitHelper(const NameValuePair& nvp,
+                   boost::posix_time::time_duration*,
+                   base::PriorityTag<1>) {
+    nvp.set_value(boost::posix_time::duration_from_string(
+                      Read_JSON5String()));
+  }
+
   template <typename NameValuePair>
   void VisitHelper(const NameValuePair& nvp,
                    std::string*,
