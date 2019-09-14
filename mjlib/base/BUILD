@@ -184,6 +184,18 @@ cc_library(
     ],
 )
 
+cc_library(
+    name = "json5_write_archive",
+    hdrs = ["json5_write_archive.h"],
+    deps = [
+        ":bytes",
+        ":priority_tag",
+        ":visitor",
+        ":visit_archive",
+        "@boost//:date_time",
+        "@fmt",
+    ],
+)
 
 cc_library(
     name = "all_types_struct",
@@ -202,6 +214,7 @@ cc_test(
         "test/error_code_test.cc",
         "test/external_serialize_test.cc",
         "test/inplace_function_test.cc",
+        "test/json5_write_archive_test.cc",
         "test/pid_test.cc",
         "test/program_options_archive_test.cc",
         "test/string_span_test.cc",
@@ -211,12 +224,14 @@ cc_test(
         "test/windowed_average_test.cc",
     ],
     deps = [
+        ":all_types_struct",
         ":buffer_stream",
         ":crc_stream",
         ":error_code",
         ":fail",
         ":fast_stream",
         ":inplace_function",
+        ":json5_write_archive",
         ":pid",
         ":program_options_archive",
         ":string_span",
