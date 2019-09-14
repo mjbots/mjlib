@@ -28,6 +28,7 @@ struct FakeNvp {
   const T& get_value() const { return *value_; }
   T* value() const { return value_; }
   void set_value(T value) const { *value_ = value; }
+  const char* name() const { return ""; }
 
   T* const value_;
 };
