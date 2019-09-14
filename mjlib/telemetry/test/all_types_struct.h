@@ -22,7 +22,7 @@
 
 #include <boost/date_time/posix_time/posix_time_types.hpp>
 
-#include "mjlib/telemetry/types.h"
+#include "mjlib/base/bytes.h"
 
 namespace mjlib {
 namespace telemetry {
@@ -64,8 +64,8 @@ struct AllTypesTest {
   uint64_t value_u64 = 8;
   float value_f32 = 9.0;
   double value_f64 = 10.0;
-  Bytes value_bytes = { { static_cast<uint8_t>(11), static_cast<uint8_t>(12),
-                          static_cast<uint8_t>(13) } };
+  base::Bytes value_bytes = { { static_cast<uint8_t>(11), static_cast<uint8_t>(12),
+                                static_cast<uint8_t>(13) } };
   std::string value_str = "de";
   SubTest1 value_object;
   TestEnumeration value_enum = TestEnumeration::kValue1;

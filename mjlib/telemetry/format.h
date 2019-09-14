@@ -17,14 +17,13 @@
 #include <boost/asio/error.hpp>
 
 #include "mjlib/base/assert.h"
+#include "mjlib/base/bytes.h"
 #include "mjlib/base/stream.h"
 #include "mjlib/base/time_conversions.h"
 
 #ifdef __cpp_exceptions
 #include "mjlib/base/system_error.h"
 #endif
-
-#include "mjlib/telemetry/types.h"
 
 /// @file
 ///

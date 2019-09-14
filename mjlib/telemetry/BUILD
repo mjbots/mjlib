@@ -20,10 +20,10 @@ cc_library(
     name = "format",
     hdrs = [
         "format.h",
-        "types.h",
     ],
     deps = [
         "//mjlib/base:assert",
+        "//mjlib/base:bytes",
         "//mjlib/base:time_conversions",
         "//mjlib/base:system_error",
         "@boost",

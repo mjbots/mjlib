@@ -24,6 +24,11 @@ cc_library(
 )
 
 cc_library(
+    name = "bytes",
+    hdrs = ["bytes.h"],
+)
+
+cc_library(
     name = "fail",
     hdrs = ["fail.h"],
     srcs = ["fail.cc"],

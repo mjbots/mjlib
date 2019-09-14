@@ -21,13 +21,13 @@
 
 #include <boost/date_time/posix_time/posix_time_types.hpp>
 
+#include "mjlib/base/bytes.h"
 #include "mjlib/base/priority_tag.h"
 #include "mjlib/base/stream.h"
 #include "mjlib/base/visitor.h"
 #include "mjlib/base/visit_archive.h"
 
 #include "mjlib/telemetry/format.h"
-#include "mjlib/telemetry/types.h"
 
 namespace mjlib {
 namespace telemetry {
@@ -57,7 +57,7 @@ class BinaryReadArchive : public base::VisitArchive<BinaryReadArchive> {
  private:
   template <typename NameValuePair>
   void VisitHelper(const NameValuePair&,
-                   Bytes* value,
+                   base::Bytes* value,
                    base::PriorityTag<2>) {
     const auto size = stream_.ReadVaruint();
     value->resize(size);

@@ -20,6 +20,7 @@
 
 #include <boost/date_time/posix_time/posix_time_types.hpp>
 
+#include "mjlib/base/bytes.h"
 #include "mjlib/base/priority_tag.h"
 #include "mjlib/base/visitor.h"
 #include "mjlib/base/visit_archive.h"
@@ -52,7 +53,7 @@ class BinaryWriteArchive : public base::VisitArchive<BinaryWriteArchive> {
  private:
   template <typename NameValuePair>
   void VisitHelper(const NameValuePair&,
-                   Bytes* value,
+                   base::Bytes* value,
                    base::PriorityTag<2>) {
     stream_.WriteVaruint(value->size());
     stream_.RawWrite({
@@ -201,7 +202,7 @@ class BinarySchemaArchive : public base::VisitArchive<BinarySchemaArchive> {
 
   template <typename NameValuePair>
   void VisitHelper(const NameValuePair&,
-                   Bytes* bytes,
+                   base::Bytes* bytes,
                    base::PriorityTag<2>) {
     stream_.WriteVaruint(TF::Type::kBytes);
 
@@ -281,7 +282,7 @@ class BinarySchemaArchive : public base::VisitArchive<BinarySchemaArchive> {
 
   static TR<1> FindType(float*) { return {u64(TF::Type::kFloat32)}; }
   static TR<1> FindType(double*) { return {u64(TF::Type::kFloat64)}; }
-  static TR<1> FindType(Bytes*) { return {u64(TF::Type::kBytes)}; }
+  static TR<1> FindType(base::Bytes*) { return {u64(TF::Type::kBytes)}; }
   static TR<1> FindType(std::string*) { return {u64(TF::Type::kString)}; }
   static TR<1> FindType(boost::posix_time::ptime*) {
     return {u64(TF::Type::kTimestamp)};
