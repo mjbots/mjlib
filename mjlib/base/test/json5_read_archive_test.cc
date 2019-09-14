@@ -47,4 +47,11 @@ BOOST_AUTO_TEST_CASE(Json5ReadValidNumbers) {
   BOOST_TEST(Json5ReadArchive::Read<double>("-Infinity") ==
              -std::numeric_limits<double>::infinity());
   BOOST_TEST(!std::isfinite(Json5ReadArchive::Read<double>("NaN")));
+
+  BOOST_TEST(Json5ReadArchive::Read<int>("0x10") == 16);
+  BOOST_TEST(Json5ReadArchive::Read<int>("-0x10") == -16);
+  BOOST_TEST(Json5ReadArchive::Read<int>("0o10") == 8);
+  BOOST_TEST(Json5ReadArchive::Read<int>("-0o10") == -8);
+  BOOST_TEST(Json5ReadArchive::Read<int>("0b10") == 2);
+  BOOST_TEST(Json5ReadArchive::Read<int>("-0b10") == -2);
 }

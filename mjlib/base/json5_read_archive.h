@@ -102,14 +102,14 @@ class Json5ReadArchive : public VisitArchive<Json5ReadArchive> {
   void VisitHelper(const NameValuePair& nvp,
                    float*,
                    base::PriorityTag<1>) {
-    nvp.set_value(ToFloat<float>(Read_JSON5Number()));
+    nvp.set_value(ToFloat<float>(Read_JSON5Number().text));
   }
 
   template <typename NameValuePair>
   void VisitHelper(const NameValuePair& nvp,
                    double*,
                    base::PriorityTag<1>) {
-    nvp.set_value(ToFloat<double>(Read_JSON5Number()));
+    nvp.set_value(ToFloat<double>(Read_JSON5Number().text));
   }
 
   template <typename NameValuePair, typename T>
@@ -211,49 +211,59 @@ class Json5ReadArchive : public VisitArchive<Json5ReadArchive> {
   }
 
   int64_t Read_JSON5SignedInteger() {
-    const auto text = Read_JSON5Number();
+    const auto number = Read_JSON5Number();
     std::size_t pos = 0;
-    const auto result = std::stoll(text, &pos);
+    const auto result = std::stoll(number.text, &pos, number.base);
 
-    if (pos != text.size()) {
-      Error(fmt::format("Could not interpret '{}' as an integer", text));
+    if (pos != number.text.size()) {
+      Error(fmt::format("Could not interpret '{}' as an integer",
+                        number.text));
     }
     return result;
   }
 
   uint64_t Read_JSON5UnsignedInteger() {
-    const auto text = Read_JSON5Number();
+    const auto number = Read_JSON5Number();
     std::size_t pos = 0;
-    const auto result = std::stoull(text, &pos);
+    const auto result = std::stoull(number.text, &pos, number.base);
 
-    if (pos != text.size()) {
-      Error(fmt::format("Could not interpret '{}' as an integer", text));
+    if (pos != number.text.size()) {
+      Error(fmt::format("Could not interpret '{}' as an integer",
+                        number.text));
     }
     return result;
   }
 
-  std::string Read_JSON5Number() {
+  struct Number {
+    std::string text;
+    int base = 0;
+  };
+
+  Number Read_JSON5Number() {
     const auto first = Peek();
     if (first == '+' || first == '-') {
-      return static_cast<char>(Get()) + Read_NumericLiteral();
+      const auto prefix = static_cast<char>(Get());
+      auto result = Read_NumericLiteral();
+      result.text = prefix + result.text;
+      return result;
     } else {
       return Read_NumericLiteral();
     }
   }
 
-  std::string Read_NumericLiteral() {
+  Number Read_NumericLiteral() {
     const auto first = Peek();
     if (first == 'I') {
       ReadLiteral("Infinity");
-      return "Infinity";
+      return {"Infinity"};
     } else if (first == 'N') {
       ReadLiteral("NaN");
-      return "NaN";
+      return {"NaN"};
     }
 
     if (first != '0') {
       // We are definitely dealing with a DecimalLiteral.
-      return Read_DecimalLiteral(false);
+      return {Read_DecimalLiteral(false)};
     }
     Get();
 
@@ -261,18 +271,18 @@ class Json5ReadArchive : public VisitArchive<Json5ReadArchive> {
     const auto next = Peek();
     if (next == 'b' || next == 'B') {
       Get();
-      return Read_BinaryIntegerLiteral();
+      return {Read_BinaryIntegerLiteral(), 2};
     } else if (next == 'o' || next == 'O') {
       Get();
-      return Read_OctalIntegerLiteral();
+      return {Read_OctalIntegerLiteral(), 8};
     } else if (next == 'x' || next == 'X') {
       Get();
-      return Read_HexIntegerLiteral();
+      return {Read_HexIntegerLiteral(), 16};
     }
 
     // Guess we were a DecimalLiteral after all that happened to start
     // with 0.
-    return Read_DecimalLiteral(true);
+    return {Read_DecimalLiteral(true)};
   }
 
   std::string Read_DecimalLiteral(bool initial_zero) {
