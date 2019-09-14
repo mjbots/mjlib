@@ -198,6 +198,17 @@ cc_library(
 )
 
 cc_library(
+    name = "json5_read_archive",
+    hdrs = ["json5_read_archive.h"],
+    deps = [
+        ":fail",
+        ":visitor",
+        ":visit_archive",
+        "@fmt",
+    ],
+)
+
+cc_library(
     name = "eigen",
     hdrs = ["eigen.h"],
     deps = [
@@ -224,6 +235,7 @@ cc_test(
         "test/error_code_test.cc",
         "test/external_serialize_test.cc",
         "test/inplace_function_test.cc",
+        "test/json5_read_archive_test.cc",
         "test/json5_write_archive_test.cc",
         "test/pid_test.cc",
         "test/program_options_archive_test.cc",
@@ -242,6 +254,7 @@ cc_test(
         ":fail",
         ":fast_stream",
         ":inplace_function",
+        ":json5_read_archive",
         ":json5_write_archive",
         ":pid",
         ":program_options_archive",
