@@ -18,11 +18,13 @@
 #include <iostream>
 #include <sstream>
 #include <stdexcept>
+#include <vector>
 
 #include <boost/date_time/posix_time/posix_time.hpp>
 
 #include <fmt/format.h>
 
+#include "mjlib/base/bytes.h"
 #include "mjlib/base/fail.h"
 #include "mjlib/base/visit_archive.h"
 
@@ -106,6 +108,13 @@ class Json5ReadArchive : public VisitArchive<Json5ReadArchive> {
   }
 
  private:
+  template <typename NameValuePair>
+  void VisitHelper(const NameValuePair& nvp,
+                   Bytes* value,
+                   base::PriorityTag<2> tag) {
+    VisitHelper(nvp, static_cast<std::vector<uint8_t>*>(value), tag);
+  }
+
   template <typename NameValuePair, typename T>
   void VisitHelper(const NameValuePair& nvp,
                    std::vector<T>*,

@@ -16,7 +16,8 @@
 
 #include <boost/test/auto_unit_test.hpp>
 
-using mjlib::base::Json5ReadArchive;
+using namespace mjlib;
+using base::Json5ReadArchive;
 using DUT = Json5ReadArchive;
 
 BOOST_AUTO_TEST_CASE(Json5ReadValidNumbers) {
@@ -107,4 +108,9 @@ BOOST_AUTO_TEST_CASE(Json5ReadVector) {
 
   BOOST_TEST(DUT::Read<std::vector<SimpleStruct>>("[{a : 1}, {a : 2},]") ==
              std::vector<SimpleStruct>({ {1}, {2}}));
+}
+
+BOOST_AUTO_TEST_CASE(Json5ReadBytes) {
+  BOOST_TEST(DUT::Read<base::Bytes>("[20, 21, 22]") ==
+             base::Bytes({20, 21, 22}));
 }

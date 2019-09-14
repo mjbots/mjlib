@@ -22,6 +22,10 @@ namespace base {
 
 struct Bytes : std::vector<uint8_t> {
   using std::vector<uint8_t>::vector;
+  Bytes(const std::vector<uint8_t>& rhs)
+      : std::vector<uint8_t>(rhs) {}
+  Bytes(std::vector<uint8_t>&& rhs)
+      : std::vector<uint8_t>(std::move(rhs)) {}
 };
 
 }
