@@ -158,18 +158,31 @@ class Json5WriteArchive : public VisitArchive<Json5WriteArchive> {
     stream_ << "\"";
   }
 
+  template <typename T>
+  void FormatFloat(T value, const char* format_string) {
+    if (value == std::numeric_limits<T>::infinity()) {
+      stream_ << "Infinity";
+    } else if (value == -std::numeric_limits<T>::infinity()) {
+      stream_ << "-Infinity";
+    } else if (!std::isfinite(value)) {
+      stream_ << "NaN";
+    } else {
+      stream_ << fmt::format(format_string, value);
+    }
+  }
+
   template <typename NameValuePair>
   void VisitHelper(const NameValuePair&,
                    float* value,
                    base::PriorityTag<1>) {
-    stream_ << fmt::format("{:.9g}", *value);
+    FormatFloat(*value, "{:.9g}");
   }
 
   template <typename NameValuePair>
   void VisitHelper(const NameValuePair&,
                    double* value,
                    base::PriorityTag<1>) {
-    stream_ << fmt::format("{:.17g}", *value);
+    FormatFloat(*value, "{:.17g}");
   }
 
   template <typename NameValuePair, typename T>

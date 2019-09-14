@@ -70,3 +70,12 @@ BOOST_AUTO_TEST_CASE(JsonStringEscape) {
                              "def", 12))
              == "\"a\\\"\\\\\\b\\f\\n\\r\\t\\u0000def\"");
 }
+
+BOOST_AUTO_TEST_CASE(JsonSpecialNumber) {
+  BOOST_TEST(base::Json5WriteArchive::Write(
+                 std::numeric_limits<double>::infinity()) == "Infinity");
+  BOOST_TEST(base::Json5WriteArchive::Write(
+                 -std::numeric_limits<double>::infinity()) == "-Infinity");
+  BOOST_TEST(base::Json5WriteArchive::Write(
+                 std::numeric_limits<double>::quiet_NaN()) == "NaN");
+}
