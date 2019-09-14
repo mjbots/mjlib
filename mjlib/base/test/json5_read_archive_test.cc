@@ -17,41 +17,49 @@
 #include <boost/test/auto_unit_test.hpp>
 
 using mjlib::base::Json5ReadArchive;
+using DUT = Json5ReadArchive;
 
 BOOST_AUTO_TEST_CASE(Json5ReadValidNumbers) {
-  BOOST_TEST(Json5ReadArchive::Read<int>("2") == 2);
-  BOOST_TEST(Json5ReadArchive::Read<uint64_t>("18446744073709551615") ==
+  BOOST_TEST(DUT::Read<int>("2") == 2);
+  BOOST_TEST(DUT::Read<uint64_t>("18446744073709551615") ==
              std::numeric_limits<uint64_t>::max());
-  BOOST_TEST(Json5ReadArchive::Read<int64_t>("-9223372036854775808") ==
+  BOOST_TEST(DUT::Read<int64_t>("-9223372036854775808") ==
              std::numeric_limits<int64_t>::min());
-  BOOST_TEST(Json5ReadArchive::Read<int64_t>("9223372036854775807") ==
+  BOOST_TEST(DUT::Read<int64_t>("9223372036854775807") ==
              std::numeric_limits<int64_t>::max());
 
-  BOOST_TEST(Json5ReadArchive::Read<double>("0") == 0.0);
-  BOOST_TEST(Json5ReadArchive::Read<double>("0.0") == 0.0);
-  BOOST_TEST(Json5ReadArchive::Read<double>("+0.0") == 0.0);
-  BOOST_TEST(Json5ReadArchive::Read<double>("-0.0") == 0.0);
+  BOOST_TEST(DUT::Read<double>("0") == 0.0);
+  BOOST_TEST(DUT::Read<double>("0.0") == 0.0);
+  BOOST_TEST(DUT::Read<double>("+0.0") == 0.0);
+  BOOST_TEST(DUT::Read<double>("-0.0") == 0.0);
 
-  BOOST_TEST(Json5ReadArchive::Read<double>("1") == 1.0);
-  BOOST_TEST(Json5ReadArchive::Read<double>("356") == 356.0);
-  BOOST_TEST(Json5ReadArchive::Read<double>("1.2") == 1.2);
-  BOOST_TEST(Json5ReadArchive::Read<double>("+1.2") == 1.2);
-  BOOST_TEST(Json5ReadArchive::Read<double>("-1.2") == -1.2);
-  BOOST_TEST(Json5ReadArchive::Read<double>("1.2e3") == 1.2e3);
-  BOOST_TEST(Json5ReadArchive::Read<double>("1.2e-3") == 1.2e-3);
-  BOOST_TEST(Json5ReadArchive::Read<double>("1.2e-31") == 1.2e-31);
-  BOOST_TEST(Json5ReadArchive::Read<double>("13.21e-31") == 13.21e-31);
-  BOOST_TEST(Json5ReadArchive::Read<double>(".123") == 0.123);
-  BOOST_TEST(Json5ReadArchive::Read<double>("Infinity") ==
+  BOOST_TEST(DUT::Read<double>("1") == 1.0);
+  BOOST_TEST(DUT::Read<double>("356") == 356.0);
+  BOOST_TEST(DUT::Read<double>("1.2") == 1.2);
+  BOOST_TEST(DUT::Read<double>("+1.2") == 1.2);
+  BOOST_TEST(DUT::Read<double>("-1.2") == -1.2);
+  BOOST_TEST(DUT::Read<double>("1.2e3") == 1.2e3);
+  BOOST_TEST(DUT::Read<double>("1.2e-3") == 1.2e-3);
+  BOOST_TEST(DUT::Read<double>("1.2e-31") == 1.2e-31);
+  BOOST_TEST(DUT::Read<double>("13.21e-31") == 13.21e-31);
+  BOOST_TEST(DUT::Read<double>(".123") == 0.123);
+  BOOST_TEST(DUT::Read<double>("Infinity") ==
              std::numeric_limits<double>::infinity());
-  BOOST_TEST(Json5ReadArchive::Read<double>("-Infinity") ==
+  BOOST_TEST(DUT::Read<double>("-Infinity") ==
              -std::numeric_limits<double>::infinity());
-  BOOST_TEST(!std::isfinite(Json5ReadArchive::Read<double>("NaN")));
+  BOOST_TEST(!std::isfinite(DUT::Read<double>("NaN")));
 
-  BOOST_TEST(Json5ReadArchive::Read<int>("0x10") == 16);
-  BOOST_TEST(Json5ReadArchive::Read<int>("-0x10") == -16);
-  BOOST_TEST(Json5ReadArchive::Read<int>("0o10") == 8);
-  BOOST_TEST(Json5ReadArchive::Read<int>("-0o10") == -8);
-  BOOST_TEST(Json5ReadArchive::Read<int>("0b10") == 2);
-  BOOST_TEST(Json5ReadArchive::Read<int>("-0b10") == -2);
+  BOOST_TEST(DUT::Read<int>("0x10") == 16);
+  BOOST_TEST(DUT::Read<int>("-0x10") == -16);
+  BOOST_TEST(DUT::Read<int>("0o10") == 8);
+  BOOST_TEST(DUT::Read<int>("-0o10") == -8);
+  BOOST_TEST(DUT::Read<int>("0b10") == 2);
+  BOOST_TEST(DUT::Read<int>("-0b10") == -2);
+}
+
+BOOST_AUTO_TEST_CASE(Json5ReadValidStrings) {
+  BOOST_TEST(DUT::Read<std::string>("\"hello\"") == "hello");
+  BOOST_TEST(DUT::Read<std::string>(
+                 "\"\\\\\\b\\f\\n\\r\\t\\v\\x20\\'\\\"\"") ==
+             "\\\b\f\n\r\t\v '\"");
 }

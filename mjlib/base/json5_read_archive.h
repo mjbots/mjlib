@@ -100,6 +100,13 @@ class Json5ReadArchive : public VisitArchive<Json5ReadArchive> {
  private:
   template <typename NameValuePair>
   void VisitHelper(const NameValuePair& nvp,
+                   std::string*,
+                   base::PriorityTag<1>) {
+    nvp.set_value(Read_JSON5String());
+  }
+
+  template <typename NameValuePair>
+  void VisitHelper(const NameValuePair& nvp,
                    float*,
                    base::PriorityTag<1>) {
     nvp.set_value(ToFloat<float>(Read_JSON5Number().text));
@@ -177,14 +184,22 @@ class Json5ReadArchive : public VisitArchive<Json5ReadArchive> {
   }
 
   std::string Read_JSON5DoubleString() {
+    return Read_JSON5TerminatedString('"');
+  }
+
+  std::string Read_JSON5SingleString() {
+    return Read_JSON5TerminatedString('\'');
+  }
+
+  std::string Read_JSON5TerminatedString(char terminator) {
     std::ostringstream ostr;
     while (true) {
       const auto c = Get();
-      if (c == '"') {
+      if (c == terminator) {
         return ostr.str();
-      } else if (c == '\'') {
+      } else if (c == '\\') {
         // Some type of escape sequence.
-        AssertNotReached();
+        ostr << Read_EscapeSequence();
       } else if (c >= 0x80) {
         // Some UTF8 code point.
         AssertNotReached();
@@ -194,20 +209,28 @@ class Json5ReadArchive : public VisitArchive<Json5ReadArchive> {
     }
   }
 
-  std::string Read_JSON5SingleString() {
-    std::ostringstream ostr;
-    while (true) {
-      const auto c = Get();
-      if (c == '\'') {
-        return ostr.str();
-      } else if (c == '\'') {
-        // Some type of escape sequence.
-        AssertNotReached();
-      } else if (c >= 0x80) {
-        // Some UTF8 code point.
-        AssertNotReached();
-      }
+  std::string Read_EscapeSequence() {
+    const auto first = Get();
+    if (first == '\\') { return "\\"; }
+    else if (first == '\'') { return "'"; }
+    else if (first == '\"') { return "\""; }
+    else if (first == 'b') { return "\b"; }
+    else if (first == 'f') { return "\f"; }
+    else if (first == 'n') { return "\n"; }
+    else if (first == 'r') { return "\r"; }
+    else if (first == 't') { return "\t"; }
+    else if (first == 'v') { return "\v"; }
+    else if (first == 'x') {
+      const auto char1 = Get();
+      const auto char2 = Get();
+      return std::string(
+          1, static_cast<char>(
+              std::stol(
+                  (std::string(1, static_cast<char>(char1)) +
+                   static_cast<char>(char2)),
+                  0, 16)));
     }
+    Error(fmt::format("Escape not handled '{}'", static_cast<char>(first)));
   }
 
   int64_t Read_JSON5SignedInteger() {
@@ -463,6 +486,7 @@ class Json5ReadArchive : public VisitArchive<Json5ReadArchive> {
   }
 
   void Error(const std::string& error)  __attribute__ ((noreturn)) {
+    // TODO(jpieper): Report line and column number.
     throw std::runtime_error(error);
   }
 
