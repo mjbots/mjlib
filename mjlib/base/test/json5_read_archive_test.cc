@@ -16,9 +16,12 @@
 
 #include <boost/test/auto_unit_test.hpp>
 
+#include "mjlib/base/test/all_types_struct.h"
+
 using namespace mjlib;
 using base::Json5ReadArchive;
 using DUT = Json5ReadArchive;
+using base::test::AllTypesTest;
 
 BOOST_AUTO_TEST_CASE(Json5ReadValidNumbers) {
   BOOST_TEST(DUT::Read<int>("2") == 2);
@@ -119,4 +122,75 @@ BOOST_AUTO_TEST_CASE(Json5ReadArray) {
   const auto expected = std::array<int, 3>{{3, 4, 5}};
   const auto actual = DUT::Read<std::array<int, 3>>("[3, 4, 5]");
   BOOST_TEST(actual == expected);
+}
+
+namespace {
+constexpr const char* kAllTypes = R"XXX(
+{
+  "value_bool" : true,
+  "value_i8" : -6,
+  "value_i16" : -7,
+  "value_i32" : -8,
+  "value_i64" : -9,
+  "value_u8" : 10,
+  "value_u16" : 11,
+  "value_u32" : 12,
+  "value_u64" : 13,
+  "value_f32" : 14.0,
+  "value_f64" : 15.0,
+  "value_bytes" : [ 2, 4, 5 ],
+  "value_str" : "hello",
+  "value_object" : { "value_u32" : 5 },
+  "value_enum" : "kNextValue",
+  "value_array" : [ {}, {} ],
+  "value_optional" : 42,
+  "value_timestamp" : "2005-01-20 23:59:59.000",
+  "value_duration" : "13:59:59.000",
+}
+)XXX";
+}
+
+BOOST_AUTO_TEST_CASE(Json5AllTypes) {
+  AllTypesTest all_types;
+  std::istringstream istr(kAllTypes);
+  DUT dut(istr);
+  dut.Accept(&all_types);
+  BOOST_TEST(all_types.value_bool == true);
+  BOOST_TEST(all_types.value_i8 == -6);
+  BOOST_TEST(all_types.value_i16 == -7);
+  BOOST_TEST(all_types.value_i32 == -8);
+  BOOST_TEST(all_types.value_i64 == -9);
+  BOOST_TEST(all_types.value_u8 == 10);
+  BOOST_TEST(all_types.value_u16 == 11);
+  BOOST_TEST(all_types.value_u32 == 12);
+  BOOST_TEST(all_types.value_u64 == 13);
+  BOOST_TEST(all_types.value_f32 == 14.0);
+  BOOST_TEST(all_types.value_f64 == 15.0);
+  BOOST_TEST(all_types.value_bytes == base::Bytes({2,4,5}));
+  BOOST_TEST(all_types.value_str == "hello");
+  BOOST_TEST(all_types.value_object.value_u32 == 5);
+  BOOST_TEST((all_types.value_enum == base::test::TestEnumeration::kNextValue));
+  BOOST_TEST(all_types.value_array.size() == 2);
+  BOOST_TEST(*all_types.value_optional == 42);
+  BOOST_TEST(all_types.value_timestamp ==
+             boost::posix_time::time_from_string("2005-01-20 23:59:59.000"));
+  BOOST_TEST(all_types.value_duration ==
+             boost::posix_time::duration_from_string("13:59:59.000"));
+}
+
+BOOST_AUTO_TEST_CASE(Json5ReadReorderFields) {
+  const auto result = DUT::Read<AllTypesTest>("{value_u8 : 9, value_i8 : -4}");
+  BOOST_TEST(result.value_u8 == 9);
+  BOOST_TEST(result.value_i8 == -4);
+}
+
+namespace {
+struct Empty {
+  template <typename Archive>
+  void Serialize(Archive*) {}
+};
+}
+
+BOOST_AUTO_TEST_CASE(Json5IgnoreField) {
+  DUT::Read<Empty>(kAllTypes);
 }

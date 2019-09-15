@@ -46,11 +46,13 @@ class Json5ReadArchive : public VisitArchive<Json5ReadArchive> {
       VisitArchive<Json5ReadArchive>::Accept(serializable);
       if (!any_found_) {
         Ignore_JSON5Value();
+        IgnoreWhitespace();
 
         if (Peek() != ',') {
           ReadLiteral("}");
           done_ = true;
         } else {
+          Get();
           Prepare_JSON5Member();
         }
       }
@@ -88,10 +90,12 @@ class Json5ReadArchive : public VisitArchive<Json5ReadArchive> {
 
     VisitArchive<Json5ReadArchive>::Visit(nvp);
 
+    IgnoreWhitespace();
     if (Peek() != ',') {
       ReadLiteral("}");
       done_ = true;
     } else {
+      Get();  // Eat the comma.
       Prepare_JSON5Member();
     }
   }
@@ -100,6 +104,19 @@ class Json5ReadArchive : public VisitArchive<Json5ReadArchive> {
   void VisitSerializable(const NameValuePair& nvp) {
     Json5ReadArchive sub_archive(istr_);
     sub_archive.Accept(nvp.value());
+  }
+
+  template <typename NameValuePair>
+  void VisitEnumeration(const NameValuePair& nvp) {
+    const auto text = Read_JSON5String();
+    *nvp.value() = [&]() {
+      for (const auto& pair : nvp.enumeration_mapper()) {
+        if (pair.second == text) {
+          return pair.first;
+        }
+      }
+      Error(fmt::format("Invalid enumeration value '{}'", text));
+    }();
   }
 
   template <typename NameValuePair>
@@ -228,15 +245,40 @@ class Json5ReadArchive : public VisitArchive<Json5ReadArchive> {
     nvp.set_value(ToFloat<double>(Read_JSON5Number().text));
   }
 
+  template <typename NameValuePair>
+  void VisitHelper(const NameValuePair& nvp,
+                   bool*,
+                   base::PriorityTag<1>) {
+    const auto next = Peek();
+    if (next == 't') {
+      ReadLiteral("true");
+      nvp.set_value(true);
+    } else if (next == 'f') {
+      ReadLiteral("false");
+      nvp.set_value(false);
+    } else {
+      Error("Unknown boolean value");
+    }
+  }
+
   template <typename NameValuePair, typename T>
   void VisitHelper(const NameValuePair& nvp,
                    T*,
                    base::PriorityTag<0>) {
-    if (std::is_signed<T>::value) {
-      nvp.set_value(Read_JSON5SignedInteger());
+    if constexpr (std::is_signed<T>::value) {
+      nvp.set_value(CheckLimit<T>(Read_JSON5SignedInteger()));
     } else {
-      nvp.set_value(Read_JSON5UnsignedInteger());
+      nvp.set_value(CheckLimit<T>(Read_JSON5UnsignedInteger()));
     }
+  }
+
+  template <typename T, typename InType>
+  T CheckLimit(InType in) {
+    if (in < std::numeric_limits<T>::min() ||
+        in > std::numeric_limits<T>::max()) {
+      Error("Value out of bounds");
+    }
+    return in;
   }
 
   void Prepare_JSON5Member() {
@@ -514,7 +556,93 @@ class Json5ReadArchive : public VisitArchive<Json5ReadArchive> {
   }
 
   void Ignore_JSON5Value() {
-    AssertNotReached();
+    const auto next = Peek();
+    // Let's see what we need to ignore.
+    if (next == '"') {
+      Read_JSON5String();
+    } else if (next == '[') {
+      Ignore_JSON5Array();
+    } else if (next == '{') {
+      Ignore_JSON5Object();
+    } else if (next == 't') {
+      ReadLiteral("true");
+    } else if (next == 'f') {
+      ReadLiteral("false");
+    } else if (next == 'n') {
+      ReadLiteral("null");
+    } else {
+      // Guess it must be a number.
+      Read_JSON5Number();
+    }
+  }
+
+  void Ignore_JSON5Array() {
+    ReadLiteral("[");
+    while (true) {
+      IgnoreWhitespace();
+
+      {
+        const auto next = Peek();
+        if (next == ']') {
+          Get();
+          return;
+        }
+      }
+
+      Ignore_JSON5Value();
+
+      IgnoreWhitespace();
+
+      {
+        const auto next = Peek();
+
+        if (next == ',') {
+          Get();
+          continue;
+        } else if (next == ']') {
+          Get();
+          return;
+        } else {
+          Error("Array syntax error");
+        }
+      }
+    }
+  }
+
+  void Ignore_JSON5Object() {
+    ReadLiteral("{");
+    while (true) {
+      IgnoreWhitespace();
+
+      {
+        const auto next = Peek();
+        if (next == '}') {
+          Get();
+          return;
+        }
+      }
+
+      Read_JSON5MemberName();
+      IgnoreWhitespace();
+      ReadLiteral(":");
+
+      IgnoreWhitespace();
+      Ignore_JSON5Value();
+      IgnoreWhitespace();
+
+      {
+        const auto next = Peek();
+        if (next == ',') {
+          Get();
+          continue;
+        } else if (next == '}') {
+          Get();
+          return;
+        } else {
+          Error("Object syntax error");
+        }
+      }
+    }
   }
 
   static bool IsIdentifierFirstCharacter(int c) {
@@ -543,7 +671,7 @@ class Json5ReadArchive : public VisitArchive<Json5ReadArchive> {
       const auto c = Peek();
       if (IsWhitespace(c)) {
         Get();
-      } if (c == '/') {
+      } else if (c == '/') {
         // In a region where whitespace is allowed, this must either
         // be an error, or the start of some kind of comment.
         Get();

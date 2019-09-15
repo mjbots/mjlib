@@ -29,7 +29,7 @@ BOOST_AUTO_TEST_CASE(BasicJson5Write) {
 
   const std::string actual = ostr.str();
   const std::string expected = R"XXX({
-  "value_bool" : 0,
+  "value_bool" : false,
   "value_i8" : -1,
   "value_i16" : -2,
   "value_i32" : -3,

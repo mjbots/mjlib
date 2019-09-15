@@ -187,6 +187,13 @@ class Json5WriteArchive : public VisitArchive<Json5WriteArchive> {
     FormatFloat(*value, "{:.17g}");
   }
 
+  template <typename NameValuePair>
+  void VisitHelper(const NameValuePair& nvp,
+                   bool*,
+                   base::PriorityTag<1>) {
+    stream_ << (nvp.get_value() ? "true" : "false");
+  }
+
   template <typename NameValuePair, typename T>
   void VisitHelper(const NameValuePair&,
                    T* value,
