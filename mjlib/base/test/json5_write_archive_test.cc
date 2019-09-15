@@ -49,7 +49,7 @@ BOOST_AUTO_TEST_CASE(BasicJson5Write) {
   "value_object" : {
     "value_u32" : 3,
   },
-  "value_enum" : 0,
+  "value_enum" : "kValue1",
   "value_array" : [
     {
     "value_u32" : 3,

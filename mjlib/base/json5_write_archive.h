@@ -79,7 +79,8 @@ class Json5WriteArchive : public VisitArchive<Json5WriteArchive> {
   void Visit(const NameValuePair& nvp) {
     // Write out the field name and colon.
     stream_ << Indent() << "\"" << nvp.name() << "\" : ";
-    Value(nvp.get_value());
+
+    VisitArchive<Json5WriteArchive>::Visit(nvp);
 
     stream_ << ",\n";
   }
