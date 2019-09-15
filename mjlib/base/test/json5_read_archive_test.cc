@@ -114,3 +114,9 @@ BOOST_AUTO_TEST_CASE(Json5ReadBytes) {
   BOOST_TEST(DUT::Read<base::Bytes>("[20, 21, 22]") ==
              base::Bytes({20, 21, 22}));
 }
+
+BOOST_AUTO_TEST_CASE(Json5ReadArray) {
+  const auto expected = std::array<int, 3>{{3, 4, 5}};
+  const auto actual = DUT::Read<std::array<int, 3>>("[3, 4, 5]");
+  BOOST_TEST(actual == expected);
+}
