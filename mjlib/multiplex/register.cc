@@ -123,7 +123,7 @@ std::optional<RegisterReply> ParseSubframe(BaseReadStream& stream) {
   RegisterReply this_result;
 
   if (subframe_id >= u32(Format::Subframe::kReplyBase) &&
-      subframe_id <= (u32(Format::Subframe::kReplyBase) + 16)) {
+      subframe_id < (u32(Format::Subframe::kReplyBase) + 16)) {
     const int encoded_length = subframe_id & 0x03;
     const int type =
         (subframe_id - u32(Format::Subframe::kReplyBase)) / 4;
