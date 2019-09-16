@@ -107,6 +107,10 @@ class ThreadedClient::Impl {
                                   this, request, reply, callback));
   }
 
+  uint64_t checksum_errors() const {
+    return checksum_errors_.load();
+  }
+
  private:
   void Run() {
     startup_future_.get();
@@ -227,6 +231,7 @@ class ThreadedClient::Impl {
     const auto expected_crc = crc.checksum();
 
     if (read_crc != expected_crc) {
+      checksum_errors_++;
       return;
     }
 
@@ -375,6 +380,7 @@ class ThreadedClient::Impl {
   // Accessed from both.
   std::promise<bool> startup_promise_;
   std::future<bool> startup_future_ = startup_promise_.get_future();
+  std::atomic<uint64_t> checksum_errors_{0};
 
   // Only accessed from the child thread.
   boost::asio::io_service child_service_;
@@ -400,6 +406,10 @@ void ThreadedClient::AsyncRegister(const Request* request,
                                    Reply* reply,
                                    io::ErrorCallback callback) {
   impl_->AsyncRegister(request, reply, callback);
+}
+
+uint64_t ThreadedClient::checksum_errors() const {
+  return impl_->checksum_errors();
 }
 
 }

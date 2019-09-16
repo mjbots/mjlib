@@ -68,6 +68,8 @@ class ThreadedClient {
   /// have a reply sent back).
   void AsyncRegister(const Request*, Reply*, io::ErrorCallback);
 
+  uint64_t checksum_errors() const;
+
  private:
   class Impl;
   std::unique_ptr<Impl> impl_;
