@@ -37,7 +37,9 @@ class Server : public MicroServer::Server {
 
   MicroServer::ReadResult Read(
       MicroServer::Register reg, size_t type_index) const override {
-    if (type_index == 2) {
+    if (type_index == 0) {
+      return MicroServer::Value(int8_values.at(reg));
+    } else if (type_index == 2) {
       return MicroServer::Value(int32_values.at(reg));
     } else if (type_index == 3) {
       return MicroServer::Value(float_values.at(reg));
@@ -52,6 +54,10 @@ class Server : public MicroServer::Server {
 
   std::vector<WriteValue> writes_;
   uint32_t next_write_error_ = 0;
+
+  std::map<uint32_t, int8_t> int8_values = {
+    { 0, 3 },
+  };
 
   std::map<uint32_t, int32_t> int32_values = {
     { 9, 0x09080706, },
@@ -649,6 +655,58 @@ BOOST_FIXTURE_TEST_CASE(ReadMultipleTest, Fixture) {
       0x00, 0x00, 0x80, 0x3f,  // value
       0x00, 0x00, 0x00, 0x40,
     0xad, 0x46,  // CRC
+    0x00,  // null terminator
+  };
+
+  BOOST_TEST(std::string_view(receive_buffer, read_size) ==
+             str(kExpectedResponse));
+}
+
+BOOST_FIXTURE_TEST_CASE(ReadMultipleInt8s, Fixture) {
+  char receive_buffer[256] = {};
+  int read_count = 0;
+  ssize_t read_size = 0;
+  dut_stream.side_a()->AsyncReadSome(
+      receive_buffer, [&](micro::error_code ec, ssize_t size) {
+        BOOST_TEST(!ec);
+        read_count++;
+        read_size = size;
+      });
+
+  event_queue.Poll();
+  const uint8_t kReadMultiple[] = {
+    0x54, 0xab,  // header
+    0x82,  // source id
+      0x01,  // destination id
+      0x03,  // payload size
+        0x10,  // read N int8s
+        0x01,  // no regs
+        0x00,   // start reg
+    0xa8, 0x65,  // CRC
+    0x00,  // null terminator
+  };
+
+  int write_count = 0;
+  AsyncWrite(*dut_stream.side_a(), str(kReadMultiple),
+             [&](micro::error_code ec) {
+               BOOST_TEST(!ec);
+               write_count++;
+             });
+
+  event_queue.Poll();
+  BOOST_TEST(write_count == 1);
+  BOOST_TEST(read_count == 1);
+
+  const uint8_t kExpectedResponse[] = {
+    0x54, 0xab,
+    0x01,  // source id
+    0x02,  // dest id
+    0x04,  // payload size
+     0x20,  // reply single int x1
+      0x01,
+      0x00,
+      0x03,
+    0xc6, 0x52,  // CRC
     0x00,  // null terminator
   };
 
