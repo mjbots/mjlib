@@ -36,7 +36,7 @@ class DeadlineTimer {
 
   DeadlineTimer(boost::asio::io_context& context)
       : executor_(context.get_executor()) {}
-  DeadlineTimer(boost::asio::executor& executor)
+  DeadlineTimer(const boost::asio::executor& executor)
       : executor_(executor) {}
   ~DeadlineTimer() {}
 
