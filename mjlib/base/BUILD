@@ -218,11 +218,30 @@ cc_library(
 )
 
 cc_library(
+    name = "aborting_posix_timer",
+    hdrs = ["aborting_posix_timer.h"],
+    srcs = ["aborting_posix_timer.cc"],
+    deps = [
+        ":fail",
+        ":system_error",
+    ],
+)
+
+cc_library(
     name = "all_types_struct",
     hdrs = ["test/all_types_struct.h"],
     deps = [
         ":bytes",
         ":time_conversions",
+    ],
+)
+
+cc_binary(
+    name = "aborting_posix_timer_manual_test",
+    srcs = ["test/aborting_posix_timer_manual_test.cc"],
+    deps = [
+        ":aborting_posix_timer",
+        "@boost//:program_options",
     ],
 )
 
@@ -264,5 +283,8 @@ cc_test(
         ":tokenizer",
         ":windowed_average",
         "@boost//:test",
+    ],
+    data = [
+        ":aborting_posix_timer_manual_test",
     ],
 )
