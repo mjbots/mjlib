@@ -33,7 +33,7 @@ struct Item {
 
 class AsyncSequence::Impl : public std::enable_shared_from_this<Impl> {
  public:
-  Impl(boost::asio::io_service& service)
+  Impl(boost::asio::io_context& service)
       : service_(service) {}
 
   void Start(ErrorCallback completion_callback) {
@@ -71,12 +71,12 @@ class AsyncSequence::Impl : public std::enable_shared_from_this<Impl> {
     RunNextOperation();
   }
 
-  boost::asio::io_service& service_;
+  boost::asio::io_context& service_;
   std::deque<Item> sequence_;
   ErrorCallback completion_callback_;
 };
 
-AsyncSequence::AsyncSequence(boost::asio::io_service& service)
+AsyncSequence::AsyncSequence(boost::asio::io_context& service)
     : impl_(std::make_shared<Impl>(service)) {}
 
 AsyncSequence& AsyncSequence::op(ChainableCallback callback,

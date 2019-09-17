@@ -52,7 +52,7 @@ class ThreadedClient {
     bool debug_checksum_errors = false;
   };
 
-  ThreadedClient(boost::asio::io_service&, const Options&);
+  ThreadedClient(boost::asio::io_context&, const Options&);
   ~ThreadedClient();
 
   struct SingleRequest {

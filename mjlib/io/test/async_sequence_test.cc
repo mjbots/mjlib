@@ -30,7 +30,7 @@ struct Fixture {
     service.reset();
   }
 
-  boost::asio::io_service service;
+  boost::asio::io_context service;
 };
 }
 

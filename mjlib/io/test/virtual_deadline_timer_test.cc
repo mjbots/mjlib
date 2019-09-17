@@ -19,7 +19,7 @@
 using namespace mjlib;
 
 BOOST_AUTO_TEST_CASE(BasicVirtualDeadlineTimer) {
-  boost::asio::io_service service;
+  boost::asio::io_context service;
   io::DeadlineTimer timer(service);
   timer.expires_from_now(boost::posix_time::milliseconds(1));
   timer.wait();

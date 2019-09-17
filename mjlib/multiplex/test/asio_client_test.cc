@@ -42,7 +42,7 @@ struct Fixture {
                       });
   }
 
-  boost::asio::io_service service;
+  boost::asio::io_context service;
   io::DebugDeadlineService* const debug_service{
     io::DebugDeadlineService::Install(service)};
   io::StreamPipeFactory pipe_factory{service};

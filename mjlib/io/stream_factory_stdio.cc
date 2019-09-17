@@ -27,7 +27,7 @@ using namespace std::placeholders;
 
 class StdioStream : public AsyncStream {
  public:
-  StdioStream(boost::asio::io_service& service,
+  StdioStream(boost::asio::io_context& service,
               const StreamFactory::Options& options)
       : service_(service),
         stdin_(service, ::dup(options.stdio_in)),
@@ -35,7 +35,7 @@ class StdioStream : public AsyncStream {
     BOOST_ASSERT(options.type == StreamFactory::Type::kStdio);
   }
 
-  boost::asio::io_service& get_io_service() override { return service_; }
+  boost::asio::io_context& get_io_service() override { return service_; }
 
   void async_read_some(MutableBufferSequence buffers,
                        ReadHandler handler) override {
@@ -53,14 +53,14 @@ class StdioStream : public AsyncStream {
   }
 
  private:
-  boost::asio::io_service& service_;
+  boost::asio::io_context& service_;
   boost::asio::posix::stream_descriptor stdin_;
   boost::asio::posix::stream_descriptor stdout_;
 };
 }
 
 void AsyncCreateStdio(
-    boost::asio::io_service& service,
+    boost::asio::io_context& service,
     const StreamFactory::Options& options,
     StreamHandler handler) {
   service.post(

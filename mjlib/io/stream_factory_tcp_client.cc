@@ -27,7 +27,7 @@ using tcp = boost::asio::ip::tcp;
 
 class TcpStream : public AsyncStream {
  public:
-  TcpStream(boost::asio::io_service& service,
+  TcpStream(boost::asio::io_context& service,
             const StreamFactory::Options& options)
       : service_(service),
         options_(options),
@@ -41,7 +41,7 @@ class TcpStream : public AsyncStream {
 
   ~TcpStream() override {}
 
-  boost::asio::io_service& get_io_service() override { return service_; }
+  boost::asio::io_context& get_io_service() override { return service_; }
 
   void async_read_some(MutableBufferSequence buffers,
                        ReadHandler handler) override {
@@ -81,7 +81,7 @@ class TcpStream : public AsyncStream {
     service_.post(std::bind(start_handler_, ec));
   }
 
-  boost::asio::io_service& service_;
+  boost::asio::io_context& service_;
   const StreamFactory::Options options_;
   tcp::resolver resolver_;
   tcp::socket socket_;
@@ -90,7 +90,7 @@ class TcpStream : public AsyncStream {
 }
 
 void AsyncCreateTcpClient(
-    boost::asio::io_service& service,
+    boost::asio::io_context& service,
     const StreamFactory::Options& options,
     StreamHandler handler) {
   auto stream = std::make_shared<TcpStream>(service, options);

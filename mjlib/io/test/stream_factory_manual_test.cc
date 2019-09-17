@@ -36,7 +36,7 @@ namespace po = boost::program_options;
 namespace {
 class Communicator {
  public:
-  Communicator(boost::asio::io_service& service,
+  Communicator(boost::asio::io_context& service,
                io::StreamFactory* stream_factory,
                const io::StreamFactory::Options& options)
       : service_(service) {
@@ -81,7 +81,7 @@ class Communicator {
     base::FailIf(ec);
   }
 
-  boost::asio::io_service& service_;
+  boost::asio::io_context& service_;
   io::SharedStream stdio_;
   io::SharedStream remote_;
   std::optional<io::BidirectionalStreamCopy> copy_;
@@ -89,7 +89,7 @@ class Communicator {
 }
 
 int main(int argc, char** argv) {
-  boost::asio::io_service service;
+  boost::asio::io_context service;
   io::StreamFactory factory(service);
 
   io::StreamFactory::Options options;

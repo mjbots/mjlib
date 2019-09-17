@@ -53,7 +53,7 @@ BOOST_AUTO_TEST_CASE(ThreadedClientBasic) {
   ThreadedClient::Options dut_options;
   dut_options.fd = pipe.fd[1];
 
-  boost::asio::io_service service;
+  boost::asio::io_context service;
   auto poll = [&]() {
     service.poll();
     service.reset();

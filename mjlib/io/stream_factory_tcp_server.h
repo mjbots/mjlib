@@ -20,7 +20,7 @@ namespace mjlib {
 namespace io {
 namespace detail {
 
-void AsyncCreateTcpServer(boost::asio::io_service&,
+void AsyncCreateTcpServer(boost::asio::io_context&,
                           const StreamFactory::Options&, StreamHandler);
 
 }

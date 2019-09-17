@@ -94,7 +94,7 @@ struct FrameItem {
 
 class ThreadedClient::Impl {
  public:
-  Impl(boost::asio::io_service& service,
+  Impl(boost::asio::io_context& service,
        const Options& options)
       : service_(service),
         options_(options) {
@@ -148,7 +148,7 @@ class ThreadedClient::Impl {
     select_timeout_.tv_sec = 0;
     select_timeout_.tv_nsec = options_.query_timeout_s * 1000000000;
 
-    boost::asio::io_service::work work(child_service_);
+    boost::asio::io_context::work work(child_service_);
     child_service_.run();
   }
 
@@ -411,7 +411,7 @@ class ThreadedClient::Impl {
     MJ_ASSERT(std::this_thread::get_id() != thread_.get_id());
   }
 
-  boost::asio::io_service& service_;
+  boost::asio::io_context& service_;
   const Options options_;
 
   std::thread thread_;
@@ -426,7 +426,7 @@ class ThreadedClient::Impl {
   std::atomic<uint64_t> extra_found_{0};
 
   // Only accessed from the child thread.
-  boost::asio::io_service child_service_;
+  boost::asio::io_context child_service_;
   SystemFd fd_;
 
   FrameItem frame_item1_;
@@ -439,7 +439,7 @@ class ThreadedClient::Impl {
   struct timespec select_timeout_ = {};
 };
 
-ThreadedClient::ThreadedClient(boost::asio::io_service& service,
+ThreadedClient::ThreadedClient(boost::asio::io_context& service,
                                const Options& options)
     : impl_(std::make_unique<Impl>(service, options)) {}
 

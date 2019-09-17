@@ -35,13 +35,13 @@ std::map<StreamFactory::Type, const char*> StreamFactory::TypeMapper() {
 
 class StreamFactory::Impl {
  public:
-  Impl(boost::asio::io_service& service) : service_(service) {}
+  Impl(boost::asio::io_context& service) : service_(service) {}
 
-  boost::asio::io_service& service_;
+  boost::asio::io_context& service_;
   StreamPipeFactory pipe_factory_{service_};
 };
 
-StreamFactory::StreamFactory(boost::asio::io_service& service)
+StreamFactory::StreamFactory(boost::asio::io_context& service)
     : impl_(std::make_unique<Impl>(service)) {}
 
 StreamFactory::~StreamFactory() {}

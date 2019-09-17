@@ -23,7 +23,7 @@
 namespace mjlib {
 namespace io {
 
-RepeatingTimer::RepeatingTimer(boost::asio::io_service& service)
+RepeatingTimer::RepeatingTimer(boost::asio::io_context& service)
     : service_(service),
       timer_(service) {}
 

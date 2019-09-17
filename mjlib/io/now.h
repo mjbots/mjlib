@@ -14,14 +14,13 @@
 
 #pragma once
 
-#include "mjlib/io/virtual_deadline_timer.h"
+#include "mjlib/io/timer_selector.h"
 
 namespace mjlib {
 namespace io {
 
-inline boost::posix_time::ptime Now(boost::asio::io_service& service) {
-  return boost::asio::use_service<
-    VirtualDeadlineTimerServiceHolder>(service).now();
+inline boost::posix_time::ptime Now(boost::asio::io_context& service) {
+  return boost::asio::use_service<TimerSelector>(service).now();
 }
 
 }

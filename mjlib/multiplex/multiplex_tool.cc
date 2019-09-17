@@ -76,7 +76,7 @@ std::vector<std::string> Split(std::string_view str, std::string delimiter) {
 
 class CommandRunner {
  public:
-  CommandRunner(boost::asio::io_service& service,
+  CommandRunner(boost::asio::io_context& service,
                 io::StreamFactory* stream_factory,
                 const io::StreamFactory::Options& stream_options,
                 const Options& options)
@@ -384,7 +384,7 @@ class CommandRunner {
     }
   }
 
-  boost::asio::io_service& service_;
+  boost::asio::io_context& service_;
   io::StreamFactory* const stream_factory_;
   const Options options_;
   io::SharedStream stream_;
@@ -402,7 +402,7 @@ class CommandRunner {
 }
 
 int multiplex_main(int argc, char** argv) {
-  boost::asio::io_service service;
+  boost::asio::io_context service;
   io::StreamFactory factory{service};
 
   io::StreamFactory::Options stream_options;

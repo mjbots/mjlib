@@ -21,7 +21,7 @@
 using namespace mjlib::io;
 
 BOOST_AUTO_TEST_CASE(BasicRepeatingTimer) {
-  boost::asio::io_service service;
+  boost::asio::io_context service;
   auto poll = [&]() {
     service.poll();
     service.reset();

@@ -74,7 +74,7 @@ class StreamFactory : boost::noncopyable {
     }
   };
 
-  StreamFactory(boost::asio::io_service&);
+  StreamFactory(boost::asio::io_context&);
   ~StreamFactory();
 
   /// Create a new stream asynchronously.  The stream will be passed

@@ -12,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "mjlib/io/virtual_deadline_timer.h"
+#include "mjlib/io/timer_selector.h"
 
 namespace mjlib {
 namespace io {
 
-boost::asio::io_service::id VirtualDeadlineTimerServiceHolder::id;
+boost::asio::execution_context::id TimerSelector::id;
 
 }
 }

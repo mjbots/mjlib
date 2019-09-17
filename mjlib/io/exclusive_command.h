@@ -27,7 +27,7 @@ namespace io {
 /// This is effectively a mutex in the asio callback world.
 class ExclusiveCommand : boost::noncopyable {
  public:
-  ExclusiveCommand(boost::asio::io_service& service) : service_(service) {}
+  ExclusiveCommand(boost::asio::io_context& service) : service_(service) {}
 
   class Base : boost::noncopyable {
    public:
@@ -50,7 +50,7 @@ class ExclusiveCommand : boost::noncopyable {
     return ptr;
   };
 
-  boost::asio::io_service& get_io_service() { return service_; }
+  boost::asio::io_context& get_io_service() { return service_; }
 
   std::size_t remove(Nonce nonce) {
     auto it = std::remove(queued_.begin(), queued_.end(), nonce);
@@ -113,7 +113,7 @@ class ExclusiveCommand : boost::noncopyable {
     Handler handler_;
   };
 
-  boost::asio::io_service& service_;
+  boost::asio::io_context& service_;
   std::shared_ptr<Base> waiting_;
   std::deque<std::shared_ptr<Base>> queued_;
 };

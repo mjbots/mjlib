@@ -73,16 +73,15 @@ cc_library(
     hdrs = [
         "deadline_timer.h",
         "debug_deadline_service.h",
-        "virtual_deadline_timer.h",
+        "timer_selector.h"
     ],
     srcs = [
-        "virtual_deadline_timer.cc",
+        "timer_selector.cc",
     ],
     deps = [
         ":async_types",
-    ],
-    defines = [
-        "BOOST_ASIO_ENABLE_OLD_SERVICES",
+        "//mjlib/base:fail",
+        "//mjlib/base:system_error",
     ],
 )
 

@@ -22,7 +22,7 @@ namespace io = mjlib::io;
 using io::ExclusiveCommand;
 
 BOOST_AUTO_TEST_CASE(ExclusiveCommandTest) {
-  boost::asio::io_service service;
+  boost::asio::io_context service;
   ExclusiveCommand dut{service};
   using Callback = io::VoidCallback;
 
@@ -85,7 +85,7 @@ BOOST_AUTO_TEST_CASE(ExclusiveCommandTest) {
 }
 
 BOOST_AUTO_TEST_CASE(CancelTest) {
-  boost::asio::io_service service;
+  boost::asio::io_context service;
   ExclusiveCommand dut{service};
   using Callback = io::VoidCallback;
 

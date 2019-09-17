@@ -16,113 +16,31 @@
 
 #include <map>
 
+#include "mjlib/base/assert.h"
+#include "mjlib/base/fail.h"
 #include "mjlib/io/async_types.h"
-#include "mjlib/io/virtual_deadline_timer.h"
+#include "mjlib/io/timer_selector.h"
 
 namespace mjlib {
 namespace io {
 
-class DebugDeadlineService : public VirtualDeadlineTimerService {
+class DebugDeadlineService {
  public:
-  DebugDeadlineService(boost::asio::io_service& service)
-      : service_(service) {}
-  virtual ~DebugDeadlineService() {}
+  static DebugDeadlineService* Install(boost::asio::io_context& context) {
+    auto& timer_selector = boost::asio::use_service<TimerSelector>(context);
+    auto debug_service = std::make_shared<DebugDeadlineService>();
 
-  static DebugDeadlineService* Install(boost::asio::io_service& service) {
-    auto& deadline_service =
-        boost::asio::use_service<VirtualDeadlineTimerServiceHolder>(service);
-    DebugDeadlineService* result = new DebugDeadlineService(service);
-    deadline_service.Reset(
-        std::unique_ptr<VirtualDeadlineTimerService>(result));
-    return result;
+    timer_selector.Reset([debug_service](TimerBase::executor_type executor) {
+        return std::make_unique<Timer>(debug_service.get(), executor);
+      },
+      [debug_service]() {
+        return debug_service->now();
+      });
+    return debug_service.get();
   }
 
-  static DebugDeadlineService* Get(boost::asio::io_service& service) {
-    auto& deadline_service =
-        boost::asio::use_service<VirtualDeadlineTimerServiceHolder>(service);
-    return dynamic_cast<DebugDeadlineService*>(deadline_service.Get());
-  }
-
-  void construct(implementation_type& impl) override {
-    Impl* data = nullptr;
-    impl = data = new Impl();
-    data->position_ = queue_.end();
-  }
-
-  void destroy(implementation_type& impl) override {
-    delete impl;
-    impl = nullptr;
-  }
-
-  std::size_t cancel(implementation_type& impl,
-                     boost::system::error_code& ec) override {
-    ec = {};
-
-    std::size_t result = 0;
-    auto& item = data(impl);
-    if (item.position_ != queue_.end()) {
-      result++;
-      auto& entry = item.position_->second;
-      BOOST_ASSERT(&item == entry.item);
-      service_.post(
-          std::bind(entry.handler, boost::asio::error::operation_aborted));
-      queue_.erase(item.position_);
-      item.position_ = queue_.end();
-    }
-    return result;
-  }
-
-  boost::posix_time::ptime expires_at(
-      const implementation_type& impl) const override {
-    auto& item = data(impl);
-    return item.timestamp_;
-  }
-
-  std::size_t expires_at(implementation_type& impl,
-                         boost::posix_time::ptime timestamp,
-                         boost::system::error_code& ec) override {
-    std::size_t result = cancel(impl, ec);
-    if (ec) { return result; }
-
-    auto& item = data(impl);
-    item.timestamp_ = timestamp;
-    return result;
-  }
-
-  boost::posix_time::time_duration expires_from_now(
-      const implementation_type& impl) const override {
-    auto& item = data(impl);
-    return item.timestamp_ - now();
-  }
-
-  std::size_t expires_from_now(
-      implementation_type& impl,
-      boost::posix_time::time_duration duration,
-      boost::system::error_code& ec) override {
-    return expires_at(impl, now() + duration, ec);
-  }
-
-  boost::system::error_code wait(
-      implementation_type&,
-      boost::system::error_code&) override {
-    BOOST_ASSERT(false);
-  }
-
-  void async_wait(implementation_type& impl,
-                  io::ErrorCallback handler) override {
-    auto& item = data(impl);
-    Entry entry;
-    entry.item = &item;
-    entry.handler = handler;
-    item.position_ = queue_.insert(
-        std::make_pair(item.timestamp_, entry));
-  }
-
-  boost::posix_time::ptime now() const override {
+  boost::posix_time::ptime now() const {
     return current_time_;
-  }
-
-  void shutdown_service() override {
   }
 
   void SetTime(boost::posix_time::ptime new_time) {
@@ -131,43 +49,100 @@ class DebugDeadlineService : public VirtualDeadlineTimerService {
     while (!queue_.empty() && queue_.begin()->first <= current_time_) {
       auto& entry = queue_.begin()->second;
       auto& item = *entry.item;
+
       item.position_ = queue_.end();
-      service_.post(
-          std::bind(entry.handler, boost::system::error_code()));
+      item.executor_.post(
+          std::bind(entry.handler, boost::system::error_code()),
+          std::allocator<void>());
       queue_.erase(queue_.begin());
     }
   }
 
  private:
-  class Impl;
+  class Timer;
 
   struct Entry {
-    Impl* item = nullptr;
+    Timer* item = nullptr;
     io::ErrorCallback handler;
   };
+
   typedef std::multimap<boost::posix_time::ptime, Entry> Queue;
-
-  class Impl : public VirtualDeadlineTimerImpl {
+  class Timer : public TimerBase {
    public:
-    virtual ~Impl() {}
+    Timer(DebugDeadlineService* debug_service, executor_type executor)
+        : debug_service_(debug_service),
+          executor_(executor),
+          position_(debug_service->queue_.end()) {}
+    ~Timer() override {}
 
+    std::size_t cancel(boost::system::error_code& ec) override {
+      ec = {};
+
+      auto& queue = debug_service_->queue_;
+
+      std::size_t result = 0;
+      if (position_ != queue.end()) {
+        result++;
+        auto& entry = position_->second;
+        MJ_ASSERT(this == entry.item);
+        executor_.post(
+            std::bind(entry.handler, boost::asio::error::operation_aborted),
+            std::allocator<void>());
+        queue.erase(position_);
+        position_ = queue.end();
+      }
+      return result;
+    }
+
+    std::size_t cancel_one(boost::system::error_code& ec) override {
+      return cancel(ec);
+    }
+
+    boost::posix_time::ptime expires_at() const override {
+      return timestamp_;
+    }
+
+    std::size_t expires_at(const time_type& timestamp,
+                           boost::system::error_code& ec) override {
+      std::size_t result = cancel(ec);
+      if (ec) { return result; }
+
+      timestamp_ = timestamp;
+      return result;
+    }
+
+    boost::posix_time::time_duration expires_from_now() const override {
+      return timestamp_ - debug_service_->now();
+    }
+
+    std::size_t expires_from_now(
+        const duration_type& duration,
+        boost::system::error_code& ec) override {
+      return expires_at(debug_service_->now() + duration, ec);
+    }
+
+    void async_wait(ErrorCallback handler) override {
+      Entry entry;
+      entry.item = this;
+      entry.handler = handler;
+      position_ = debug_service_->queue_.insert(
+          std::make_pair(timestamp_, entry));
+    }
+
+    void wait() override {
+      base::Fail("not implemented");
+    }
+
+    executor_type get_executor() override {
+      return executor_;
+    }
+
+    DebugDeadlineService* const debug_service_;
+    boost::asio::executor executor_;
     boost::posix_time::ptime timestamp_;
     Queue::iterator position_;
   };
 
-  Impl& data(implementation_type& impl) {
-    Impl* result = dynamic_cast<Impl*>(impl);
-    BOOST_ASSERT(result);
-    return *result;
-  }
-
-  const Impl& data(const implementation_type& impl) const {
-    const Impl* result = dynamic_cast<const Impl*>(impl);
-    BOOST_ASSERT(result);
-    return *result;
-  }
-
-  boost::asio::io_service& service_;
   boost::posix_time::ptime current_time_;
   Queue queue_;
 };

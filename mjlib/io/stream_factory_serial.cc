@@ -32,7 +32,7 @@ namespace detail {
 namespace {
 class SerialStream : public AsyncStream {
  public:
-  SerialStream(boost::asio::io_service& service,
+  SerialStream(boost::asio::io_context& service,
                const StreamFactory::Options& options)
       : service_(service),
         options_(options),
@@ -80,7 +80,7 @@ class SerialStream : public AsyncStream {
 
   ~SerialStream() override {}
 
-  boost::asio::io_service& get_io_service() override { return service_; }
+  boost::asio::io_context& get_io_service() override { return service_; }
 
   void async_read_some(MutableBufferSequence buffers,
                        ReadHandler handler) override {
@@ -97,14 +97,14 @@ class SerialStream : public AsyncStream {
   }
 
  private:
-  boost::asio::io_service& service_;
+  boost::asio::io_context& service_;
   const StreamFactory::Options options_;
   boost::asio::serial_port port_;
 };
 }
 
 void AsyncCreateSerial(
-    boost::asio::io_service& service,
+    boost::asio::io_context& service,
     const StreamFactory::Options& options,
     StreamHandler handler) {
   auto stream = std::make_shared<SerialStream>(service, options);

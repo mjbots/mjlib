@@ -200,7 +200,7 @@ class AsioClient::Impl {
         handler);
     }
 
-    boost::asio::io_service& get_io_service() override {
+    boost::asio::io_context& get_io_service() override {
       return parent_->service_;
     }
 
@@ -412,7 +412,7 @@ class AsioClient::Impl {
       return impl_->async_write_some(buffers, handler);
     }
 
-    boost::asio::io_service& get_io_service() override {
+    boost::asio::io_context& get_io_service() override {
       return impl_->get_io_service();
     }
 
@@ -425,7 +425,7 @@ class AsioClient::Impl {
   };
 
   io::AsyncStream* const stream_;
-  boost::asio::io_service& service_{stream_->get_io_service()};
+  boost::asio::io_context& service_{stream_->get_io_service()};
   const Options options_;
   FrameStream frame_stream_;
 

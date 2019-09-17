@@ -25,7 +25,7 @@ namespace io {
 
 class StreamPipeFactory {
  public:
-  StreamPipeFactory(boost::asio::io_service&);
+  StreamPipeFactory(boost::asio::io_context&);
   ~StreamPipeFactory();
 
   SharedStream GetStream(const std::string& key, int direction);

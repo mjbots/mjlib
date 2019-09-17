@@ -31,7 +31,7 @@ struct Fixture {
     service.reset();
   }
 
-  boost::asio::io_service service;
+  boost::asio::io_context service;
   io::StreamPipeFactory pipe_factory{service};
   io::SharedStream client_side{pipe_factory.GetStream("", 1)};
   FrameStream dut{client_side.get()};

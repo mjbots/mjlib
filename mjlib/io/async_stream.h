@@ -42,7 +42,7 @@ class AsyncStream : public AsyncReadStream, public AsyncWriteStream {
  public:
   ~AsyncStream() override {}
 
-  virtual boost::asio::io_service& get_io_service() = 0;
+  virtual boost::asio::io_context& get_io_service() = 0;
   virtual void cancel() = 0;
 };
 

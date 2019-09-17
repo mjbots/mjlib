@@ -25,7 +25,7 @@ namespace io {
 
 class StreamCopy {
  public:
-  StreamCopy(boost::asio::io_service& service,
+  StreamCopy(boost::asio::io_context& service,
              AsyncReadStream* read_stream, AsyncWriteStream* write_stream,
              ErrorCallback done_callback)
       : service_(service),
@@ -69,7 +69,7 @@ class StreamCopy {
     StartRead();
   }
 
-  boost::asio::io_service& service_;
+  boost::asio::io_context& service_;
   AsyncReadStream* const read_stream_;
   AsyncWriteStream* const write_stream_;
   char buffer_[4096] = {};
@@ -78,7 +78,7 @@ class StreamCopy {
 
 class BidirectionalStreamCopy {
  public:
-  BidirectionalStreamCopy(boost::asio::io_service& service,
+  BidirectionalStreamCopy(boost::asio::io_context& service,
                           AsyncStream* left, AsyncStream* right,
                           ErrorCallback done_callback)
       : service_(service),
@@ -98,7 +98,7 @@ class BidirectionalStreamCopy {
     done_callback_ = {};
   }
 
-  boost::asio::io_service& service_;
+  boost::asio::io_context& service_;
   StreamCopy copy1_;
   StreamCopy copy2_;
   ErrorCallback done_callback_;

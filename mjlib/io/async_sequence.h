@@ -31,7 +31,7 @@ namespace io {
 /// There wouldn't be much need for this if we had coroutines.
 class AsyncSequence {
  public:
-  AsyncSequence(boost::asio::io_service&);
+  AsyncSequence(boost::asio::io_context&);
 
   /// Append a new operation to the list.
   AsyncSequence& op(ChainableCallback, std::string_view description = "");
