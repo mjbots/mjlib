@@ -16,6 +16,8 @@
 
 #include <deque>
 
+#include <boost/asio/post.hpp>
+
 #include "mjlib/base/assert.h"
 
 namespace mjlib {
@@ -33,8 +35,8 @@ struct Item {
 
 class AsyncSequence::Impl : public std::enable_shared_from_this<Impl> {
  public:
-  Impl(boost::asio::io_context& service)
-      : service_(service) {}
+  Impl(const boost::asio::executor& executor)
+      : executor_(executor) {}
 
   void Start(ErrorCallback completion_callback) {
     MJ_ASSERT(!completion_callback_);
@@ -45,18 +47,21 @@ class AsyncSequence::Impl : public std::enable_shared_from_this<Impl> {
   void RunNextOperation() {
     if (sequence_.empty()) {
       // Success!
-      service_.post(std::bind(completion_callback_, base::error_code()));
+      boost::asio::post(
+          executor_, std::bind(completion_callback_, base::error_code()));
       return;
     }
 
     auto next_item = sequence_.front();
     sequence_.pop_front();
 
-    service_.post([self=shared_from_this(), next_item]() {
-        next_item.callback(
-            std::bind(&Impl::HandleCallback,
-                      self, std::placeholders::_1, next_item));
-      });
+    boost::asio::post(
+        executor_,
+        [self=shared_from_this(), next_item]() {
+          next_item.callback(
+              std::bind(&Impl::HandleCallback,
+                        self, std::placeholders::_1, next_item));
+        });
   }
 
   void HandleCallback(base::error_code ec, const Item& item) {
@@ -64,23 +69,25 @@ class AsyncSequence::Impl : public std::enable_shared_from_this<Impl> {
       if (!item.description.empty()) {
         ec.Append("When executing: " + item.description);
       }
-      service_.post(std::bind(completion_callback_, ec));
+      boost::asio::post(
+          executor_,
+          std::bind(completion_callback_, ec));
       return;
     }
 
     RunNextOperation();
   }
 
-  boost::asio::io_context& service_;
+  boost::asio::executor executor_;
   std::deque<Item> sequence_;
   ErrorCallback completion_callback_;
 };
 
-AsyncSequence::AsyncSequence(boost::asio::io_context& service)
-    : impl_(std::make_shared<Impl>(service)) {}
+AsyncSequence::AsyncSequence(const boost::asio::executor& executor)
+    : impl_(std::make_shared<Impl>(executor)) {}
 
-AsyncSequence& AsyncSequence::op(ChainableCallback callback,
-                                 std::string_view description) {
+AsyncSequence& AsyncSequence::Add(ChainableCallback callback,
+                                  std::string_view description) {
   BOOST_ASSERT(!impl_->completion_callback_);
   impl_->sequence_.emplace_back(callback, description);
   return *this;

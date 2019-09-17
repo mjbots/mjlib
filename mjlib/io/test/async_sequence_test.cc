@@ -14,6 +14,7 @@
 
 #include "mjlib/io/async_sequence.h"
 
+#include <boost/asio/io_context.hpp>
 #include <boost/test/auto_unit_test.hpp>
 
 using mjlib::io::AsyncSequence;
@@ -31,25 +32,26 @@ struct Fixture {
   }
 
   boost::asio::io_context service;
+  boost::asio::executor executor{service.get_executor()};
 };
 }
 
 BOOST_FIXTURE_TEST_CASE(AsyncSequenceEmpty, Fixture) {
-  AsyncSequence dut(service);
+  AsyncSequence dut(executor);
 }
 
 BOOST_FIXTURE_TEST_CASE(AsyncSequenceBasic, Fixture) {
-  AsyncSequence dut(service);
+  AsyncSequence dut(executor);
 
   int handler1 = 0;
   int handler2 = 0;
   int done = 0;
 
-  dut.op([&](auto handler) {
+  dut.Add([&](auto handler) {
          handler1++;
          handler(mjlib::base::error_code());
        })
-     .op([&](auto handler) {
+     .Add([&](auto handler) {
          handler2++;
          handler(mjlib::base::error_code());
        })
@@ -75,17 +77,17 @@ BOOST_FIXTURE_TEST_CASE(AsyncSequenceBasic, Fixture) {
 }
 
 BOOST_FIXTURE_TEST_CASE(AsyncSequenceError, Fixture) {
-  AsyncSequence dut(service);
+  AsyncSequence dut(executor);
 
   int handler1 = 0;
   int handler2 = 0;
   int done = 0;
 
-  dut.op([&](auto handler) {
+  dut.Add([&](auto handler) {
          handler1++;
          handler(boost::asio::error::operation_aborted);
        }, "my operation")
-     .op([&](auto handler) {
+     .Add([&](auto handler) {
          handler2++;
          handler(mjlib::base::error_code());
        })

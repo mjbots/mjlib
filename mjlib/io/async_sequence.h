@@ -17,7 +17,7 @@
 #include <memory>
 #include <string_view>
 
-#include <boost/asio/io_service.hpp>
+#include <boost/asio/executor.hpp>
 
 #include "mjlib/io/async_types.h"
 
@@ -31,10 +31,10 @@ namespace io {
 /// There wouldn't be much need for this if we had coroutines.
 class AsyncSequence {
  public:
-  AsyncSequence(boost::asio::io_context&);
+  AsyncSequence(const boost::asio::executor&);
 
   /// Append a new operation to the list.
-  AsyncSequence& op(ChainableCallback, std::string_view description = "");
+  AsyncSequence& Add(ChainableCallback, std::string_view description = "");
 
   /// This must the be last method called, it initiates the sequence.
   void Start(ErrorCallback);
