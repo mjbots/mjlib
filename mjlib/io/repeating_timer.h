@@ -31,7 +31,7 @@ namespace io {
 /// boost::asio::error::operation_aborted.
 class RepeatingTimer {
  public:
-  RepeatingTimer(boost::asio::io_context&);
+  RepeatingTimer(const boost::asio::executor&);
 
   // Unlike most boost::asio callbacks, @p callback is invoked
   // possibly many times, at a regular interval.
@@ -46,7 +46,7 @@ class RepeatingTimer {
   void StartInternal();
   void HandleTimer(const base::error_code&);
 
-  boost::asio::io_context& service_;
+  boost::asio::executor executor_;
   DeadlineTimer timer_;
   boost::posix_time::time_duration period_;
   io::ErrorCallback callback_;

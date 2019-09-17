@@ -31,7 +31,7 @@ BOOST_AUTO_TEST_CASE(BasicRepeatingTimer) {
       boost::gregorian::date(2000, boost::gregorian::Jan, 1));
   debug_time->SetTime(now);
 
-  RepeatingTimer dut(service);
+  RepeatingTimer dut(service.get_executor());
   BOOST_TEST(dut.cancel() == 0);
 
   const auto ms100 = boost::posix_time::milliseconds(100);

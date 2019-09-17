@@ -19,8 +19,8 @@
 namespace mjlib {
 namespace io {
 
-inline boost::posix_time::ptime Now(boost::asio::io_context& service) {
-  return boost::asio::use_service<TimerSelector>(service).now();
+inline boost::posix_time::ptime Now(boost::asio::execution_context& context) {
+  return boost::asio::use_service<TimerSelector>(context).now();
 }
 
 }

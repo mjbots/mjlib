@@ -16,6 +16,7 @@
 
 #include <functional>
 
+#include <boost/asio/post.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 
 #include "mjlib/io/now.h"
@@ -23,9 +24,9 @@
 namespace mjlib {
 namespace io {
 
-RepeatingTimer::RepeatingTimer(boost::asio::io_context& service)
-    : service_(service),
-      timer_(service) {}
+RepeatingTimer::RepeatingTimer(const boost::asio::executor& executor)
+    : executor_(executor),
+      timer_(executor) {}
 
 void RepeatingTimer::start(boost::posix_time::time_duration period,
                            io::ErrorCallback callback) {
@@ -41,7 +42,7 @@ std::size_t RepeatingTimer::cancel() {
 }
 
 void RepeatingTimer::StartInternal() {
-  const auto now = io::Now(service_);
+  const auto now = io::Now(executor_.context());
   const auto last_expires = timer_.expires_at();
   if (last_expires.is_special()) {
     // Just start this at a regular interval from now.
@@ -51,7 +52,9 @@ void RepeatingTimer::StartInternal() {
     auto next = last_expires + period_;
     if (next < now) {
       // Yes, we would have skipped.
-      service_.post(std::bind(callback_, boost::asio::error::operation_aborted));
+      boost::asio::post(
+          executor_,
+          std::bind(callback_, boost::asio::error::operation_aborted));
       // Just try to catch back up by going as quickly as possible.
       next = now + period_;
     }
@@ -64,7 +67,7 @@ void RepeatingTimer::StartInternal() {
 void RepeatingTimer::HandleTimer(const base::error_code& ec) {
   if (!callback_) { return; }
   StartInternal();
-  service_.post(std::bind(callback_, ec));
+  boost::asio::post(executor_, std::bind(callback_, ec));
 }
 
 }
