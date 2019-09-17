@@ -102,7 +102,9 @@ cc_library(
         ":stream",
         "//mjlib/base:buffer_stream",
         "//mjlib/base:system_error",
+        "//mjlib/base:visitor",
         "//mjlib/io:async_types",
+        "@fmt",
     ],
 )
 

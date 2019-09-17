@@ -14,6 +14,7 @@
 
 #include "mjlib/multiplex/threaded_client.h"
 
+#include <sched.h>
 #include <linux/serial.h>
 #include <sys/ioctl.h>
 #include <sys/types.h>
@@ -25,9 +26,12 @@
 
 #include <future>
 #include <optional>
+#include <sstream>
 #include <thread>
 
 #include <boost/crc.hpp>
+
+#include <fmt/format.h>
 
 #include "mjlib/base/buffer_stream.h"
 #include "mjlib/base/system_error.h"
@@ -42,6 +46,14 @@ void ThrowIf(bool value, std::string_view message = "") {
   if (value) {
     throw base::system_error::syserrno(message.data());
   }
+}
+
+std::string Hexify(const std::string_view& data) {
+  std::ostringstream ostr;
+  for (auto c : data) {
+    ostr << fmt::format("{:02x}", static_cast<int>(c));
+  }
+  return ostr.str();
 }
 
 class SystemFd {
@@ -107,14 +119,27 @@ class ThreadedClient::Impl {
                                   this, request, reply, callback));
   }
 
-  uint64_t checksum_errors() const {
-    return checksum_errors_.load();
+  Stats stats() const {
+    Stats result;
+    result.checksum_errors = checksum_errors_.load();
+    result.timeouts = timeouts_.load();
+    result.malformed = malformed_.load();
+    result.extra_found = extra_found_.load();
+    return result;
   }
 
  private:
   void Run() {
     startup_future_.get();
     AssertThread();
+
+    if (options_.cpu_affinity >= 0) {
+      cpu_set_t cpuset = {};
+      CPU_ZERO(&cpuset);
+      CPU_SET(options_.cpu_affinity, &cpuset);
+
+      ThrowIf(::sched_setaffinity(0, sizeof(cpu_set_t), &cpuset) < 0);
+    }
 
     // TODO: Set realtime priority and lock memory.
 
@@ -213,7 +238,10 @@ class ThreadedClient::Impl {
     const auto maybe_dest = stream.Read<uint8_t>();
     const auto packet_size = stream.ReadVaruint();
 
-    if (!maybe_source || !maybe_dest || !packet_size) { return; }
+    if (!maybe_source || !maybe_dest || !packet_size) {
+      malformed_++;
+      return;
+    }
 
     SingleReply this_reply;
     this_reply.id = *maybe_source;
@@ -224,7 +252,10 @@ class ThreadedClient::Impl {
 
     buffer_stream.ignore(*packet_size);
     const auto maybe_read_crc = stream.Read<uint16_t>();
-    if (!maybe_read_crc) { return; }
+    if (!maybe_read_crc) {
+      malformed_++;
+      return;
+    }
     const auto read_crc = *maybe_read_crc;
     boost::crc_ccitt_type crc;
     crc.process_bytes(frame_item->encoded, frame_item->size - 2);
@@ -232,6 +263,11 @@ class ThreadedClient::Impl {
 
     if (read_crc != expected_crc) {
       checksum_errors_++;
+
+      if (options_.debug_checksum_errors) {
+        std::cout << "csum_error: "
+                  << Hexify({frame_item->encoded, frame_item->size}) << "\n";
+      }
       return;
     }
 
@@ -293,6 +329,7 @@ class ThreadedClient::Impl {
         ThrowIf(result < 0);
         if (result == 0) {
           // A timeout.
+          timeouts_++;
           return;
         }
       }
@@ -307,6 +344,7 @@ class ThreadedClient::Impl {
       if (result == 0) {
         // Timeout.  We'll just return an empty buffer to indicate
         // that.
+        timeouts_++;
         return;
       }
 
@@ -322,6 +360,7 @@ class ThreadedClient::Impl {
           // Whoops, we have more data than we asked for.  A previous
           // request must have timed out and we are receiving it now.
           // Lets just discard it all for now. :(
+          extra_found_++;
         }
 
         frame_item->size = found.size;
@@ -380,7 +419,11 @@ class ThreadedClient::Impl {
   // Accessed from both.
   std::promise<bool> startup_promise_;
   std::future<bool> startup_future_ = startup_promise_.get_future();
+
   std::atomic<uint64_t> checksum_errors_{0};
+  std::atomic<uint64_t> timeouts_{0};
+  std::atomic<uint64_t> malformed_{0};
+  std::atomic<uint64_t> extra_found_{0};
 
   // Only accessed from the child thread.
   boost::asio::io_service child_service_;
@@ -408,8 +451,8 @@ void ThreadedClient::AsyncRegister(const Request* request,
   impl_->AsyncRegister(request, reply, callback);
 }
 
-uint64_t ThreadedClient::checksum_errors() const {
-  return impl_->checksum_errors();
+ThreadedClient::Stats ThreadedClient::stats() const {
+  return impl_->stats();
 }
 
 }

@@ -20,6 +20,7 @@
 
 #include <boost/asio/io_service.hpp>
 
+#include "mjlib/base/visitor.h"
 #include "mjlib/io/async_types.h"
 #include "mjlib/multiplex/register.h"
 
@@ -41,6 +42,14 @@ class ThreadedClient {
     // If set, then use the given file descriptor rather than opening
     // a serial port.
     int fd = -1;
+
+    // If set to a non-negative number, bind the time sensitive thread
+    // to the given CPU.
+    int cpu_affinity = -1;
+
+    // If true, then print to stdout a hex dump of all received
+    // packets which fail with a checksum error.
+    bool debug_checksum_errors = false;
   };
 
   ThreadedClient(boost::asio::io_service&, const Options&);
@@ -68,7 +77,21 @@ class ThreadedClient {
   /// have a reply sent back).
   void AsyncRegister(const Request*, Reply*, io::ErrorCallback);
 
-  uint64_t checksum_errors() const;
+  struct Stats {
+    uint64_t checksum_errors = 0;
+    uint64_t timeouts = 0;
+    uint64_t malformed = 0;
+    uint64_t extra_found = 0;
+
+    template <typename Archive>
+    void Serialize(Archive* a) {
+      a->Visit(MJ_NVP(checksum_errors));
+      a->Visit(MJ_NVP(timeouts));
+      a->Visit(MJ_NVP(malformed));
+      a->Visit(MJ_NVP(extra_found));
+    }
+  };
+  Stats stats() const;
 
  private:
   class Impl;
