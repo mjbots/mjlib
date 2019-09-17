@@ -16,7 +16,7 @@
 
 #include <memory>
 
-#include <boost/asio/io_service.hpp>
+#include <boost/asio/executor.hpp>
 
 #include "mjlib/io/async_stream.h"
 
@@ -25,7 +25,7 @@ namespace io {
 
 class StreamPipeFactory {
  public:
-  StreamPipeFactory(boost::asio::io_context&);
+  StreamPipeFactory(const boost::asio::executor&);
   ~StreamPipeFactory();
 
   SharedStream GetStream(const std::string& key, int direction);

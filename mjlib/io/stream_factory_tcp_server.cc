@@ -25,12 +25,12 @@ using tcp = boost::asio::ip::tcp;
 namespace {
 class TcpServerStream : public AsyncStream {
  public:
-  TcpServerStream(boost::asio::io_context& service,
+  TcpServerStream(const boost::asio::executor& executor,
                   const StreamFactory::Options& options)
-      : service_(service),
+      : executor_(executor),
         options_(options),
-        acceptor_(service),
-        socket_(service) {
+        acceptor_(executor),
+        socket_(executor) {
     tcp::endpoint endpoint(tcp::v4(), options_.tcp_server_port);
     acceptor_.open(endpoint.protocol());
     acceptor_.set_option(tcp::acceptor::reuse_address(true));
@@ -48,7 +48,7 @@ class TcpServerStream : public AsyncStream {
         std::bind(&TcpServerStream::HandleAccept, this, pl::_1));
   }
 
-  boost::asio::io_context& get_io_service() override { return service_; }
+  boost::asio::executor get_executor() override { return executor_; }
 
   void async_read_some(MutableBufferSequence buffers,
                        ReadHandler handler) override {
@@ -88,13 +88,15 @@ class TcpServerStream : public AsyncStream {
     } else {
       if (read_queued_) {
         read_queued_ = false;
-        service_.post(
+        boost::asio::post(
+            executor_,
             std::bind(read_handler_,
                       boost::asio::error::operation_aborted, 0));
       }
       if (write_queued_) {
         write_queued_ = false;
-        service_.post(
+        boost::asio::post(
+            executor_,
             std::bind(write_handler_,
                       boost::asio::error::operation_aborted, 0));
       }
@@ -106,7 +108,9 @@ class TcpServerStream : public AsyncStream {
  private:
   void HandleAccept(const base::error_code& ec) {
     if (!started_) {
-      service_.post(std::bind(start_handler_, ec));
+      boost::asio::post(
+          executor_,
+          std::bind(start_handler_, ec));
       started_ = true;
     }
     connected_ = true;
@@ -129,7 +133,9 @@ class TcpServerStream : public AsyncStream {
       socket_.close();
       Accept();
     } else {
-      service_.post(std::bind(read_handler_, ec, size));
+      boost::asio::post(
+          executor_,
+          std::bind(read_handler_, ec, size));
     }
   }
 
@@ -141,11 +147,13 @@ class TcpServerStream : public AsyncStream {
       socket_.close();
       Accept();
     } else {
-      service_.post(std::bind(write_handler_, ec, size));
+      boost::asio::post(
+          executor_,
+          std::bind(write_handler_, ec, size));
     }
   }
 
-  boost::asio::io_context& service_;
+  boost::asio::executor executor_;
   const StreamFactory::Options options_;
   tcp::acceptor acceptor_;
   tcp::socket socket_;
@@ -163,10 +171,10 @@ class TcpServerStream : public AsyncStream {
 }
 
 void AsyncCreateTcpServer(
-    boost::asio::io_context& service,
+    const boost::asio::executor& executor,
     const StreamFactory::Options& options,
     StreamHandler handler) {
-  auto stream = std::make_shared<TcpServerStream>(service, options);
+  auto stream = std::make_shared<TcpServerStream>(executor, options);
   stream->start_handler_ = std::bind(handler, pl::_1, stream);
 }
 

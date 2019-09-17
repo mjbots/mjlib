@@ -17,7 +17,8 @@
 #include <deque>
 #include <memory>
 
-#include <boost/asio/io_service.hpp>
+#include <boost/asio/executor.hpp>
+#include <boost/asio/post.hpp>
 #include <boost/noncopyable.hpp>
 
 namespace mjlib {
@@ -27,7 +28,8 @@ namespace io {
 /// This is effectively a mutex in the asio callback world.
 class ExclusiveCommand : boost::noncopyable {
  public:
-  ExclusiveCommand(boost::asio::io_context& service) : service_(service) {}
+  ExclusiveCommand(const boost::asio::executor& executor)
+      : executor_(executor) {}
 
   class Base : boost::noncopyable {
    public:
@@ -50,7 +52,7 @@ class ExclusiveCommand : boost::noncopyable {
     return ptr;
   };
 
-  boost::asio::io_context& get_io_service() { return service_; }
+  boost::asio::executor get_executor() { return executor_; }
 
   std::size_t remove(Nonce nonce) {
     auto it = std::remove(queued_.begin(), queued_.end(), nonce);
@@ -73,7 +75,9 @@ class ExclusiveCommand : boost::noncopyable {
     if (queued_.empty()) { return; }
     waiting_ = queued_.front();
     queued_.pop_front();
-    service_.post([waiting=waiting_]() { waiting->Invoke(); });
+    boost::asio::post(
+        executor_,
+        [waiting=waiting_]() { waiting->Invoke(); });
   }
 
   template <typename Command, typename Handler>
@@ -100,7 +104,8 @@ class ExclusiveCommand : boost::noncopyable {
         concrete_->handler_(std::forward<Args>(args)...);
 
         BOOST_ASSERT(concrete_->parent_->waiting_);
-        concrete_->parent_->get_io_service().post(
+        boost::asio::post(
+            concrete_->parent_->get_executor(),
             std::bind(&ExclusiveCommand::ItemDone, concrete_->parent_));
       }
 
@@ -113,7 +118,7 @@ class ExclusiveCommand : boost::noncopyable {
     Handler handler_;
   };
 
-  boost::asio::io_context& service_;
+  boost::asio::executor executor_;
   std::shared_ptr<Base> waiting_;
   std::deque<std::shared_ptr<Base>> queued_;
 };

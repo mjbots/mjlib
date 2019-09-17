@@ -17,19 +17,21 @@
 #include <map>
 #include <optional>
 
+#include <boost/asio/post.hpp>
+
 namespace mjlib {
 namespace io {
 
 namespace {
 class HalfPipe : public AsyncStream {
  public:
-  HalfPipe(boost::asio::io_context& service)
-      : service_(service) {}
+  HalfPipe(const boost::asio::executor& executor)
+      : executor_(executor) {}
   ~HalfPipe() override {}
 
   void SetOther(HalfPipe* other) { other_ = other; }
 
-  boost::asio::io_context& get_io_service() override { return service_; }
+  boost::asio::executor get_executor() override { return executor_; }
   void async_read_some(MutableBufferSequence buffers,
                        ReadHandler handler) override {
     BOOST_ASSERT(other_);
@@ -37,7 +39,8 @@ class HalfPipe : public AsyncStream {
 
     if (boost::asio::buffer_size(buffers) == 0) {
       // Post immediately.
-      service_.post(
+      boost::asio::post(
+          executor_,
           std::bind(handler, base::error_code(), 0));
       return;
     }
@@ -45,9 +48,11 @@ class HalfPipe : public AsyncStream {
     if (other_->write_handler_) {
       const std::size_t written =
           boost::asio::buffer_copy(buffers, *other_->write_buffers_);
-      service_.post(
+      boost::asio::post(
+          executor_,
           std::bind(*other_->write_handler_, base::error_code(), written));
-      service_.post(
+      boost::asio::post(
+          executor_,
           std::bind(handler, base::error_code(), written));
 
       other_->write_handler_ = {};
@@ -65,7 +70,8 @@ class HalfPipe : public AsyncStream {
 
     if (boost::asio::buffer_size(buffers) == 0) {
       // Post immediately.
-      service_.post(
+      boost::asio::post(
+          executor_,
           std::bind(handler, base::error_code(), 0));
       return;
     }
@@ -73,9 +79,11 @@ class HalfPipe : public AsyncStream {
     if (other_->read_handler_) {
       const std::size_t written =
           boost::asio::buffer_copy(*other_->read_buffers_, buffers);
-      service_.post(
+      boost::asio::post(
+          executor_,
           std::bind(*other_->read_handler_, base::error_code(), written));
-      service_.post(
+      boost::asio::post(
+          executor_,
           std::bind(handler, base::error_code(), written));
 
       other_->read_handler_ = {};
@@ -88,14 +96,16 @@ class HalfPipe : public AsyncStream {
 
   void cancel() override {
     if (read_handler_) {
-      service_.post(
+      boost::asio::post(
+          executor_,
           std::bind(*read_handler_, boost::asio::error::operation_aborted, 0));
       read_handler_ = {};
       read_buffers_ = {};
     }
 
     if (write_handler_) {
-      service_.post(
+      boost::asio::post(
+          executor_,
           std::bind(*write_handler_,
                     boost::asio::error::operation_aborted, 0));
       write_handler_ = {};
@@ -104,7 +114,7 @@ class HalfPipe : public AsyncStream {
   }
 
  private:
-  boost::asio::io_context& service_;
+  boost::asio::executor executor_;
   HalfPipe* other_ = nullptr;
 
   std::optional<MutableBufferSequence> read_buffers_;
@@ -116,9 +126,9 @@ class HalfPipe : public AsyncStream {
 
 class BidirectionalPipe : boost::noncopyable {
  public:
-  BidirectionalPipe(boost::asio::io_context& service)
-      : direction_a_(service),
-        direction_b_(service) {
+  BidirectionalPipe(const boost::asio::executor& executor)
+      : direction_a_(executor),
+        direction_b_(executor) {
     direction_a_.SetOther(&direction_b_);
     direction_b_.SetOther(&direction_a_);
   }
@@ -137,8 +147,8 @@ class HalfPipeRef : public AsyncStream {
       : parent_(parent),
         pipe_(pipe) {}
 
-  boost::asio::io_context& get_io_service() override {
-    return pipe_->get_io_service();
+  boost::asio::executor get_executor() override {
+    return pipe_->get_executor();
   }
 
   void cancel() override { pipe_->cancel(); }
@@ -162,14 +172,14 @@ class HalfPipeRef : public AsyncStream {
 
 class StreamPipeFactory::Impl {
  public:
-  Impl(boost::asio::io_context& service) : service_(service) {}
+  Impl(const boost::asio::executor& executor) : executor_(executor) {}
 
-  boost::asio::io_context& service_;
+  boost::asio::executor executor_;
   std::map<std::string, std::shared_ptr<BidirectionalPipe>> pipes_;
 };
 
-StreamPipeFactory::StreamPipeFactory(boost::asio::io_context& service)
-    : impl_(std::make_unique<Impl>(service)) {}
+StreamPipeFactory::StreamPipeFactory(const boost::asio::executor& executor)
+    : impl_(std::make_unique<Impl>(executor)) {}
 
 StreamPipeFactory::~StreamPipeFactory() {}
 
@@ -177,7 +187,7 @@ SharedStream StreamPipeFactory::GetStream(const std::string& key, int direction)
   if (impl_->pipes_.count(key) == 0) {
     impl_->pipes_.insert(
         std::make_pair(key,
-                       std::make_shared<BidirectionalPipe>(impl_->service_)));
+                       std::make_shared<BidirectionalPipe>(impl_->executor_)));
   }
 
   auto parent = impl_->pipes_[key];

@@ -20,7 +20,7 @@ namespace mjlib {
 namespace io {
 namespace detail {
 
-void AsyncCreateSerial(boost::asio::io_context&,
+void AsyncCreateSerial(const boost::asio::executor&,
                        const StreamFactory::Options&, StreamHandler);
 
 }

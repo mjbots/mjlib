@@ -14,6 +14,8 @@
 
 #include "mjlib/io/stream_factory.h"
 
+#include <boost/asio/post.hpp>
+
 #include "mjlib/io/stream_factory_serial.h"
 #include "mjlib/io/stream_factory_stdio.h"
 #include "mjlib/io/stream_factory_tcp_client.h"
@@ -35,40 +37,40 @@ std::map<StreamFactory::Type, const char*> StreamFactory::TypeMapper() {
 
 class StreamFactory::Impl {
  public:
-  Impl(boost::asio::io_context& service) : service_(service) {}
+  Impl(const boost::asio::executor& executor) : executor_(executor) {}
 
-  boost::asio::io_context& service_;
-  StreamPipeFactory pipe_factory_{service_};
+  boost::asio::executor executor_;
+  StreamPipeFactory pipe_factory_{executor_};
 };
 
-StreamFactory::StreamFactory(boost::asio::io_context& service)
-    : impl_(std::make_unique<Impl>(service)) {}
+StreamFactory::StreamFactory(const boost::asio::executor& executor)
+    : impl_(std::make_unique<Impl>(executor)) {}
 
 StreamFactory::~StreamFactory() {}
 
 void StreamFactory::AsyncCreate(const Options& options, StreamHandler handler) {
   switch (options.type) {
     case Type::kStdio: {
-      detail::AsyncCreateStdio(impl_->service_, options, handler);
+      detail::AsyncCreateStdio(impl_->executor_, options, handler);
       return;
     }
     case Type::kSerial: {
-      detail::AsyncCreateSerial(impl_->service_, options, handler);
+      detail::AsyncCreateSerial(impl_->executor_, options, handler);
       return;
     }
     case Type::kTcpClient: {
-      detail::AsyncCreateTcpClient(impl_->service_, options, handler);
+      detail::AsyncCreateTcpClient(impl_->executor_, options, handler);
       return;
     }
     case Type::kTcpServer: {
-      detail::AsyncCreateTcpServer(impl_->service_, options, handler);
+      detail::AsyncCreateTcpServer(impl_->executor_, options, handler);
       return;
     }
     case Type::kPipe: {
       auto stream = impl_->pipe_factory_.GetStream(
           options.pipe_key, options.pipe_direction);
-      impl_->service_.post(
-          std::bind(handler, base::error_code(), stream));
+      boost::asio::post(impl_->executor_,
+                        std::bind(handler, base::error_code(), stream));
       return;
     }
   }

@@ -18,6 +18,7 @@
 #include <iostream>
 #include <optional>
 
+#include <boost/asio/io_context.hpp>
 #include <boost/asio/read.hpp>
 #include <boost/asio/streambuf.hpp>
 #include <boost/asio/write.hpp>
@@ -36,10 +37,10 @@ namespace po = boost::program_options;
 namespace {
 class Communicator {
  public:
-  Communicator(boost::asio::io_context& service,
+  Communicator(const boost::asio::executor& executor,
                io::StreamFactory* stream_factory,
                const io::StreamFactory::Options& options)
-      : service_(service) {
+      : executor_(executor) {
     io::StreamFactory::Options stdio_options;
     stdio_options.type = io::StreamFactory::Type::kStdio;
 
@@ -69,7 +70,7 @@ class Communicator {
     if (!stdio_) { return; }
     if (!remote_) { return; }
 
-    copy_.emplace(service_, stdio_.get(), remote_.get(),
+    copy_.emplace(executor_, stdio_.get(), remote_.get(),
                   std::bind(&Communicator::HandleDone, this, pl::_1));
   }
 
@@ -81,7 +82,7 @@ class Communicator {
     base::FailIf(ec);
   }
 
-  boost::asio::io_context& service_;
+  boost::asio::executor executor_;
   io::SharedStream stdio_;
   io::SharedStream remote_;
   std::optional<io::BidirectionalStreamCopy> copy_;
@@ -89,8 +90,8 @@ class Communicator {
 }
 
 int main(int argc, char** argv) {
-  boost::asio::io_context service;
-  io::StreamFactory factory(service);
+  boost::asio::io_context context;
+  io::StreamFactory factory(context.get_executor());
 
   io::StreamFactory::Options options;
   po::options_description desc("Allowable options");
@@ -107,8 +108,8 @@ int main(int argc, char** argv) {
     return 1;
   }
 
-  Communicator communicator{service, &factory, options};
+  Communicator communicator{context.get_executor(), &factory, options};
 
-  service.run();
+  context.run();
   return 0;
 }

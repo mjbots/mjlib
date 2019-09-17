@@ -14,6 +14,7 @@
 
 #include "mjlib/io/stream_factory_serial.h"
 
+#include <boost/asio/post.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <fmt/format.h>
 
@@ -27,12 +28,12 @@ using tcp = boost::asio::ip::tcp;
 
 class TcpStream : public AsyncStream {
  public:
-  TcpStream(boost::asio::io_context& service,
+  TcpStream(const boost::asio::executor& executor,
             const StreamFactory::Options& options)
-      : service_(service),
+      : executor_(executor),
         options_(options),
-        resolver_(service),
-        socket_(service) {
+        resolver_(executor),
+        socket_(executor) {
     tcp::resolver::query query(options.tcp_target,
                                fmt::format("{}", options.tcp_target_port));
     resolver_.async_resolve(
@@ -41,7 +42,7 @@ class TcpStream : public AsyncStream {
 
   ~TcpStream() override {}
 
-  boost::asio::io_context& get_io_service() override { return service_; }
+  boost::asio::executor get_executor() override { return executor_; }
 
   void async_read_some(MutableBufferSequence buffers,
                        ReadHandler handler) override {
@@ -66,7 +67,9 @@ class TcpStream : public AsyncStream {
     if (ec) {
       ec.Append(fmt::format("when resolving: {}:{}",
                             options_.tcp_target, options_.tcp_target_port));
-      service_.post(std::bind(start_handler_, ec));
+      boost::asio::post(
+          executor_,
+          std::bind(start_handler_, ec));
       return;
     }
 
@@ -78,10 +81,12 @@ class TcpStream : public AsyncStream {
       ec.Append(fmt::format("when connecting to: {}:{}",
                             options_.tcp_target, options_.tcp_target_port));
     }
-    service_.post(std::bind(start_handler_, ec));
+    boost::asio::post(
+        executor_,
+        std::bind(start_handler_, ec));
   }
 
-  boost::asio::io_context& service_;
+  boost::asio::executor executor_;
   const StreamFactory::Options options_;
   tcp::resolver resolver_;
   tcp::socket socket_;
@@ -90,10 +95,10 @@ class TcpStream : public AsyncStream {
 }
 
 void AsyncCreateTcpClient(
-    boost::asio::io_context& service,
+    const boost::asio::executor& executor,
     const StreamFactory::Options& options,
     StreamHandler handler) {
-  auto stream = std::make_shared<TcpStream>(service, options);
+  auto stream = std::make_shared<TcpStream>(executor, options);
   stream->start_handler_ = std::bind(handler, pl::_1, stream);
 }
 

@@ -14,6 +14,7 @@
 
 #include "mjlib/multiplex/asio_client.h"
 
+#include <boost/asio/io_context.hpp>
 #include <boost/asio/write.hpp>
 #include <boost/test/auto_unit_test.hpp>
 
@@ -29,8 +30,8 @@ using mp::AsioClient;
 namespace {
 struct Fixture {
   void Poll() {
-    service.poll();
-    service.reset();
+    context.poll();
+    context.reset();
   }
 
   void AsyncRegister(const mp::RegisterRequest& request) {
@@ -42,10 +43,11 @@ struct Fixture {
                       });
   }
 
-  boost::asio::io_context service;
+  boost::asio::io_context context;
+  boost::asio::executor executor{context.get_executor()};
   io::DebugDeadlineService* const debug_service{
-    io::DebugDeadlineService::Install(service)};
-  io::StreamPipeFactory pipe_factory{service};
+    io::DebugDeadlineService::Install(context)};
+  io::StreamPipeFactory pipe_factory{executor};
   io::SharedStream client_side{pipe_factory.GetStream("", 1)};
   AsioClient dut{client_side.get()};
 

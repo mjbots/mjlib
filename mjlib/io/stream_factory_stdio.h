@@ -20,7 +20,7 @@ namespace mjlib {
 namespace io {
 namespace detail {
 
-void AsyncCreateStdio(boost::asio::io_context&,
+void AsyncCreateStdio(const boost::asio::executor&,
                       const StreamFactory::Options&, StreamHandler);
 
 }

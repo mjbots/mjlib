@@ -19,7 +19,7 @@
 
 #include <boost/algorithm/string/classification.hpp>
 #include <boost/algorithm/string/split.hpp>
-#include <boost/asio/io_service.hpp>
+#include <boost/asio/io_context.hpp>
 #include <boost/asio/read_until.hpp>
 #include <boost/asio/streambuf.hpp>
 #include <boost/program_options.hpp>
@@ -76,11 +76,11 @@ std::vector<std::string> Split(std::string_view str, std::string delimiter) {
 
 class CommandRunner {
  public:
-  CommandRunner(boost::asio::io_context& service,
+  CommandRunner(const boost::asio::executor& executor,
                 io::StreamFactory* stream_factory,
                 const io::StreamFactory::Options& stream_options,
                 const Options& options)
-      : service_(service),
+      : executor_(executor),
         stream_factory_(stream_factory),
         options_(options) {
     stream_factory->AsyncCreate(
@@ -135,7 +135,7 @@ class CommandRunner {
     BOOST_ASSERT(!options_.targets.empty());
 
     tunnel_ = client_->MakeTunnel(options_.targets.at(0), 1);
-    copy_.emplace(service_, tunnel_.get(), stdio_.get(),
+    copy_.emplace(executor_, tunnel_.get(), stdio_.get(),
                   std::bind(&CommandRunner::HandleDone, this, pl::_1));
   }
 
@@ -384,7 +384,7 @@ class CommandRunner {
     }
   }
 
-  boost::asio::io_context& service_;
+  boost::asio::executor executor_;
   io::StreamFactory* const stream_factory_;
   const Options options_;
   io::SharedStream stream_;
@@ -397,13 +397,13 @@ class CommandRunner {
   boost::asio::streambuf streambuf_;
   mp::RegisterRequest request_;
 
-  io::DeadlineTimer delay_timer_{service_};
+  io::DeadlineTimer delay_timer_{executor_};
 };
 }
 
 int multiplex_main(int argc, char** argv) {
-  boost::asio::io_context service;
-  io::StreamFactory factory{service};
+  boost::asio::io_context context;
+  io::StreamFactory factory{context.get_executor()};
 
   io::StreamFactory::Options stream_options;
   po::options_description desc("Allowable options");
@@ -427,9 +427,10 @@ int multiplex_main(int argc, char** argv) {
     return 0;
   }
 
-  CommandRunner command_runner{service, &factory, stream_options, options};
+  CommandRunner command_runner{
+    context.get_executor(), &factory, stream_options, options};
 
-  service.run();
+  context.run();
 
   return 0;
 }

@@ -16,7 +16,7 @@
 
 #include <functional>
 
-#include <boost/asio/io_service.hpp>
+#include <boost/asio/executor.hpp>
 #include <boost/noncopyable.hpp>
 
 #include "mjlib/io/async_types.h"
@@ -42,7 +42,7 @@ class AsyncStream : public AsyncReadStream, public AsyncWriteStream {
  public:
   ~AsyncStream() override {}
 
-  virtual boost::asio::io_context& get_io_service() = 0;
+  virtual boost::asio::executor get_executor() = 0;
   virtual void cancel() = 0;
 };
 

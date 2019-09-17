@@ -16,6 +16,7 @@
 
 #include <functional>
 
+#include <boost/asio/post.hpp>
 #include <boost/asio/write.hpp>
 #include <boost/crc.hpp>
 
@@ -86,7 +87,9 @@ class FrameStream::Impl {
   void cancel() {
     if (current_callback_) {
       auto ec = base::error_code(boost::asio::error::operation_aborted);
-      stream_->get_io_service().post(std::bind(current_callback_, ec));
+      boost::asio::post(
+          stream_->get_executor(),
+          std::bind(current_callback_, ec));
       current_callback_ = {};
       current_frame_ = nullptr;
     }
@@ -188,7 +191,8 @@ class FrameStream::Impl {
       auto copy = current_callback_;
       current_callback_ = {};
 
-      stream_->get_io_service().post(
+      boost::asio::post(
+          stream_->get_executor(),
           std::bind(copy, base::error_code()));
 
       return;
@@ -230,7 +234,7 @@ class FrameStream::Impl {
   using const_buffers_type = boost::asio::streambuf::const_buffers_type;
   using iterator = boost::asio::buffers_iterator<const_buffers_type>;
 
-  io::DeadlineTimer timer_{stream_->get_io_service()};
+  io::DeadlineTimer timer_{stream_->get_executor()};
 
   Frame* current_frame_ = nullptr;
   io::ErrorCallback current_callback_;

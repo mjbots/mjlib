@@ -14,6 +14,7 @@
 
 #include "mjlib/io/exclusive_command.h"
 
+#include <boost/asio/io_context.hpp>
 #include <boost/test/auto_unit_test.hpp>
 
 #include "mjlib/io/async_types.h"
@@ -22,8 +23,8 @@ namespace io = mjlib::io;
 using io::ExclusiveCommand;
 
 BOOST_AUTO_TEST_CASE(ExclusiveCommandTest) {
-  boost::asio::io_context service;
-  ExclusiveCommand dut{service};
+  boost::asio::io_context context;
+  ExclusiveCommand dut{context.get_executor()};
   using Callback = io::VoidCallback;
 
   int item1_started = 0;
@@ -56,8 +57,8 @@ BOOST_AUTO_TEST_CASE(ExclusiveCommandTest) {
   BOOST_TEST(item2_started == 0);
   BOOST_TEST(item2_done == 0);
 
-  service.poll();
-  service.reset();
+  context.poll();
+  context.reset();
 
   // Now the first item should have started.
   BOOST_TEST(item1_started == 1);
@@ -72,8 +73,8 @@ BOOST_AUTO_TEST_CASE(ExclusiveCommandTest) {
   BOOST_TEST(item2_started == 0);
   BOOST_TEST(item2_done == 0);
 
-  service.poll();
-  service.reset();
+  context.poll();
+  context.reset();
 
   BOOST_TEST(item1_started == 1);
   BOOST_TEST(item1_done == 1);
@@ -85,8 +86,8 @@ BOOST_AUTO_TEST_CASE(ExclusiveCommandTest) {
 }
 
 BOOST_AUTO_TEST_CASE(CancelTest) {
-  boost::asio::io_context service;
-  ExclusiveCommand dut{service};
+  boost::asio::io_context context;
+  ExclusiveCommand dut{context.get_executor()};
   using Callback = io::VoidCallback;
 
   int item1_started = 0;
@@ -124,16 +125,16 @@ BOOST_AUTO_TEST_CASE(CancelTest) {
     BOOST_TEST(erased == 1);
   }
 
-  service.poll();
-  service.reset();
+  context.poll();
+  context.reset();
 
   BOOST_TEST(item1_started == 1);
   BOOST_TEST(item1_done == 0);
 
   item1_callback();
 
-  service.poll();
-  service.reset();
+  context.poll();
+  context.reset();
 
   BOOST_TEST(item1_done == 1);
   BOOST_TEST(item2_started == 0);

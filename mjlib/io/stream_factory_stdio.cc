@@ -17,6 +17,7 @@
 #include <functional>
 
 #include <boost/asio/posix/stream_descriptor.hpp>
+#include <boost/asio/post.hpp>
 
 namespace mjlib {
 namespace io {
@@ -27,15 +28,15 @@ using namespace std::placeholders;
 
 class StdioStream : public AsyncStream {
  public:
-  StdioStream(boost::asio::io_context& service,
+  StdioStream(const boost::asio::executor& executor,
               const StreamFactory::Options& options)
-      : service_(service),
-        stdin_(service, ::dup(options.stdio_in)),
-        stdout_(service, ::dup(options.stdio_out)) {
+      : executor_(executor),
+        stdin_(executor, ::dup(options.stdio_in)),
+        stdout_(executor, ::dup(options.stdio_out)) {
     BOOST_ASSERT(options.type == StreamFactory::Type::kStdio);
   }
 
-  boost::asio::io_context& get_io_service() override { return service_; }
+  boost::asio::executor get_executor() override { return executor_; }
 
   void async_read_some(MutableBufferSequence buffers,
                        ReadHandler handler) override {
@@ -53,19 +54,20 @@ class StdioStream : public AsyncStream {
   }
 
  private:
-  boost::asio::io_context& service_;
+  boost::asio::executor executor_;
   boost::asio::posix::stream_descriptor stdin_;
   boost::asio::posix::stream_descriptor stdout_;
 };
 }
 
 void AsyncCreateStdio(
-    boost::asio::io_context& service,
+    const boost::asio::executor& executor,
     const StreamFactory::Options& options,
     StreamHandler handler) {
-  service.post(
+  boost::asio::post(
+      executor,
       std::bind(handler, base::error_code(),
-                std::make_shared<StdioStream>(service, options)));
+                std::make_shared<StdioStream>(executor, options)));
 }
 
 }

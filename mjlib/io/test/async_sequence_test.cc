@@ -22,17 +22,17 @@ using mjlib::io::AsyncSequence;
 namespace {
 struct Fixture {
   void Poll() {
-    service.poll();
-    service.reset();
+    context.poll();
+    context.reset();
   }
 
   void PollOne() {
-    service.poll_one();
-    service.reset();
+    context.poll_one();
+    context.reset();
   }
 
-  boost::asio::io_context service;
-  boost::asio::executor executor{service.get_executor()};
+  boost::asio::io_context context;
+  boost::asio::executor executor{context.get_executor()};
 };
 }
 

@@ -14,6 +14,8 @@
 
 #pragma once
 
+#include <boost/asio/executor.hpp>
+#include <boost/asio/post.hpp>
 #include <boost/asio/write.hpp>
 
 #include "mjlib/base/fail.h"
@@ -25,10 +27,10 @@ namespace io {
 
 class StreamCopy {
  public:
-  StreamCopy(boost::asio::io_context& service,
+  StreamCopy(const boost::asio::executor& executor,
              AsyncReadStream* read_stream, AsyncWriteStream* write_stream,
              ErrorCallback done_callback)
-      : service_(service),
+      : executor_(executor),
         read_stream_(read_stream),
         write_stream_(write_stream),
         done_callback_(done_callback) {
@@ -46,7 +48,9 @@ class StreamCopy {
   void HandleRead(const base::error_code& ec, size_t size) {
     if (ec) {
       if (done_callback_) {
-        service_.post(std::bind(done_callback_, ec));
+        boost::asio::post(
+            executor_,
+            std::bind(done_callback_, ec));
         done_callback_ = {};
       }
       return;
@@ -61,7 +65,9 @@ class StreamCopy {
   void HandleWrite(const base::error_code& ec, size_t) {
     if (ec) {
       if (done_callback_) {
-        service_.post(std::bind(done_callback_, ec));
+        boost::asio::post(
+            executor_,
+            std::bind(done_callback_, ec));
         done_callback_ = {};
       }
       return;
@@ -69,7 +75,7 @@ class StreamCopy {
     StartRead();
   }
 
-  boost::asio::io_context& service_;
+  boost::asio::executor executor_;
   AsyncReadStream* const read_stream_;
   AsyncWriteStream* const write_stream_;
   char buffer_[4096] = {};
@@ -78,14 +84,14 @@ class StreamCopy {
 
 class BidirectionalStreamCopy {
  public:
-  BidirectionalStreamCopy(boost::asio::io_context& service,
+  BidirectionalStreamCopy(const boost::asio::executor& executor,
                           AsyncStream* left, AsyncStream* right,
                           ErrorCallback done_callback)
-      : service_(service),
-        copy1_(service, left, right, std::bind(
+      : executor_(executor),
+        copy1_(executor, left, right, std::bind(
                    &BidirectionalStreamCopy::HandleDone, this,
                    std::placeholders::_1)),
-        copy2_(service, right, left, std::bind(
+        copy2_(executor, right, left, std::bind(
                    &BidirectionalStreamCopy::HandleDone, this,
                    std::placeholders::_1)),
         done_callback_(done_callback) {}
@@ -94,11 +100,13 @@ class BidirectionalStreamCopy {
   void HandleDone(const base::error_code& ec) {
     if (!done_callback_) { return; }
 
-    service_.post(std::bind(done_callback_, ec));
+    boost::asio::post(
+        executor_,
+        std::bind(done_callback_, ec));
     done_callback_ = {};
   }
 
-  boost::asio::io_context& service_;
+  boost::asio::executor executor_;
   StreamCopy copy1_;
   StreamCopy copy2_;
   ErrorCallback done_callback_;

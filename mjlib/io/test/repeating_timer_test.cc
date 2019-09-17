@@ -21,17 +21,17 @@
 using namespace mjlib::io;
 
 BOOST_AUTO_TEST_CASE(BasicRepeatingTimer) {
-  boost::asio::io_context service;
+  boost::asio::io_context context;
   auto poll = [&]() {
-    service.poll();
-    service.reset();
+    context.poll();
+    context.reset();
   };
-  auto* const debug_time = DebugDeadlineService::Install(service);
+  auto* const debug_time = DebugDeadlineService::Install(context);
   auto now = boost::posix_time::ptime(
       boost::gregorian::date(2000, boost::gregorian::Jan, 1));
   debug_time->SetTime(now);
 
-  RepeatingTimer dut(service.get_executor());
+  RepeatingTimer dut(context.get_executor());
   BOOST_TEST(dut.cancel() == 0);
 
   const auto ms100 = boost::posix_time::milliseconds(100);

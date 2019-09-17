@@ -14,6 +14,7 @@
 
 #include "mjlib/multiplex/frame_stream.h"
 
+#include <boost/asio/io_context.hpp>
 #include <boost/asio/write.hpp>
 #include <boost/test/auto_unit_test.hpp>
 
@@ -27,12 +28,12 @@ using mjlib::multiplex::FrameStream;
 namespace {
 struct Fixture {
   void Poll() {
-    service.poll();
-    service.reset();
+    context.poll();
+    context.reset();
   }
 
-  boost::asio::io_context service;
-  io::StreamPipeFactory pipe_factory{service};
+  boost::asio::io_context context;
+  io::StreamPipeFactory pipe_factory{context.get_executor()};
   io::SharedStream client_side{pipe_factory.GetStream("", 1)};
   FrameStream dut{client_side.get()};
 

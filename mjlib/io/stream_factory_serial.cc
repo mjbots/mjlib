@@ -21,6 +21,7 @@
 #include <fcntl.h>
 
 #include <boost/algorithm/string.hpp>
+#include <boost/asio/post.hpp>
 #include <boost/asio/serial_port.hpp>
 
 #include "mjlib/base/system_error.h"
@@ -32,11 +33,11 @@ namespace detail {
 namespace {
 class SerialStream : public AsyncStream {
  public:
-  SerialStream(boost::asio::io_context& service,
+  SerialStream(const boost::asio::executor& executor,
                const StreamFactory::Options& options)
-      : service_(service),
+      : executor_(executor),
         options_(options),
-        port_(service) {}
+        port_(executor) {}
 
   void Open(mjlib::base::error_code* ec) {
     boost::system::error_code boost_ec;
@@ -80,7 +81,7 @@ class SerialStream : public AsyncStream {
 
   ~SerialStream() override {}
 
-  boost::asio::io_context& get_io_service() override { return service_; }
+  boost::asio::executor get_executor() override { return executor_; }
 
   void async_read_some(MutableBufferSequence buffers,
                        ReadHandler handler) override {
@@ -97,17 +98,17 @@ class SerialStream : public AsyncStream {
   }
 
  private:
-  boost::asio::io_context& service_;
+  boost::asio::executor executor_;
   const StreamFactory::Options options_;
   boost::asio::serial_port port_;
 };
 }
 
 void AsyncCreateSerial(
-    boost::asio::io_context& service,
+    const boost::asio::executor& executor,
     const StreamFactory::Options& options,
     StreamHandler handler) {
-  auto stream = std::make_shared<SerialStream>(service, options);
+  auto stream = std::make_shared<SerialStream>(executor, options);
   base::error_code ec;
   stream->Open(&ec);
 
@@ -115,7 +116,7 @@ void AsyncCreateSerial(
     ec.Append("When opening: '" + options.serial_port + "'");
   }
 
-  service.post(std::bind(handler, ec, stream));
+  boost::asio::post(executor, std::bind(handler, ec, stream));
 }
 
 }

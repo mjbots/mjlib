@@ -16,6 +16,7 @@
 
 #include <functional>
 
+#include <boost/asio/post.hpp>
 #include <boost/asio/write.hpp>
 #include <boost/crc.hpp>
 
@@ -98,7 +99,9 @@ class AsioClient::Impl {
                    RegisterHandler handler,
                    bool request_reply) {
     if (!request_reply) {
-      service_.post(std::bind(handler, ec, RegisterReply()));
+      boost::asio::post(
+          executor_,
+          std::bind(handler, ec, RegisterReply()));
       return;
     }
 
@@ -112,7 +115,9 @@ class AsioClient::Impl {
   void HandleRead(const base::error_code& ec, RegisterHandler handler) {
     // If we got a timeout, report that upstream.
     if (ec == boost::asio::error::operation_aborted) {
-      service_.post(std::bind(handler, ec, RegisterReply()));
+      boost::asio::post(
+          executor_,
+          std::bind(handler, ec, RegisterReply()));
       return;
     }
 
@@ -129,7 +134,9 @@ class AsioClient::Impl {
 
     base::FastIStringStream stream(rx_frame_.payload);
     auto reply = ParseRegisterReply(stream);
-    service_.post(std::bind(handler, ec, reply));
+    boost::asio::post(
+        executor_,
+        std::bind(handler, ec, reply));
   }
 
   io::SharedStream MakeTunnel(uint8_t id, uint32_t channel,
@@ -200,8 +207,8 @@ class AsioClient::Impl {
         handler);
     }
 
-    boost::asio::io_context& get_io_service() override {
-      return parent_->service_;
+    boost::asio::executor get_executor() override {
+      return parent_->executor_;
     }
 
     void cancel() override {
@@ -210,7 +217,8 @@ class AsioClient::Impl {
       parent_->frame_stream_.cancel();
 
       if (read_handler_) {
-        get_io_service().post(
+        boost::asio::post(
+            get_executor(),
             std::bind(read_handler_,
                       boost::asio::error::operation_aborted, 0));
       }
@@ -218,7 +226,8 @@ class AsioClient::Impl {
       read_bytes_read_ = 0;
 
       if (parent_->lock_.remove(write_nonce_)) {
-        get_io_service().post(
+        boost::asio::post(
+            get_executor(),
             std::bind(write_handler_,
                       boost::asio::error::operation_aborted, 0));
       }
@@ -358,7 +367,8 @@ class AsioClient::Impl {
 
       if (read_bytes_read_ > 0) {
         // No need to retry, we're done.
-        parent_->service_.post(
+        boost::asio::post(
+            parent_->executor_,
             std::bind(read_handler_, base::error_code(), read_bytes_read_));
         read_handler_ = {};
         read_bytes_read_ = 0;
@@ -382,7 +392,7 @@ class AsioClient::Impl {
     const uint32_t channel_;
     const TunnelOptions options_;
 
-    io::DeadlineTimer poll_timer_{parent_->service_};
+    io::DeadlineTimer poll_timer_{parent_->executor_};
     std::vector<char> temp_data_;
 
     io::ExclusiveCommand::Nonce read_nonce_;
@@ -412,8 +422,8 @@ class AsioClient::Impl {
       return impl_->async_write_some(buffers, handler);
     }
 
-    boost::asio::io_context& get_io_service() override {
-      return impl_->get_io_service();
+    boost::asio::executor get_executor() override {
+      return impl_->get_executor();
     }
 
     void cancel() override {
@@ -425,11 +435,11 @@ class AsioClient::Impl {
   };
 
   io::AsyncStream* const stream_;
-  boost::asio::io_context& service_{stream_->get_io_service()};
+  boost::asio::executor executor_{stream_->get_executor()};
   const Options options_;
   FrameStream frame_stream_;
 
-  io::ExclusiveCommand lock_{service_};
+  io::ExclusiveCommand lock_{executor_};
 
   Frame rx_frame_;
   Frame tx_frame_;
