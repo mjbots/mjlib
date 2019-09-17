@@ -52,7 +52,7 @@ class error_code {
   }
 
   static error_code syserrno(const std::string& message) {
-    return error_code(errno, boost::system::generic_category(), message);
+    return error_code(errno, boost::system::system_category(), message);
   }
 
   /// @return a string describing the message, along with all context

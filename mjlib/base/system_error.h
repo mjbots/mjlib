@@ -39,13 +39,23 @@ class system_error : public std::runtime_error {
     return system_error(error_code::syserrno(message));
   }
 
+  static void throw_if(bool value, std::string_view message = "") {
+    if (value) {
+      throw syserrno(std::string(message));
+    }
+  }
+
   virtual ~system_error() throw() {}
 
-  const char* what() const throw() { return ec_.message().c_str(); }
+  const char* what() const throw() {
+    if (message_.empty()) { message_ = ec_.message(); }
+    return message_.c_str();
+  }
   error_code& code() { return ec_; }
 
  private:
   error_code ec_;
+  mutable std::string message_;
 };
 
 }
