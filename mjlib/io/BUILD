@@ -102,6 +102,15 @@ cc_library(
 )
 
 cc_library(
+    name = "realtime_executor",
+    hdrs = ["realtime_executor.h"],
+    deps = [
+        "//mjlib/base:assert",
+        "//mjlib/base:aborting_posix_timer",
+    ],
+)
+
+cc_library(
     name = "exclusive_command",
     hdrs = ["exclusive_command.h"],
     deps = ["@boost",],
@@ -158,6 +167,16 @@ cc_binary(
     ],
 )
 
+cc_binary(
+    name = "realtime_executor_manual_test",
+    srcs = ["test/realtime_executor_manual_test.cc"],
+    deps = [
+        ":realtime_executor",
+        ":repeating_timer",
+        "@boost//:program_options",
+    ],
+)
+
 cc_test(
     name = "test",
     srcs = [
@@ -165,6 +184,7 @@ cc_test(
         "test/async_stream_test.cc",
         "test/exclusive_command_test.cc",
         "test/offset_buffer_test.cc",
+        "test/realtime_executor_test.cc",
         "test/repeating_timer_test.cc",
         "test/streambuf_read_stream_test.cc",
         "test/test_main.cc",
@@ -176,10 +196,14 @@ cc_test(
         ":debug_time",
         ":exclusive_command",
         ":offset_buffer",
+        ":realtime_executor",
         ":repeating_timer",
         ":streambuf_read_stream",
         ":stream_factory",
         "@boost//:test",
     ],
-    data = [":stream_factory_manual_test"],
+    data = [
+        ":realtime_executor_manual_test",
+        ":stream_factory_manual_test",
+    ],
 )
