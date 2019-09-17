@@ -62,6 +62,7 @@ void RepeatingTimer::StartInternal() {
 }
 
 void RepeatingTimer::HandleTimer(const base::error_code& ec) {
+  if (!callback_) { return; }
   StartInternal();
   service_.post(std::bind(callback_, ec));
 }
