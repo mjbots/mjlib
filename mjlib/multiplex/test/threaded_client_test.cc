@@ -19,6 +19,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+#include <boost/asio/io_context.hpp>
 #include <boost/test/auto_unit_test.hpp>
 
 #include "mjlib/base/system_error.h"
@@ -53,12 +54,12 @@ BOOST_AUTO_TEST_CASE(ThreadedClientBasic) {
   ThreadedClient::Options dut_options;
   dut_options.fd = pipe.fd[1];
 
-  boost::asio::io_context service;
+  boost::asio::io_context context;
   auto poll = [&]() {
-    service.poll();
-    service.reset();
+    context.poll();
+    context.reset();
   };
-  ThreadedClient dut(service, dut_options);
+  ThreadedClient dut(context.get_executor(), dut_options);
 
   ThreadedClient::Request request;
   ThreadedClient::Reply reply;

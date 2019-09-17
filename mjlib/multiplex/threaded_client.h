@@ -18,7 +18,7 @@
 #include <string>
 #include <vector>
 
-#include <boost/asio/io_service.hpp>
+#include <boost/asio/executor.hpp>
 
 #include "mjlib/base/visitor.h"
 #include "mjlib/io/async_types.h"
@@ -52,7 +52,7 @@ class ThreadedClient {
     bool debug_checksum_errors = false;
   };
 
-  ThreadedClient(boost::asio::io_context&, const Options&);
+  ThreadedClient(const boost::asio::executor&, const Options&);
   ~ThreadedClient();
 
   struct SingleRequest {
