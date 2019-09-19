@@ -35,8 +35,8 @@ class BufferWriteStream : public WriteStream {
   }
 
   void skip(std::streamsize amount) {
-    MJ_ASSERT((offset_ + amount) <=
-              static_cast<std::streamsize>(buffer_.size()));
+    // MJ_ASSERT((offset_ + amount) <=
+    //           static_cast<std::streamsize>(buffer_.size()));
     offset_ += amount;
   }
 
@@ -63,6 +63,10 @@ class BufferReadStream : public ReadStream {
   void ignore(std::streamsize amount) override {
     std::streamsize to_ignore =
         std::min<std::streamsize>(amount, buffer_.size() - offset_);
+    fast_ignore(to_ignore);
+  }
+
+  void fast_ignore(std::streamsize to_ignore) {
     last_read_ = to_ignore;
     offset_ += last_read_;
   }

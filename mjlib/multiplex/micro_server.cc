@@ -31,6 +31,8 @@ namespace {
 using BufferReadStream = multiplex::ReadStream<base::BufferReadStream>;
 using BufferWriteStream = multiplex::WriteStream<base::BufferWriteStream>;
 
+constexpr int kInitialWriteBufferGuess = 5;
+
 template <typename T>
 constexpr uint8_t u8(T value) {
   return static_cast<uint8_t>(value);
@@ -206,15 +208,25 @@ class MicroServer::Impl {
   }
 
   // Return true if more data might be available in the buffer.
-  bool HandleMaybeFrame() {
+  bool HandleMaybeFrame() __attribute__ ((optimize("O3"))) {
     // For now, we'll require that we fit a whole valid packet into
     // our buffer at once before acting on it.  So we'll just keep
     // calling StartReadFrame until we get there.
 
     // Work to start our buffer out with the frame header.
 
-    char* const found = static_cast<char*>(
-        std::memchr(read_buffer_, (kHeader & 0xff), read_start_));
+    constexpr char kHeaderLowByte = (kHeader & 0xff);
+
+    // This is basically memchr, but executes a lot faster.
+    char* const found = [&]() -> char* {
+      for (int i = 0; i < read_start_; i++) {
+        if (read_buffer_[i] == kHeaderLowByte) {
+          return read_buffer_ + i;
+        }
+      }
+      return nullptr;
+    }();
+
     if (found == nullptr) {
       // We don't have anything which could be a header in our
       // buffer.  Just wipe it all out and start over.
@@ -324,7 +336,8 @@ class MicroServer::Impl {
     }
 
     base::BufferWriteStream buffer_write_stream{
-      base::string_span(write_buffer_, options_.buffer_size)};
+      base::string_span(write_buffer_ + kInitialWriteBufferGuess,
+                        options_.buffer_size - kInitialWriteBufferGuess)};
     BufferWriteStream write_stream{buffer_write_stream};
     const bool need_response =
         ((*maybe_source_id) & 0x80) != 0 &&
@@ -361,7 +374,13 @@ class MicroServer::Impl {
         1 + // source id
         1 + // dest_id
         GetVaruintSize(response_size);
-    std::memmove(&write_buffer_[header_size], &write_buffer_[0], response_size);
+    // TODO: Locate this in the right place for a size 1 varuint so
+    // the common case doesn't need to move at all.
+    if (kInitialWriteBufferGuess != header_size) {
+      std::memmove(&write_buffer_[header_size],
+                   &write_buffer_[kInitialWriteBufferGuess],
+                   response_size);
+    }
 
     {
       base::BufferWriteStream header_buffer_stream(
@@ -387,8 +406,10 @@ class MicroServer::Impl {
     }
 
     write_outstanding_ = true;
-    AsyncWrite(*stream_, std::string_view(write_buffer_, crc_location + 2),
-               std::bind(&Impl::HandleWrite, this, std::placeholders::_1));
+    async_writer_.Write(
+        *stream_,
+        std::string_view(write_buffer_, crc_location + 2),
+        std::bind(&Impl::HandleWrite, this, std::placeholders::_1));
   }
 
   void HandleWrite(micro::error_code ec) {
@@ -412,19 +433,10 @@ class MicroServer::Impl {
 
   void ProcessSubframes(const std::string_view& subframes,
                         base::BufferWriteStream* response_buffer_stream,
-                        BufferWriteStream* response_stream) {
+                        BufferWriteStream* response_stream)
+      __attribute__ ((optimize("O3"))) {
     base::BufferReadStream buffer_stream(subframes);
     BufferReadStream str(buffer_stream);
-
-    struct RegisterHandler {
-      uint8_t base_register = 0;
-      bool (Impl::* handler)(uint8_t, BufferReadStream&, BufferWriteStream*);
-    };
-
-    constexpr RegisterHandler register_handlers[] = {
-      { u8(Subframe::kWriteBase), &Impl::ProcessSubframeWrite },
-      { u8(Subframe::kReadBase), &Impl::ProcessSubframeRead },
-    };
 
     while (buffer_stream.remaining()) {
       const auto maybe_subframe_type = str.ReadVaruint();
@@ -459,28 +471,32 @@ class MicroServer::Impl {
         continue;
       }
 
-      bool register_handler_found = false;
-      for (const auto& handler : register_handlers) {
-        if ((subframe_type >= handler.base_register &&
-             static_cast<int>(subframe_type) <
-             (handler.base_register + 16))) {
-          if ((this->*handler.handler)(
-                  subframe_type - handler.base_register,
-                  str, response_stream)) {
-            stats_.malformed_subframe++;
-            return;
-          }
-          register_handler_found = true;
-          break;
+      if (subframe_type >= u8(Subframe::kWriteBase) &&
+          subframe_type < u8(Subframe::kWriteBase) + 16) {
+        if (ProcessSubframeWrite(subframe_type - u8(Subframe::kWriteBase),
+                                 str, response_stream)) {
+          stats_.malformed_subframe++;
+          return;
         }
+
+        continue;
       }
 
-      if (!register_handler_found) {
-        // An unknown subframe.  Write off the rest of this frame as
-        // unusable.
-        stats_.unknown_subframe++;
-        return;
+      if (subframe_type >= u8(Subframe::kReadBase) &&
+          subframe_type < u8(Subframe::kReadBase) + 16) {
+        if (ProcessSubframeRead(subframe_type - u8(Subframe::kReadBase),
+                                 str, response_stream)) {
+          stats_.malformed_subframe++;
+          return;
+        }
+
+        continue;
       }
+
+      // An unknown subframe.  Write off the rest of this frame as
+      // unusable.
+      stats_.unknown_subframe++;
+      return;
     }
   }
 
@@ -612,7 +628,8 @@ class MicroServer::Impl {
 
   bool ProcessSubframeWrite(uint8_t type_length,
                             BufferReadStream& str,
-                            BufferWriteStream* response) {
+                            BufferWriteStream* response)
+      __attribute__ ((optimize("O3"))) {
     const auto encoded_length = type_length % 4;
     const auto type = type_length / 4;
 
@@ -672,7 +689,8 @@ class MicroServer::Impl {
 
   bool ProcessSubframeRead(uint8_t type_length,
                            BufferReadStream& str,
-                           BufferWriteStream* response) {
+                           BufferWriteStream* response)
+      __attribute__ ((optimize("O3"))) {
     if (!response) { return false; }
 
     const auto encoded_length = type_length % 4;
@@ -754,6 +772,8 @@ class MicroServer::Impl {
 
   TunnelStream tunnels_[1];
   Stats stats_;
+
+  micro::AsyncWriter async_writer_;
 };
 
 MicroServer::MicroServer(

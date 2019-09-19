@@ -81,6 +81,8 @@ class ReadStream {
   Base& istr_;
 };
 
+// TODO(jpieper): Figure out how to ensure that callers properly
+// manage buffer length.
 template <>
 inline std::optional<uint32_t>
 ReadStream<base::BufferReadStream>::ReadVaruint() {
@@ -103,12 +105,12 @@ ReadStream<base::BufferReadStream>::ReadVaruint() {
     result |= (this_byte & 0x7f) << pos;
     pos += 7;
     if ((this_byte & 0x80) == 0) {
-      istr_.ignore(i + 1);
+      istr_.fast_ignore(i + 1);
       return result;
     }
   }
 
-  istr_.ignore(i);
+  istr_.fast_ignore(i);
   // Whoops, this was too big.  For now, just return maxint.
   return std::numeric_limits<uint32_t>::max();
 }
@@ -118,7 +120,9 @@ template <typename T>
 inline std::optional<T>
 ReadStream<base::BufferReadStream>::ReadScalar() {
   const T* const position = reinterpret_cast<const T*>(istr_.position());
-  istr_.ignore(sizeof(T));
+  // TODO(jpieper): Figure out how to ensure that callers properly
+  // manage buffer length.
+  istr_.fast_ignore(sizeof(T));
   return *position;
 }
 

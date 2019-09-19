@@ -44,6 +44,44 @@ class AsyncStream : public AsyncReadStream, public AsyncWriteStream {
   ~AsyncStream() override {}
 };
 
+class AsyncWriter {
+ public:
+  void Write(AsyncWriteStream& stream, const std::string_view& data,
+             SizeCallback callback) {
+    stream_ = &stream;
+    data_ = data;
+    callback_ = std::move(callback);
+    written_ = 0;
+
+    StartWrite();
+  }
+
+  void StartWrite() {
+    stream_->AsyncWriteSome(
+        {data_.data() + written_, data_.size() - written_},
+        [this](const auto& ec, ssize_t size) {
+        if (ec) {
+          callback_(ec, 0);
+          return;
+        }
+
+        written_ += size;
+        if (written_ == static_cast<ssize_t>(data_.size())) {
+          callback_(ec, written_);
+          return;
+        }
+
+        StartWrite();
+      });
+  }
+
+  AsyncWriteStream* stream_ = nullptr;
+  std::string_view data_;
+  ssize_t written_ = 0;
+
+  SizeCallback callback_;
+};
+
 template <typename Stream>
 void AsyncWrite(Stream& stream, const std::string_view& data,
                 const ErrorCallback& callback) {
