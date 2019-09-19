@@ -94,7 +94,7 @@ ReadStream<base::BufferReadStream>::ReadVaruint() {
   int i = 0;
   for (; i < 5; i++) {
     if (remaining == 0) {
-      istr_.ignore(i);
+      istr_.fast_ignore(i);
       return {};
     }
     remaining--;
@@ -119,9 +119,8 @@ template <>
 template <typename T>
 inline std::optional<T>
 ReadStream<base::BufferReadStream>::ReadScalar() {
+  if (istr_.remaining() < sizeof(T)) { return {}; }
   const T* const position = reinterpret_cast<const T*>(istr_.position());
-  // TODO(jpieper): Figure out how to ensure that callers properly
-  // manage buffer length.
   istr_.fast_ignore(sizeof(T));
   return *position;
 }
