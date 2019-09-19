@@ -119,7 +119,9 @@ template <>
 template <typename T>
 inline std::optional<T>
 ReadStream<base::BufferReadStream>::ReadScalar() {
-  if (istr_.remaining() < sizeof(T)) { return {}; }
+  if (istr_.remaining() < static_cast<std::streamsize>(sizeof(T))) {
+    return {};
+  }
   const T* const position = reinterpret_cast<const T*>(istr_.position());
   istr_.fast_ignore(sizeof(T));
   return *position;
