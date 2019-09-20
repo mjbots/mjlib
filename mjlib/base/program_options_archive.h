@@ -17,6 +17,7 @@
 #include "mjlib/base/visitor.h"
 #include "mjlib/base/visit_archive.h"
 
+#include "mjlib/base/priority_tag.h"
 #include "mjlib/base/program_options_archive_detail.h"
 
 namespace mjlib {
@@ -56,11 +57,18 @@ class ProgramOptionsArchive : public VisitArchive<ProgramOptionsArchive> {
 
   template <typename NameValuePair>
   void VisitScalar(const NameValuePair& pair) {
-    VisitOptions(pair);
+    VisitOptions(pair, pair.value(), PriorityTag<1>());
   }
 
-  template <typename NameValuePair>
-  void VisitOptions(const NameValuePair& pair) {
+  template <typename NameValuePair, typename T>
+  void VisitOptions(const NameValuePair&,
+                    std::vector<T>*,
+                    PriorityTag<1>) {
+    // Ignore vectors.
+  }
+
+  template <typename NameValuePair, typename T>
+  void VisitOptions(const NameValuePair& pair, T*, PriorityTag<0>) {
     (*description_).add_options()(
         (prefix_ + pair.name()).c_str(),
         new detail::ProgramOptionsArchiveValue<NameValuePair>(pair));

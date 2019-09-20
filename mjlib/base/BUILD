@@ -165,6 +165,7 @@ cc_library(
         "program_options_archive_detail.h",
     ],
     deps = [
+        ":priority_tag",
         ":visitor",
         ":visit_archive",
         "@boost//:program_options",
