@@ -16,7 +16,6 @@
 
 load("//tools/workspace/bazel_deps:repository.bzl", "bazel_deps_repository")
 load("//tools/workspace/bazel:repository.bzl", "bazel_repository")
-load("//tools/workspace/elfio:repository.bzl", "elfio_repository")
 load("//tools/workspace/rules_mbed:repository.bzl", "rules_mbed_repository")
 load("//tools/workspace/rules_nodejs:repository.bzl", "rules_nodejs_repository")
 
@@ -29,5 +28,3 @@ def add_default_repositories(excludes = []):
         bazel_deps_repository(name = "com_github_mjbots_bazel_deps")
     if "build_bazel_rules_nodejs" not in excludes:
         rules_nodejs_repository()
-    if "elfio" not in excludes:
-        elfio_repository()

@@ -2,5 +2,5 @@
 
 set -ev
 
-./tools/bazel test //:host
+./tools/bazel test //...
 ./tools/bazel build --cpu=stm32f4 -c opt //:target

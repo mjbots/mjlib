@@ -20,18 +20,16 @@ test_suite(
     name = "host",
     tests = [
         "//mjlib:host",
-        "//moteus:host",
     ],
 )
 
 filegroup(
     name = "target",
     srcs = [
-        "//moteus:moteus",
-        "//moteus:imu_junction",
-        "//moteus:imu_junction_dumb",
-        "//moteus:bootloader",
+        "//mjlib/base:target",
+        "//mjlib/micro:target",
     ],
+    testonly = True,
 )
 
 exports_files(["tsconfig.json"])

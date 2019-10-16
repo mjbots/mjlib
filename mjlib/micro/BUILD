@@ -203,6 +203,27 @@ cc_library(
     ],
 )
 
+filegroup(
+    name = "target",
+    srcs = [
+        ":async_types",
+        ":async_exclusive",
+        ":async_stream",
+        ":error_code",
+        ":error",
+        ":async_read",
+        ":pool_ptr",
+        ":pool_map",
+        ":command_manager",
+        ":event",
+        ":event_queue",
+        ":stream_pipe",
+        ":serializable_handler",
+        ":telemetry_manager",
+        ":persistent_config",
+    ],
+)
+
 cc_test(
     name = "test",
     srcs = [

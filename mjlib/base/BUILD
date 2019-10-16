@@ -246,6 +246,30 @@ cc_binary(
     ],
 )
 
+filegroup(
+    name = "target",
+    srcs = [
+        ":bytes",
+        ":inplace_function",
+        ":stringify",
+        ":stream",
+        ":fast_stream",
+        ":buffer_stream",
+        ":crc_stream",
+        ":string_span",
+        ":priority_tag",
+        ":visitor",
+        ":visit_archive",
+        ":recording_stream",
+        ":noncopyable",
+        ":tokenizer",
+        ":crc",
+        ":limit",
+        ":windowed_average",
+        ":time_conversions",
+    ],
+)
+
 cc_test(
     name = "test",
     srcs = [
