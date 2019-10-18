@@ -58,8 +58,8 @@ class TelemetryWriteArchive {
     TelemetryWriteStream stream(stream_in);
     stream.Write(static_cast<uint32_t>(0)); // SchemaFlags
 
-    TelemetryWriteArchive::WriteSchemaObject(
-        stream, static_cast<RootSerializable*>(0));
+    RootSerializable root;
+    TelemetryWriteArchive::WriteSchemaObject(stream, &root);
   }
 
   static std::string MakeSchema() {
