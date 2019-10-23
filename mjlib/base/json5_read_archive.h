@@ -25,7 +25,9 @@
 #include <fmt/format.h>
 
 #include "mjlib/base/bytes.h"
+#include "mjlib/base/error.h"
 #include "mjlib/base/fail.h"
+#include "mjlib/base/system_error.h"
 #include "mjlib/base/visit_archive.h"
 
 namespace mjlib {
@@ -715,6 +717,14 @@ class Json5ReadArchive : public VisitArchive<Json5ReadArchive> {
   int Get() {
     const auto result = istr_.get();
     if (istr_.eof()) { Error("EOF"); }
+
+    if (result == '\n') {
+      line_++;
+      column_ = 0;
+    } else {
+      column_++;
+    }
+
     return result;
   }
 
@@ -723,8 +733,10 @@ class Json5ReadArchive : public VisitArchive<Json5ReadArchive> {
   }
 
   void Error(const std::string& error)  __attribute__ ((noreturn)) {
-    // TODO(jpieper): Report line and column number.
-    throw std::runtime_error(error);
+    throw system_error(
+        error_code(
+            error::kJsonParse,
+            fmt::format("{}:{} {}", line_, column_, error)));
   }
 
   template <typename T>
@@ -745,6 +757,9 @@ class Json5ReadArchive : public VisitArchive<Json5ReadArchive> {
   bool done_ = false;
   std::string current_field_name_;
   bool any_found_ = false;
+
+  int line_ = 1;
+  int column_ = 0;
 };
 
 

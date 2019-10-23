@@ -194,3 +194,29 @@ struct Empty {
 BOOST_AUTO_TEST_CASE(Json5IgnoreField) {
   DUT::Read<Empty>(kAllTypes);
 }
+
+BOOST_AUTO_TEST_CASE(Json5ErrorMessage) {
+  auto make_predicate = [](std::string expected) {
+    return [expected](const mjlib::base::system_error& error) {
+      const bool good =
+          std::string(error.what()).find(expected) != std::string::npos;
+      if (!good) {
+        std::cerr << "Error: \n" << error.what() <<
+            "\n does not have '" << expected << "'\n";
+      }
+      return good;
+    };
+  };
+  BOOST_CHECK_EXCEPTION(
+      DUT::Read<AllTypesTest>("a"),
+      mjlib::base::system_error,
+      make_predicate("1:1 Didn't find expected '{'"));
+  BOOST_CHECK_EXCEPTION(
+      DUT::Read<AllTypesTest>("  a"),
+      mjlib::base::system_error,
+      make_predicate("1:3 Didn't find expected '{'"));
+  BOOST_CHECK_EXCEPTION(
+      DUT::Read<AllTypesTest>("\n   a"),
+      mjlib::base::system_error,
+      make_predicate("2:4 Didn't find expected '{'"));
+}

@@ -1,4 +1,4 @@
-// Copyright 2015-2019 Josh Pieper, jjp@pobox.com.  All rights reserved.
+// Copyright 2019 Josh Pieper, jjp@pobox.com.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,25 +12,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "mjlib/base/error_code.h"
+#pragma once
 
-#include <sstream>
-
-#include "mjlib/base/stringify.h"
+#include <boost/system/error_code.hpp>
 
 namespace mjlib {
 namespace base {
 
-error_code::error_code(const boost::system::error_code& ec,
-                       const std::string& message)
-    : ec_(ec), message_(message) {}
+enum class error {
+  kJsonParse = 1,
+};
 
-std::string error_code::message() const {
-  const auto result =
-      (ec_ ? (Stringify(ec_) + " " + ec_.message()) +
-       (message_.empty() ? "" : "\n"): "") + message_;
-  return result;
+boost::system::error_code make_error_code(error);
+
 }
+}
+
+namespace boost {
+namespace system {
+
+template <>
+struct is_error_code_enum<mjlib::base::error> : std::true_type {};
 
 }
 }

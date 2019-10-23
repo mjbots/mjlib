@@ -57,6 +57,15 @@ cc_library(
 )
 
 cc_library(
+    name = "error",
+    hdrs = ["error.h"],
+    srcs = ["error.cc"],
+    deps = [
+        "@boost//:system",
+    ],
+)
+
+cc_library(
     name = "system_error",
     hdrs = ["system_error.h"],
     deps = [":error_code"],
@@ -202,7 +211,9 @@ cc_library(
     name = "json5_read_archive",
     hdrs = ["json5_read_archive.h"],
     deps = [
+        ":error",
         ":fail",
+        ":system_error",
         ":visitor",
         ":visit_archive",
         "@fmt",

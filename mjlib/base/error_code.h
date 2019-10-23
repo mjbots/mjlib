@@ -29,19 +29,16 @@ class error_code {
   /// This constructor is purposefully non-explicit, so that we can
   /// transparently capture the std variety and later allow context
   /// to be added.
-  error_code(const boost::system::error_code& ec);
+  error_code(const boost::system::error_code& ec,
+             const std::string& message = "");
 
   error_code(int val, const boost::system::error_category& category,
              const std::string& message = "")
-      : error_code(boost::system::error_code(val, category)) {
-    if (!message.empty()) {
-      message_ += message;
-    }
-  }
+      : error_code(boost::system::error_code(val, category), message) {}
 
   template <typename ErrorCodeEnum>
-  error_code(ErrorCodeEnum value)
-      : error_code(boost::system::error_code(value)) {}
+  error_code(ErrorCodeEnum value, const std::string& message = "")
+      : error_code(boost::system::error_code(value), message) {}
 
   error_code() {}
 
