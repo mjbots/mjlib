@@ -219,4 +219,17 @@ BOOST_AUTO_TEST_CASE(Json5ErrorMessage) {
       DUT::Read<AllTypesTest>("\n   a"),
       mjlib::base::system_error,
       make_predicate("2:4 Didn't find expected '{'"));
+
+  BOOST_CHECK_EXCEPTION(
+      DUT::Read<AllTypesTest>("{\"value_f64\": null}"),
+      mjlib::base::system_error,
+      make_predicate("Error parsing number"));
+  BOOST_CHECK_EXCEPTION(
+      DUT::Read<AllTypesTest>("{\"value_i8\": null}"),
+      mjlib::base::system_error,
+      make_predicate("Error parsing integer"));
+  BOOST_CHECK_EXCEPTION(
+      DUT::Read<AllTypesTest>("{\"value_i8\": 100000000000000000000}"),
+      mjlib::base::system_error,
+      make_predicate("Integer out of range"));
 }

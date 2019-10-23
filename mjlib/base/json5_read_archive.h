@@ -389,13 +389,19 @@ class Json5ReadArchive : public VisitArchive<Json5ReadArchive> {
   int64_t Read_JSON5SignedInteger() {
     const auto number = Read_JSON5Number();
     std::size_t pos = 0;
-    const auto result = std::stoll(number.text, &pos, number.base);
+    try {
+      const auto result = std::stoll(number.text, &pos, number.base);
 
-    if (pos != number.text.size()) {
-      Error(fmt::format("Could not interpret '{}' as an integer",
+      if (pos != number.text.size()) {
+        Error(fmt::format("Could not interpret '{}' as an integer",
                         number.text));
+      }
+      return result;
+    } catch (std::invalid_argument& e) {
+      Error(fmt::format("Error parsing integer: {}", e.what()));
+    } catch (std::out_of_range& e) {
+      Error(fmt::format("Integer out of range: {}", e.what()));
     }
-    return result;
   }
 
   uint64_t Read_JSON5UnsignedInteger() {
@@ -732,7 +738,7 @@ class Json5ReadArchive : public VisitArchive<Json5ReadArchive> {
     return istr_.peek();
   }
 
-  void Error(const std::string& error)  __attribute__ ((noreturn)) {
+  void Error(const std::string& error) const __attribute__ ((noreturn)) {
     throw system_error(
         error_code(
             error::kJsonParse,
@@ -740,7 +746,7 @@ class Json5ReadArchive : public VisitArchive<Json5ReadArchive> {
   }
 
   template <typename T>
-  static T ToFloat(const std::string& str) {
+  T ToFloat(const std::string& str) const {
     if (str == "Infinity" || str == "+Infinity") {
       return std::numeric_limits<T>::infinity();
     }
@@ -750,7 +756,13 @@ class Json5ReadArchive : public VisitArchive<Json5ReadArchive> {
     if (str == "NaN") {
       return std::numeric_limits<T>::quiet_NaN();
     }
-    return std::stod(str);
+    try {
+      return std::stod(str);
+    } catch (std::invalid_argument& e) {
+      Error(fmt::format("Error parsing number: {}", e.what()));
+    } catch (std::out_of_range& e) {
+      Error(fmt::format("Number out of range: {}", e.what()));
+    }
   }
 
   std::istream& istr_;
