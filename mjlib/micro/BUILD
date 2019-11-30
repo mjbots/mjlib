@@ -47,6 +47,14 @@ cc_library(
 )
 
 cc_library(
+    name = "atomic_event_queue",
+    hdrs = ["atomic_event_queue.h"],
+    deps = [
+        "//mjlib/base:inplace_function",
+    ],
+)
+
+cc_library(
     name = "error_code",
     hdrs = ["error_code.h"],
     srcs = ["error_code.cc"],
@@ -230,6 +238,7 @@ cc_test(
         "test/test_main.cc",
         "test/async_exclusive_test.cc",
         "test/async_stream_test.cc",
+        "test/atomic_event_queue_test.cc",
         "test/command_manager_test.cc",
         "test/error_code_test.cc",
         "test/persistent_config_test.cc",
@@ -242,6 +251,7 @@ cc_test(
     deps = [
         ":async_exclusive",
         ":async_stream",
+        ":atomic_event_queue",
         ":command_manager",
         ":error_code",
         ":event_queue",
