@@ -55,6 +55,15 @@ cc_library(
 )
 
 cc_library(
+    name = "callback_table",
+    hdrs = ["callback_table.h"],
+    srcs = ["callback_table.cc"],
+    deps = [
+        "//mjlib/base:inplace_function",
+    ],
+)
+
+cc_library(
     name = "error_code",
     hdrs = ["error_code.h"],
     srcs = ["error_code.cc"],
@@ -239,6 +248,7 @@ cc_test(
         "test/async_exclusive_test.cc",
         "test/async_stream_test.cc",
         "test/atomic_event_queue_test.cc",
+        "test/callback_table_test.cc",
         "test/command_manager_test.cc",
         "test/error_code_test.cc",
         "test/persistent_config_test.cc",
@@ -252,6 +262,7 @@ cc_test(
         ":async_exclusive",
         ":async_stream",
         ":atomic_event_queue",
+        ":callback_table",
         ":command_manager",
         ":error_code",
         ":event_queue",
