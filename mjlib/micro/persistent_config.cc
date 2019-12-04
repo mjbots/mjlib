@@ -116,7 +116,7 @@ class PersistentConfig::Impl {
     auto group = tokenizer.next();
     const auto element_it = elements_.find(group);
     if (element_it == elements_.end()) {
-      WriteMessage("unknown group\r\n", response);
+      WriteMessage("ERR unknown group\r\n", response);
     } else {
       current_response_ = response;
       auto& element = element_it->second;
@@ -134,7 +134,7 @@ class PersistentConfig::Impl {
                              this->current_response_);
               });
       if (err) {
-        WriteMessage("error reading\r\n", response);
+        WriteMessage("ERR error reading\r\n", response);
       }
     }
   }
@@ -145,7 +145,7 @@ class PersistentConfig::Impl {
     auto group = tokenizer.next();
     const auto element_it = elements_.find(group);
     if (element_it == elements_.end()) {
-      WriteMessage("unknown group\r\n", response);
+      WriteMessage("ERR unknown group\r\n", response);
     } else {
       base::Tokenizer name_value(tokenizer.remaining(), " ");
       auto key = name_value.next();
@@ -156,7 +156,7 @@ class PersistentConfig::Impl {
         element.updated();
         WriteOK(response);
       } else {
-        WriteMessage("error setting\r\n", response);
+        WriteMessage("ERR error setting\r\n", response);
       }
     }
   }
@@ -277,7 +277,7 @@ class PersistentConfig::Impl {
 
   void UnknownCommand(const std::string_view&,
                       const CommandManager::Response& response) {
-    WriteMessage("unknown command\r\n", response);
+    WriteMessage("ERR unknown subcommand\r\n", response);
   }
 
   void WriteMessage(const std::string_view& message,

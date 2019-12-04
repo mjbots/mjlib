@@ -140,7 +140,7 @@ class TelemetryManager::Impl {
            const CommandManager::Response& response) {
     const auto it = elements_.find(name);
     if (it == elements_.end()) {
-      WriteMessage(std::string_view("unknown name\r\n"), response);
+      WriteMessage(std::string_view("ERR unknown name\r\n"), response);
       return;
     }
 
@@ -248,7 +248,7 @@ class TelemetryManager::Impl {
               const CommandManager::Response& response) {
     const auto element_it = elements_.find(name);
     if (element_it == elements_.end()) {
-      WriteMessage("unknown name\r\n", response);
+      WriteMessage("ERR unknown name\r\n", response);
       return;
     }
 
@@ -269,7 +269,7 @@ class TelemetryManager::Impl {
 
     const auto element_it = elements_.find(name);
     if (element_it == elements_.end()) {
-      WriteMessage("unknown name\r\n", response);
+      WriteMessage("ERR unknown name\r\n", response);
       return;
     }
 
@@ -300,7 +300,7 @@ class TelemetryManager::Impl {
 
     const auto element_it = elements_.find(name);
     if (element_it == elements_.end()) {
-      WriteMessage("unknown name\r\n", response);
+      WriteMessage("ERR unknown name\r\n", response);
       return;
     }
 
@@ -337,7 +337,7 @@ class TelemetryManager::Impl {
 
   void UnknownCommand(const std::string_view&,
                       const CommandManager::Response& response) {
-    WriteMessage("unknown command\r\n", response);
+    WriteMessage("ERR unknown subcommand\r\n", response);
   }
 
   void WriteOK(const CommandManager::Response& response) {

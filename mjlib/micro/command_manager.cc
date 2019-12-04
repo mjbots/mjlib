@@ -134,7 +134,7 @@ class CommandManager::Impl {
 
   void UnknownGroup(const Response& response) {
     AsyncWrite(*response.stream,
-               std::string_view("unknown command\r\n"),
+               std::string_view("ERR unknown command\r\n"),
                response.callback);
   }
 

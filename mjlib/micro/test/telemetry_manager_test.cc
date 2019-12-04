@@ -36,7 +36,7 @@ struct Fixture : test::CommandManagerFixture {
 
 BOOST_FIXTURE_TEST_CASE(TelemetryManagerGetUnknown, Fixture) {
   Command("tel get unknown\n");
-  ExpectResponse("unknown name\r\n");
+  ExpectResponse("ERR unknown name\r\n");
 }
 
 BOOST_FIXTURE_TEST_CASE(TelemetryManagerGet, Fixture) {
