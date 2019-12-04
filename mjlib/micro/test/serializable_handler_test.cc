@@ -44,6 +44,7 @@ struct MyStruct {
   SubStruct sub_value;
   std::array<float, 3> array_value = {6.0, 7.0, 8.0};
   std::array<SubStruct, 2> array_struct = { {} };
+  uint32_t u32_value = 10;
 
   template <typename Archive>
   void Serialize(Archive* a) {
@@ -53,6 +54,7 @@ struct MyStruct {
     a->Visit(MJ_NVP(sub_value));
     a->Visit(MJ_NVP(array_value));
     a->Visit(MJ_NVP(array_struct));
+    a->Visit(MJ_NVP(u32_value));
   }
 };
 }
@@ -66,12 +68,12 @@ BOOST_AUTO_TEST_CASE(BasicSerializableHandler) {
     char buffer[100] = {};
     base::BufferWriteStream write_stream{buffer};
     dut.WriteBinary(write_stream);
-    BOOST_TEST(write_stream.offset() == 33);
+    BOOST_TEST(write_stream.offset() == 37);
 
     my_struct.int_value = 20;
     BOOST_TEST(my_struct.int_value == 20);
 
-    base::BufferReadStream read_stream{{buffer, 33}};
+    base::BufferReadStream read_stream{{buffer, 37}};
     dut.ReadBinary(read_stream);
     BOOST_TEST(my_struct.int_value == 10);
   }
@@ -80,7 +82,7 @@ BOOST_AUTO_TEST_CASE(BasicSerializableHandler) {
     char buffer[1000] = {};
     base::BufferWriteStream write_stream{buffer};
     dut.WriteSchema(write_stream);
-    BOOST_TEST(write_stream.offset() == 242);
+    BOOST_TEST(write_stream.offset() == 263);
   }
 
   {
@@ -150,6 +152,29 @@ BOOST_AUTO_TEST_CASE(BasicSerializableHandler) {
     const int result = dut.Set("array_struct.10.detailed", "10");
     BOOST_TEST(result != 0);
   }
+
+  {
+    char buffer[100] = {};
+    EventQueue event_queue;
+    StreamPipe stream_pipe{event_queue.MakePoster()};
+    test::Reader reader{stream_pipe.side_b()};
+
+    int complete_count = 0;
+    {
+      const int result =
+          dut.Read("u32_value", buffer, *stream_pipe.side_a(),
+                   [&](error_code ec) {
+                     BOOST_TEST(!ec);
+                     complete_count++;
+                 });
+      BOOST_TEST(result == 0);
+    }
+    BOOST_TEST(complete_count == 0);
+
+    event_queue.Poll();
+    BOOST_TEST(complete_count == 1);
+    BOOST_TEST(reader.data_.str() == "10");
+  }
 }
 
 BOOST_AUTO_TEST_CASE(EnumerateTest) {
@@ -190,6 +215,7 @@ BOOST_AUTO_TEST_CASE(EnumerateTest) {
       "prefix.array_value.2 8.000000\r\n"
       "prefix.array_struct.0.detailed 23\r\n"
       "prefix.array_struct.1.detailed 23\r\n"
+      "prefix.u32_value 10\r\n"
       ;
 
   BOOST_TEST(reader.data_.str() == expected);

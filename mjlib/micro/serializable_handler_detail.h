@@ -303,7 +303,7 @@ struct ReadArchive : public ItemArchive<ReadArchive> {
   template <typename T>
   static const char* GetFormat(T) { return "%d"; }
 
-  static const char* GetFormat(uint32_t) { return "%ul"; }
+  static const char* GetFormat(uint32_t) { return "%u"; }
 
   const base::string_span buffer_;
   AsyncWriteStream& stream_;
