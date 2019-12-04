@@ -190,8 +190,10 @@ struct ItemArchive : public mjlib::base::VisitArchive<Derived> {
 
   template <typename NameValuePair>
   void Visit(const NameValuePair& pair) {
-    if (found_) { return; }
+    if (done_) { return; }
     if (my_key_ != std::string_view(pair.name())) { return; }
+    done_ = true;
+
     found_ = true;
 
     mjlib::base::VisitArchive<Derived>::Visit(pair);
@@ -199,26 +201,37 @@ struct ItemArchive : public mjlib::base::VisitArchive<Derived> {
 
   template <typename NameValuePair>
   void VisitSerializable(const NameValuePair& pair) {
-    static_cast<Derived*>(this)->Make(remaining_key_).Accept(pair.value());
+    auto sub_archive = static_cast<Derived*>(this)->Make(remaining_key_);
+    sub_archive.Accept(pair.value());
+    found_ = sub_archive.found();
   }
 
   template <typename NameValuePair>
   void VisitArray(const NameValuePair& pair) {
     base::Tokenizer tokenizer(remaining_key_, ".");
     const auto index_str = tokenizer.next();
-    const auto index =
-        std::max<ssize_t>(
-            0,
-            std::min<ssize_t>(pair.value()->size() - 1,
-                              std::strtol(index_str.data(), nullptr, 0)));
-    static_cast<Derived*>(this)->Make(tokenizer.remaining()).Visit(
+    const std::size_t index = std::strtol(index_str.data(), nullptr, 0);
+    if (index < 0 || index >= pair.value()->size()) {
+      found_ = false;
+      return;
+    }
+
+    auto remaining = tokenizer.remaining();
+    auto mapped_remaining =
+        (remaining.size() ?
+         std::string_view(remaining.data() - 1, remaining.size() + 1) :
+         remaining);
+    auto sub_archive = static_cast<Derived*>(this)->Make(mapped_remaining);
+    sub_archive.Visit(
         base::ReferenceNameValuePair(&(*pair.value())[index], ""));
+    found_ = sub_archive.found();
   }
 
   bool found() const { return found_; }
 
   std::string_view my_key_;
   std::string_view remaining_key_;
+  bool done_ = false;
   bool found_ = false;
 };
 

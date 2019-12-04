@@ -71,8 +71,9 @@ class SerializableHandler : public SerializableHandlerBase {
 
   int Set(const std::string_view& key,
           const std::string_view& value) override final {
-    detail::SetArchive(key, value).Accept(item_);
-    return 0;
+    auto archive = detail::SetArchive(key, value);
+    archive.Accept(item_);
+    return archive.found() ? 0 : 1;
   }
 
   void Enumerate(detail::EnumerateArchive::Context* context,

@@ -43,6 +43,7 @@ struct MyStruct {
   bool bool_value = false;
   SubStruct sub_value;
   std::array<float, 3> array_value = {6.0, 7.0, 8.0};
+  std::array<SubStruct, 2> array_struct = { {} };
 
   template <typename Archive>
   void Serialize(Archive* a) {
@@ -51,6 +52,7 @@ struct MyStruct {
     a->Visit(MJ_NVP(bool_value));
     a->Visit(MJ_NVP(sub_value));
     a->Visit(MJ_NVP(array_value));
+    a->Visit(MJ_NVP(array_struct));
   }
 };
 }
@@ -64,12 +66,12 @@ BOOST_AUTO_TEST_CASE(BasicSerializableHandler) {
     char buffer[100] = {};
     base::BufferWriteStream write_stream{buffer};
     dut.WriteBinary(write_stream);
-    BOOST_TEST(write_stream.offset() == 25);
+    BOOST_TEST(write_stream.offset() == 33);
 
     my_struct.int_value = 20;
     BOOST_TEST(my_struct.int_value == 20);
 
-    base::BufferReadStream read_stream{{buffer, 25}};
+    base::BufferReadStream read_stream{{buffer, 33}};
     dut.ReadBinary(read_stream);
     BOOST_TEST(my_struct.int_value == 10);
   }
@@ -78,7 +80,7 @@ BOOST_AUTO_TEST_CASE(BasicSerializableHandler) {
     char buffer[1000] = {};
     base::BufferWriteStream write_stream{buffer};
     dut.WriteSchema(write_stream);
-    BOOST_TEST(write_stream.offset() == 174);
+    BOOST_TEST(write_stream.offset() == 242);
   }
 
   {
@@ -135,6 +137,19 @@ BOOST_AUTO_TEST_CASE(BasicSerializableHandler) {
     dut.SetDefault();
     BOOST_TEST(my_struct.float_value == 2.0);
   }
+  {
+    const int result = dut.Set("array_struct.1.detailed", "10");
+    BOOST_TEST(result == 0);
+    BOOST_TEST(my_struct.array_struct[1].detailed == 10);
+  }
+  {
+    const int result = dut.Set("array_struct.1.foo", "10");
+    BOOST_TEST(result != 0);
+  }
+  {
+    const int result = dut.Set("array_struct.10.detailed", "10");
+    BOOST_TEST(result != 0);
+  }
 }
 
 BOOST_AUTO_TEST_CASE(EnumerateTest) {
@@ -173,6 +188,8 @@ BOOST_AUTO_TEST_CASE(EnumerateTest) {
       "prefix.array_value.0 6.000000\r\n"
       "prefix.array_value.1 7.000000\r\n"
       "prefix.array_value.2 8.000000\r\n"
+      "prefix.array_struct.0.detailed 23\r\n"
+      "prefix.array_struct.1.detailed 23\r\n"
       ;
 
   BOOST_TEST(reader.data_.str() == expected);
