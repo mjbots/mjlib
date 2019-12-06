@@ -109,6 +109,26 @@ cc_library(
 )
 
 cc_library(
+    name = "micro_datagram_server",
+    hdrs = ["micro_datagram_server.h"],
+    deps = [
+        "//mjlib/base:string_span",
+        "//mjlib/micro:async_types",
+    ],
+)
+
+cc_library(
+    name = "micro_stream_datagram",
+    hdrs = ["micro_stream_datagram.h"],
+    srcs = ["micro_stream_datagram.cc"],
+    deps = [
+        ":micro_datagram_server",
+        "//mjlib/micro:async_stream",
+        "//mjlib/micro:pool_ptr",
+    ],
+)
+
+cc_library(
     name = "micro_server",
     hdrs = ["micro_server.h"],
     srcs = ["micro_server.cc"],
@@ -163,6 +183,7 @@ cc_test(
         ":frame",
         ":frame_stream",
         ":micro_server",
+        ":micro_stream_datagram",
         ":register",
         ":threaded_client",
         "//mjlib/io:stream_factory",
