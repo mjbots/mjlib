@@ -42,6 +42,18 @@ namespace mjlib {
 namespace micro {
 namespace {
 constexpr int kMaxSize = 16;
+
+class SizeCountingStream : public base::WriteStream {
+ public:
+  void write(const std::string_view& data) override {
+    size_ += data.size();
+  }
+
+  size_t size() const { return size_; }
+
+ private:
+  size_t size_ = 0;
+};
 }
 
 class PersistentConfig::Impl {
@@ -244,17 +256,12 @@ class PersistentConfig::Impl {
       stream.Write(static_cast<uint32_t>(
                        CalculateSchemaCrc(element.serializable)));
 
-      char* const data_size_position = flash_stream.position();
-      flash_stream.skip(sizeof(uint32_t)); // size
-      char* const data_start = flash_stream.position();
-      element.serializable->WriteBinary(flash_stream);
+      SizeCountingStream size_stream;
+      element.serializable->WriteBinary(size_stream);
+      const uint32_t data_size = size_stream.size();
 
-      const uint32_t data_size = flash_stream.position() - data_start;
-      {
-        FlashWriteStream data_size_stream(flash_, data_size_position);
-        telemetry::TelemetryWriteStream s(data_size_stream);
-        s.Write(data_size);
-      }
+      stream.Write(data_size);
+      element.serializable->WriteBinary(flash_stream);
     }
 
     stream.Write(static_cast<uint32_t>(0));
