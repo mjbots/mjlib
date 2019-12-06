@@ -33,7 +33,7 @@ class MicroDatagramServer {
     int size = 0;
   };
 
-  virtual void AsyncRead(Header&, const base::string_span&,
+  virtual void AsyncRead(Header*, const base::string_span&,
                          const micro::SizeCallback&) = 0;
 
   virtual void AsyncWrite(const Header&, const std::string_view&,

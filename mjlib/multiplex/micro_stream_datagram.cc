@@ -45,11 +45,11 @@ class MicroStreamDatagram::Impl : public Format {
                           pool->Allocate(options.buffer_size, 1))) {
   }
 
-  void AsyncRead(Header& header, const base::string_span& data,
+  void AsyncRead(Header* header, const base::string_span& data,
                  const micro::SizeCallback& callback) {
     MJ_ASSERT(!current_read_callback_);
     current_read_callback_ = callback;
-    current_read_header_ = &header;
+    current_read_header_ = header;
     current_read_data_ = data;
 
     // See if we already have enough data.
@@ -313,7 +313,7 @@ MicroStreamDatagram::MicroStreamDatagram(
 
 MicroStreamDatagram::~MicroStreamDatagram() {}
 
-void MicroStreamDatagram::AsyncRead(Header& header,
+void MicroStreamDatagram::AsyncRead(Header* header,
                                     const base::string_span& data,
                                     const micro::SizeCallback& callback) {
   impl_->AsyncRead(header, data, callback);

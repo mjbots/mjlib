@@ -188,6 +188,7 @@ cc_test(
         "test/frame_test.cc",
         "test/frame_stream_test.cc",
         "test/micro_server_test.cc",
+        "test/micro_stream_datagram_test.cc",
         "test/register_test.cc",
         "test/test_main.cc",
         "test/threaded_client_test.cc",

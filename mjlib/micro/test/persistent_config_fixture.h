@@ -16,6 +16,7 @@
 
 #include "mjlib/micro/flash.h"
 
+#include "mjlib/micro/persistent_config.h"
 #include "mjlib/micro/test/command_manager_fixture.h"
 
 namespace mjlib {
