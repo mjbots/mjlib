@@ -62,10 +62,61 @@ class MicroStreamDatagram::Impl : public Format {
     StartReadFrame();
   }
 
-  void AsyncWrite(const Header&, const std::string_view&,
+  void AsyncWrite(const Header& header, const std::string_view& data,
                   const micro::SizeCallback& callback) {
     MJ_ASSERT(!current_write_callback_);
     current_write_callback_ = callback;
+    current_write_size_ = data.size();
+
+    // First, figure out how big our size varuint will end up being.
+    const auto header_size =
+        2 + // kHeader
+        1 + // source id
+        1 + // dest_id
+        GetVaruintSize(data.size());
+
+    constexpr int kCrcSize = 2;
+
+    MJ_ASSERT((header_size + kCrcSize + data.size()) < options_.buffer_size);
+    std::memcpy(&write_buffer_[header_size], data.data(), data.size());
+
+    {
+      base::BufferWriteStream header_buffer_stream(
+          base::string_span(write_buffer_, header_size));
+      BufferWriteStream header_stream(header_buffer_stream);
+      header_stream.Write(kHeader);
+      header_stream.Write(header.source);
+      header_stream.Write(header.destination);
+      header_stream.WriteVaruint(data.size());
+    }
+
+    // Now figure out the checksum.
+    const auto crc_location = header_size + data.size();
+    boost::crc_ccitt_type crc;
+    crc.process_bytes(write_buffer_, crc_location);
+    const uint16_t actual_crc = crc.checksum();
+
+    {
+      base::BufferWriteStream crc_buffer_stream(
+          base::string_span(&write_buffer_[crc_location], 2));
+      BufferWriteStream crc_stream(crc_buffer_stream);
+      crc_stream.Write(actual_crc);
+    }
+
+    async_writer_.Write(
+        *stream_,
+        std::string_view(write_buffer_, crc_location + 2),
+        std::bind(&Impl::HandleWrite, this, std::placeholders::_1));
+  }
+
+  void HandleWrite(const micro::error_code& ec) {
+    auto copy = current_write_callback_;
+    auto bytes = current_write_size_;
+
+    current_write_callback_ = {};
+    current_write_size_ = 0;
+
+    copy(ec, bytes);
   }
 
   void StartReadFrame() {
@@ -251,6 +302,7 @@ class MicroStreamDatagram::Impl : public Format {
   base::string_span current_read_data_;
 
   micro::SizeCallback current_write_callback_;
+  std::size_t current_write_size_ = 0;
 
   Stats stats_;
 };
