@@ -85,8 +85,8 @@ class MicroStreamDatagram::Impl : public Format {
           base::string_span(write_buffer_, header_size));
       BufferWriteStream header_stream(header_buffer_stream);
       header_stream.Write(kHeader);
-      header_stream.Write(header.source);
-      header_stream.Write(header.destination);
+      header_stream.Write(static_cast<uint8_t>(header.source));
+      header_stream.Write(static_cast<uint8_t>(header.destination));
       header_stream.WriteVaruint(data.size());
     }
 
@@ -261,6 +261,8 @@ class MicroStreamDatagram::Impl : public Format {
     current_read_header_->destination = *maybe_dest_id;
     current_read_header_->size = payload_size;
 
+    Consume(crc_location - read_buffer_ + 2);
+
     InvokeReadCallback(
         (payload_size > size_to_write) ?
         micro::error_code(errc::kPayloadTruncated) :
@@ -319,8 +321,10 @@ void MicroStreamDatagram::AsyncRead(Header* header,
   impl_->AsyncRead(header, data, callback);
 }
 
-void MicroStreamDatagram::AsyncWrite(const Header&, const std::string_view&,
-                                     const micro::SizeCallback&) {
+void MicroStreamDatagram::AsyncWrite(const Header& header,
+                                     const std::string_view& data,
+                                     const micro::SizeCallback& callback) {
+  impl_->AsyncWrite(header, data, callback);
 }
 
 const MicroStreamDatagram::Stats* MicroStreamDatagram::stats() const {

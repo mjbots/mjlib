@@ -31,8 +31,6 @@ namespace {
 using BufferReadStream = multiplex::ReadStream<base::BufferReadStream>;
 using BufferWriteStream = multiplex::WriteStream<base::BufferWriteStream>;
 
-constexpr int kInitialWriteBufferGuess = 5;
-
 template <typename T>
 constexpr uint8_t u8(T value) {
   return static_cast<uint8_t>(value);
@@ -41,26 +39,6 @@ constexpr uint8_t u8(T value) {
 
 class MicroServer::Impl {
  public:
-  class RawStream : public micro::AsyncWriteStream {
-   public:
-    RawStream(Impl* parent) : parent_(parent) {}
-
-    ~RawStream() override {}
-
-    void AsyncWriteSome(const std::string_view& buffer,
-                        const micro::SizeCallback& callback) override {
-      MJ_ASSERT(!parent_->write_outstanding_);
-      parent_->raw_write_callback_ = callback;
-      parent_->stream_->AsyncWriteSome(
-          buffer,
-          std::bind(&Impl::HandleWriteRaw, parent_,
-                    std::placeholders::_1, std::placeholders::_2));
-    }
-
-   private:
-    Impl* const parent_;
-  };
-
   class TunnelStream : public micro::AsyncStream {
    public:
     void set_parent(Impl* impl) { parent_ = impl; }
@@ -123,10 +101,10 @@ class MicroServer::Impl {
   };
 
   Impl(micro::Pool* pool,
-       micro::AsyncStream* stream,
+       MicroDatagramServer* datagram_server,
        const Options& options)
       : options_(options),
-        stream_(stream),
+        datagram_server_(datagram_server),
         read_buffer_(static_cast<char*>(
                          pool->Allocate(options.buffer_size, 1))),
         write_buffer_(static_cast<char*>(
@@ -156,19 +134,6 @@ class MicroServer::Impl {
     MaybeStartReadFrame();
   }
 
-  void AsyncReadUnknown(const base::string_span& buffer,
-                        const micro::SizeCallback& callback) {
-    MJ_ASSERT(unknown_buffer_.empty());
-    MJ_ASSERT(!buffer.empty());
-
-    unknown_buffer_ = buffer;
-    unknown_callback_ = callback;
-  }
-
-  micro::AsyncWriteStream* raw_write_stream() {
-    return &raw_write_stream_;
-  }
-
   const Stats* stats() const { return &stats_; }
   Config* config() { return &config_; }
 
@@ -177,238 +142,68 @@ class MicroServer::Impl {
     if (read_outstanding_) { return; }
 
     read_outstanding_ = true;
-    stream_->AsyncReadSome(
-        base::string_span(&read_buffer_[read_start_],
-                          read_buffer_ + options_.buffer_size),
-        std::bind(&Impl::HandleReadFrame, this,
+    datagram_server_->AsyncRead(
+        &read_header_,
+        base::string_span(read_buffer_, options_.buffer_size),
+        std::bind(&Impl::HandleReadDatagram, this,
                   std::placeholders::_1, std::placeholders::_2));
   }
 
-  void HandleReadFrame(const micro::error_code& ec, size_t size) {
+  void HandleReadDatagram(const micro::error_code& ec, size_t) {
     read_outstanding_ = false;
 
     if (ec) {
       // We don't really have a way to log or do anything here.  So
       // lets just bail and start over.
-      read_start_ = 0;
       MaybeStartReadFrame();
       return;
     }
 
-    // Advance read_start_ to where our next invalid byte is.
-    read_start_ += size;
-
-    for (;;) {
-      if (!HandleMaybeFrame()) {
-        break;
-      }
-    }
+    ProcessFrame();
 
     MaybeStartReadFrame();
   }
 
   // Return true if more data might be available in the buffer.
-  bool HandleMaybeFrame() __attribute__ ((optimize("O3"))) {
-    // For now, we'll require that we fit a whole valid packet into
-    // our buffer at once before acting on it.  So we'll just keep
-    // calling StartReadFrame until we get there.
-
-    // Work to start our buffer out with the frame header.
-
-    constexpr char kHeaderLowByte = (kHeader & 0xff);
-
-    // This is basically memchr, but executes a lot faster.
-    char* const found = [&]() -> char* {
-      for (int i = 0; i < read_start_; i++) {
-        if (read_buffer_[i] == kHeaderLowByte) {
-          return read_buffer_ + i;
-        }
-      }
-      return nullptr;
-    }();
-
-    if (found == nullptr) {
-      // We don't have anything which could be a header in our
-      // buffer.  Just wipe it all out and start over.
-      read_start_ = 0;
-      return false;
-    }
-
-    Consume(found - read_buffer_);
-
-    if (read_start_ < 2) {
-      // We need more to even have a header.
-      return false;
-    }
-
-    if (static_cast<uint8_t>(read_buffer_[1]) != ((kHeader >> 8) & 0xff)) {
-      // We had the first byte of a header, but not the second byte.
-
-      // Move out this false start and try again.
-      Consume(2);
-      return true;
-    }
-
-    // We need at least 7 bytes to have a minimal frame.
-    if (read_start_ < (kHeaderSize + kCrcSize + kMinVaruintSize)) {
-      return false;
-    }
-
-    // See if we have enough data to have a valid varuint for size.
-    base::BufferReadStream data({&read_buffer_[2],
-            static_cast<size_t>(read_start_ - 2)});
-    BufferReadStream read_stream{data};
-
-    const auto maybe_source_id = read_stream.Read<uint8_t>();
-    const auto maybe_dest_id = read_stream.Read<uint8_t>();
-    const auto maybe_size = read_stream.ReadVaruint();
-
-    if (!maybe_size) {
-      // We don't have enough for the size yet.
-      return false;
-    }
-
-    const auto payload_size = *maybe_size;
-    if (payload_size > 4096) {
-      // We'll claim this is guaranteed to be too big.  Just wipe
-      // everything out and start over.
-      read_start_ = 0;
-      return false;
-    }
-
-    if (payload_size > (options_.buffer_size - 7))  {
-      // We can't fit this either.
-      read_start_ = 0;
-      return false;
-    }
-
-    // Do we have enough data yet?
-    const char* const payload_start = data.position();
-    const auto data_we_have =
-        &read_buffer_[read_start_] - data.position();
-    if (data_we_have < static_cast<ssize_t>(payload_size + 2)) {
-      // We need more still.
-      return false;
-    }
-
-    const char* const crc_location =
-        data.position() + payload_size;
-
-    // Woohoo.  We nominally have enough for a whole frame.  Verify
-    // the checksum!
-    boost::crc_ccitt_type crc;
-    crc.process_bytes(read_buffer_, crc_location - read_buffer_);
-    const uint16_t expected_crc = crc.checksum();
-
-    data.ignore(payload_size);
-    const auto maybe_actual_crc = read_stream.Read<uint16_t>();
-    MJ_ASSERT(!!maybe_actual_crc);
-    const auto actual_crc = *maybe_actual_crc;
-
-    if (expected_crc != actual_crc) {
-      // Whoops, we should log this checksum mismatch somewhere.
-      // Assume that we are no longer synchronized and start from the
-      // next header possibility.
-      stats_.checksum_mismatch++;
-      Consume(2);
-      return true;
-    }
-
-    if ((*maybe_dest_id == kBroadcastId) ||
-        (*maybe_dest_id != config_.id)) {
+  void ProcessFrame() __attribute__ ((optimize("O3"))) {
+    if ((read_header_.destination == kBroadcastId) ||
+        (read_header_.destination != config_.id)) {
       stats_.wrong_id++;
-      const auto total_size = data.position() - read_buffer_;
 
-      if (!unknown_buffer_.empty()) {
-        std::memcpy(unknown_buffer_.data(), read_buffer_, total_size);
-        auto callback = unknown_callback_;
-
-        unknown_buffer_ = {};
-        unknown_callback_ = {};
-
-        callback(micro::error_code(), total_size);
-      }
-
-      if (*maybe_dest_id != kBroadcastId) {
-        Consume(total_size);
-        return true;
+      if (read_header_.destination != kBroadcastId) {
+        return;
       }
     }
 
     base::BufferWriteStream buffer_write_stream{
-      base::string_span(write_buffer_ + kInitialWriteBufferGuess,
-                        options_.buffer_size - kInitialWriteBufferGuess)};
+      base::string_span(write_buffer_, options_.buffer_size)};
     BufferWriteStream write_stream{buffer_write_stream};
     const bool need_response =
-        ((*maybe_source_id) & 0x80) != 0 &&
+        ((read_header_.source) & 0x80) != 0 &&
         !write_outstanding_;
 
     // Everything checked out.  Now we we can process our subframes.
     ProcessSubframes(
-        std::string_view(payload_start, payload_size),
+        std::string_view(read_buffer_, read_header_.size),
         &buffer_write_stream,
         need_response ? &write_stream : nullptr);
-    const auto to_consume = crc_location - read_buffer_ + 2;
-    Consume(to_consume);
 
     if (need_response) {
-      WriteResponse(*maybe_source_id & 0x7f, buffer_write_stream.offset());
+      WriteResponse(read_header_.source & 0x7f, buffer_write_stream.offset());
     }
-
-    return true;
-  }
-
-  void Consume(std::streamsize size) {
-    if (size == 0) { return; }
-    MJ_ASSERT(read_start_ >= size);
-    std::memmove(read_buffer_, &read_buffer_[size], read_start_ - size);
-    read_start_ -= size;
   }
 
   void WriteResponse(uint8_t client_id, std::streamsize response_size) {
     MJ_ASSERT(!write_outstanding_);
 
-    // First, figure out how big our size varuint will end up being.
-    const auto header_size =
-        2 + // kHeader
-        1 + // source id
-        1 + // dest_id
-        GetVaruintSize(response_size);
-    // TODO: Locate this in the right place for a size 1 varuint so
-    // the common case doesn't need to move at all.
-    if (kInitialWriteBufferGuess != header_size) {
-      std::memmove(&write_buffer_[header_size],
-                   &write_buffer_[kInitialWriteBufferGuess],
-                   response_size);
-    }
-
-    {
-      base::BufferWriteStream header_buffer_stream(
-          base::string_span(write_buffer_, header_size));
-      BufferWriteStream header_stream(header_buffer_stream);
-      header_stream.Write(kHeader);
-      header_stream.Write(config_.id);
-      header_stream.Write(client_id);
-      header_stream.WriteVaruint(response_size);
-    }
-
-    // Now figure out the checksum.
-    const auto crc_location = header_size + response_size;
-    boost::crc_ccitt_type crc;
-    crc.process_bytes(write_buffer_, crc_location);
-    const uint16_t actual_crc = crc.checksum();
-
-    {
-      base::BufferWriteStream crc_buffer_stream(
-          base::string_span(&write_buffer_[crc_location], 2));
-      BufferWriteStream crc_stream(crc_buffer_stream);
-      crc_stream.Write(actual_crc);
-    }
+    write_header_.size = response_size;
+    write_header_.source = config_.id;
+    write_header_.destination = client_id;
 
     write_outstanding_ = true;
-    async_writer_.Write(
-        *stream_,
-        std::string_view(write_buffer_, crc_location + 2),
+    datagram_server_->AsyncWrite(
+        write_header_,
+        std::string_view(write_buffer_, response_size),
         std::bind(&Impl::HandleWrite, this, std::placeholders::_1));
   }
 
@@ -418,17 +213,6 @@ class MicroServer::Impl {
       stats_.last_write_error = ec.value();
     }
     write_outstanding_ = false;
-  }
-
-  void HandleWriteRaw(const micro::error_code& ec, size_t size) {
-    if (ec) {
-      stats_.write_error++;
-      stats_.last_write_error = ec.value();
-    }
-    write_outstanding_ = false;
-    auto callback = raw_write_callback_;
-    raw_write_callback_ = {};
-    callback(ec, size);
   }
 
   void ProcessSubframes(const std::string_view& subframes,
@@ -751,24 +535,18 @@ class MicroServer::Impl {
   }
 
   const Options options_;
-  micro::AsyncStream* const stream_;
+  MicroDatagramServer* const datagram_server_;
   Server* server_ = nullptr;
 
   Config config_;
 
-  RawStream raw_write_stream_{this};
-
-  std::streamsize read_start_ = 0;
+  MicroDatagramServer::Header read_header_;
   char* const read_buffer_ = {};
   bool read_outstanding_ = false;
 
+  MicroDatagramServer::Header write_header_;
   char* const write_buffer_ = {};
   bool write_outstanding_ = false;
-
-  base::string_span unknown_buffer_;
-  micro::SizeCallback unknown_callback_;
-
-  micro::SizeCallback raw_write_callback_;
 
   TunnelStream tunnels_[1];
   Stats stats_;
@@ -778,9 +556,9 @@ class MicroServer::Impl {
 
 MicroServer::MicroServer(
     micro::Pool* pool,
-    micro::AsyncStream* async_stream,
+    MicroDatagramServer* datagram_server,
     const Options& options)
-    : impl_(pool, pool, async_stream, options) {}
+    : impl_(pool, pool, datagram_server, options) {}
 
 MicroServer::~MicroServer() {}
 
@@ -790,15 +568,6 @@ micro::AsyncStream* MicroServer::MakeTunnel(uint32_t id) {
 
 void MicroServer::Start(Server* server) {
   impl_->Start(server);
-}
-
-void MicroServer::AsyncReadUnknown(const base::string_span& buffer,
-                                   const micro::SizeCallback& callback) {
-  impl_->AsyncReadUnknown(buffer, callback);
-}
-
-micro::AsyncWriteStream* MicroServer::raw_write_stream() {
-  return impl_->raw_write_stream();
 }
 
 const MicroServer::Stats* MicroServer::stats() const {

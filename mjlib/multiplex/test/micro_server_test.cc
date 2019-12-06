@@ -20,6 +20,8 @@
 #include "mjlib/micro/test/persistent_config_fixture.h"
 #include "mjlib/micro/test/str.h"
 
+#include "mjlib/multiplex/micro_stream_datagram.h"
+
 namespace base = mjlib::base;
 using namespace mjlib::multiplex;
 using mjlib::micro::test::str;
@@ -73,7 +75,9 @@ struct Fixture : test::PersistentConfigFixture {
   micro::StreamPipe dut_stream{event_queue.MakePoster()};
 
   Server server;
-  MicroServer dut{&pool, dut_stream.side_b(), []() {
+  mjlib::multiplex::MicroStreamDatagram stream_datagram{
+    &pool, dut_stream.side_b(), {}};
+  MicroServer dut{&pool, &stream_datagram, []() {
       return MicroServer::Options();
     }()};
 
@@ -171,19 +175,6 @@ BOOST_FIXTURE_TEST_CASE(ServerWrongId, Fixture) {
       read_count++;
     });
 
-  char unknown_buf[100] = {};
-  int unknown_count = 0;
-  ssize_t unknown_size = 0;
-  dut.AsyncReadUnknown(unknown_buf, [&](micro::error_code ec, ssize_t size) {
-      BOOST_TEST(!ec);
-      unknown_count++;
-      unknown_size = size;
-    });
-
-  event_queue.Poll();
-  BOOST_TEST(read_count == 0);
-  BOOST_TEST(unknown_size == 0);
-
   int write_count = 0;
   AsyncWrite(*dut_stream.side_a(), str(kClientToServer2),
              [&](micro::error_code ec) {
@@ -194,11 +185,6 @@ BOOST_FIXTURE_TEST_CASE(ServerWrongId, Fixture) {
   BOOST_TEST(write_count == 1);
   BOOST_TEST(read_count == 0);
   BOOST_TEST(dut.stats()->wrong_id == 1);
-
-  BOOST_TEST(unknown_count == 1);
-  BOOST_TEST(unknown_size == str(kClientToServer2).size());
-  BOOST_TEST(std::string(unknown_buf, unknown_size) ==
-             str(kClientToServer2));
 }
 
 BOOST_FIXTURE_TEST_CASE(ServerTestReadSecond, Fixture) {

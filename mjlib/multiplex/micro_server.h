@@ -16,10 +16,12 @@
 
 #include "mjlib/base/visitor.h"
 
-#include "mjlib/multiplex/format.h"
 #include "mjlib/micro/async_stream.h"
 #include "mjlib/micro/persistent_config.h"
 #include "mjlib/micro/pool_ptr.h"
+
+#include "mjlib/multiplex/format.h"
+#include "mjlib/multiplex/micro_datagram_server.h"
 
 namespace mjlib {
 namespace multiplex {
@@ -48,12 +50,12 @@ class MicroServer : public Format {
   };
 
   struct Options {
-    size_t buffer_size = 256;
+    int buffer_size = 256;
     int max_tunnel_streams = 1;
     uint8_t default_id = 1;
   };
 
-  MicroServer(micro::Pool*, micro::AsyncStream*, const Options&);
+  MicroServer(micro::Pool*, MicroDatagramServer*, const Options&);
   ~MicroServer();
 
   /// Allocate a "tunnel", where an AsyncStream is tunneled over the
@@ -62,19 +64,9 @@ class MicroServer : public Format {
 
   void Start(Server*);
 
-  /// Read any data sent to the wrong ID and store it in @p buffer.
-  /// @p callback is invoked upon completion.
-  void AsyncReadUnknown(const base::string_span& buffer,
-                        const micro::SizeCallback& callback);
-
-  /// @return a stream which can be used to write raw data to the
-  /// master.
-  micro::AsyncWriteStream* raw_write_stream();
-
   // Exposed mostly for debugging and unit testing.
   struct Stats {
     uint32_t wrong_id = 0;
-    uint32_t checksum_mismatch = 0;
     uint32_t receive_overrun = 0;
     uint32_t unknown_subframe = 0;
     uint32_t missing_subframe = 0;
@@ -85,7 +77,6 @@ class MicroServer : public Format {
     template <typename Archive>
     void Serialize(Archive* a) {
       a->Visit(MJ_NVP(wrong_id));
-      a->Visit(MJ_NVP(checksum_mismatch));
       a->Visit(MJ_NVP(receive_overrun));
       a->Visit(MJ_NVP(unknown_subframe));
       a->Visit(MJ_NVP(missing_subframe));

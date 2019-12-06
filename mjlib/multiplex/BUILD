@@ -148,6 +148,7 @@ cc_library(
     srcs = ["micro_server.cc"],
     deps = [
         ":format",
+        ":micro_datagram_server",
         ":stream",
         "//mjlib/base:assert",
         "//mjlib/base:buffer_stream",
