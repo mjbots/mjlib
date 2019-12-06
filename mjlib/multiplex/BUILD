@@ -139,6 +139,7 @@ cc_library(
         "//mjlib/base:visitor",
         "//mjlib/micro:async_stream",
         "//mjlib/micro:pool_ptr",
+        "@boost",
     ],
 )
 
