@@ -27,7 +27,7 @@ class BufferWriteStream : public WriteStream {
  public:
   BufferWriteStream(const string_span& buffer) : buffer_(buffer) {}
 
-  void write(const std::string_view& data) override  {
+  void write(const std::string_view& data) override {
     MJ_ASSERT(static_cast<std::streamsize>(offset_ + data.size()) <=
               buffer_.size());
     std::memcpy(&buffer_[offset_], data.data(), data.size());
