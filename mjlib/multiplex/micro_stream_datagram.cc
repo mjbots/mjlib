@@ -264,7 +264,7 @@ class MicroStreamDatagram::Impl : public Format {
     Consume(crc_location - read_buffer_ + 2);
 
     InvokeReadCallback(
-        (payload_size > size_to_write) ?
+        (static_cast<ssize_t>(payload_size) > size_to_write) ?
         micro::error_code(errc::kPayloadTruncated) :
         micro::error_code(),
         size_to_write);
