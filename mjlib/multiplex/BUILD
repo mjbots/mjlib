@@ -109,6 +109,15 @@ cc_library(
 )
 
 cc_library(
+    name = "micro_error",
+    hdrs = ["micro_error.h"],
+    srcs = ["micro_error.cc"],
+    deps = [
+        "//mjlib/micro:error_code",
+    ],
+)
+
+cc_library(
     name = "micro_datagram_server",
     hdrs = ["micro_datagram_server.h"],
     deps = [
@@ -122,7 +131,12 @@ cc_library(
     hdrs = ["micro_stream_datagram.h"],
     srcs = ["micro_stream_datagram.cc"],
     deps = [
+        ":format",
         ":micro_datagram_server",
+        ":micro_error",
+        ":stream",
+        "//mjlib/base:buffer_stream",
+        "//mjlib/base:visitor",
         "//mjlib/micro:async_stream",
         "//mjlib/micro:pool_ptr",
     ],

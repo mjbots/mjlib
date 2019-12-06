@@ -14,6 +14,8 @@
 
 #pragma once
 
+#include "mjlib/base/visitor.h"
+
 #include "mjlib/micro/async_stream.h"
 #include "mjlib/micro/pool_ptr.h"
 
@@ -35,6 +37,18 @@ class MicroStreamDatagram : public MicroDatagramServer {
                  const micro::SizeCallback&) override;
   void AsyncWrite(const Header&, const std::string_view&,
                   const micro::SizeCallback&) override;
+
+  // Exposed mostly for debugging and unit testing.
+  struct Stats {
+    uint32_t checksum_mismatch = 0;
+
+    template <typename Archive>
+    void Serialize(Archive* a) {
+      a->Visit(MJ_NVP(checksum_mismatch));
+    }
+  };
+
+  const Stats* stats() const;
 
  private:
   class Impl;
