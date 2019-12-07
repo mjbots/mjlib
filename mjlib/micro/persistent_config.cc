@@ -195,6 +195,8 @@ class PersistentConfig::Impl {
       std::string_view name(flash_stream.position(), name_size);
       flash_stream.ignore(name_size);
 
+      if (flash_stream.remaining() < 8) { break; }
+
       const uint32_t expected_crc = stream.Read<uint32_t>();
       const uint32_t data_size = stream.Read<uint32_t>();
 
