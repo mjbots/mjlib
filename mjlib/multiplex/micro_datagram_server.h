@@ -38,6 +38,12 @@ class MicroDatagramServer {
 
   virtual void AsyncWrite(const Header&, const std::string_view&,
                           const micro::SizeCallback&) = 0;
+
+  struct Properties {
+    int max_size = -1;
+  };
+
+  virtual Properties properties() const = 0;
 };
 
 }

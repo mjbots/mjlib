@@ -37,6 +37,7 @@ class MicroStreamDatagram : public MicroDatagramServer {
                  const micro::SizeCallback&) override;
   void AsyncWrite(const Header&, const std::string_view&,
                   const micro::SizeCallback&) override;
+  Properties properties() const override;
 
   // Exposed mostly for debugging and unit testing.
   struct Stats {

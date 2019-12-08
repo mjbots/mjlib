@@ -105,6 +105,7 @@ class MicroServer::Impl {
        const Options& options)
       : options_(options),
         datagram_server_(datagram_server),
+        datagram_properties_(datagram_server->properties()),
         read_buffer_(static_cast<char*>(
                          pool->Allocate(options.buffer_size, 1))),
         write_buffer_(static_cast<char*>(
@@ -324,11 +325,14 @@ class MicroServer::Impl {
       response_stream->WriteVaruint(*maybe_channel);
 
       const ssize_t kExtraPadding = 16;
+      const ssize_t kNeededOverhead =
+          kMaxVaruintSize + kCrcSize + kExtraPadding;
       const auto to_copy =
           std::min<std::streamsize>(
-              tunnel.write_buffer_.size(),
-              response_buffer_stream->remaining() -
-              (kMaxVaruintSize + kCrcSize + kExtraPadding));
+              datagram_properties_.max_size - kNeededOverhead,
+              std::min<std::streamsize>(
+                  tunnel.write_buffer_.size(),
+                  response_buffer_stream->remaining() - kNeededOverhead));
       response_stream->WriteVaruint(to_copy);
       if (to_copy > 0) {
         response_stream->base()->write(tunnel.write_buffer_.substr(0, to_copy));
@@ -367,13 +371,16 @@ class MicroServer::Impl {
       response_stream->WriteVaruint(*maybe_channel);
 
       const ssize_t kExtraPadding = 16;
+      const ssize_t kNeededOverhead =
+          kMaxVaruintSize + kCrcSize + kExtraPadding;
       const auto to_copy =
           std::min<std::streamsize>(
-              *maybe_max_bytes,
+              datagram_properties_.max_size - kNeededOverhead,
               std::min<std::streamsize>(
-                  tunnel.write_buffer_.size(),
-                  response_buffer_stream->remaining() -
-                  (kMaxVaruintSize + kCrcSize + kExtraPadding)));
+                  *maybe_max_bytes,
+                  std::min<std::streamsize>(
+                      tunnel.write_buffer_.size(),
+                      response_buffer_stream->remaining() - kNeededOverhead)));
       response_stream->WriteVaruint(to_copy);
       if (to_copy > 0) {
         response_stream->base()->write(tunnel.write_buffer_.substr(0, to_copy));
@@ -536,6 +543,7 @@ class MicroServer::Impl {
 
   const Options options_;
   MicroDatagramServer* const datagram_server_;
+  const MicroDatagramServer::Properties datagram_properties_;
   Server* server_ = nullptr;
 
   Config config_;

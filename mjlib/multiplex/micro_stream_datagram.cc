@@ -327,6 +327,12 @@ void MicroStreamDatagram::AsyncWrite(const Header& header,
   impl_->AsyncWrite(header, data, callback);
 }
 
+MicroDatagramServer::Properties MicroStreamDatagram::properties() const {
+  Properties result;
+  result.max_size = 115;
+  return result;
+}
+
 const MicroStreamDatagram::Stats* MicroStreamDatagram::stats() const {
   return &impl_->stats_;
 }
