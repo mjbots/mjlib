@@ -30,12 +30,19 @@ namespace micro {
 /// allowing multiple modules to register commands.
 class CommandManager {
  public:
+  struct Options {
+    int max_line_length = 100;
+
+    Options() {}
+  };
+
   /// @param queue is used to enqueue callbacks
   /// @param read_stream commands are read from this stream
   /// @param write_stream responses are written to this stream
   CommandManager(Pool* pool,
                  AsyncReadStream* read_stream,
-                 AsyncExclusive<AsyncWriteStream>* write_stream);
+                 AsyncExclusive<AsyncWriteStream>* write_stream,
+                 const Options& = Options());
   ~CommandManager();
 
   struct Response {

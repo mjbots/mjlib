@@ -23,24 +23,27 @@
 namespace mjlib {
 namespace micro {
 
-namespace {
-constexpr size_t kMaxLineLength = 100;
-}
-
 class CommandManager::Impl {
  public:
   Impl(Pool* pool,
        AsyncReadStream* read_stream,
-       AsyncExclusive<AsyncWriteStream>* write_stream)
+       AsyncExclusive<AsyncWriteStream>* write_stream,
+       const Options& options)
       : read_stream_(read_stream),
         write_stream_(write_stream),
-        registry_(pool, 16) {}
+        options_(options),
+        registry_(pool, 16),
+        line_buffer_(reinterpret_cast<char*>(
+                         pool->Allocate(options.max_line_length, 1))),
+        arguments_(reinterpret_cast<char*>(
+                       pool->Allocate(options.max_line_length, 1))) {}
 
   void MaybeStartRead() {
     if (write_outstanding_) { return; }
 
     read_until_context_.stream = read_stream_;
-    read_until_context_.buffer = base::string_span(line_buffer_);
+    read_until_context_.buffer =
+        base::string_span(line_buffer_, options_.max_line_length);
     read_until_context_.delimiters = "\r\n";
     read_until_context_.callback =
         [this](error_code error, int size) {
@@ -58,7 +61,8 @@ class CommandManager::Impl {
       // TODO jpieper: Once we have an error system, log this error.
 
       read_until_context_.stream = read_stream_;
-      read_until_context_.buffer = base::string_span(line_buffer_);
+      read_until_context_.buffer =
+          base::string_span(line_buffer_, options_.max_line_length);
       read_until_context_.delimiters = "\r\n";
       read_until_context_.callback = [this](error_code, int) {
         this->MaybeStartRead();
@@ -99,13 +103,13 @@ class CommandManager::Impl {
 
     // Clear out anything that was previously in our arguments, then
     // fill it in with our new stuff.
-    std::memset(arguments_, 0, sizeof(arguments_));
+    std::memset(arguments_, 0, options_.max_line_length);
     std::memcpy(arguments_, args.data(), args.size());
     group_arguments_ = base::string_span(arguments_, args.size());
 
     // We're done with line_buffer_ now, so clear it out to make
     // debugging easier.
-    std::memset(line_buffer_, 0, sizeof(line_buffer_));
+    std::memset(line_buffer_, 0, options_.max_line_length);
 
     write_outstanding_ = true;
     write_stream_->AsyncStart(
@@ -144,13 +148,14 @@ class CommandManager::Impl {
 
   AsyncReadStream* const read_stream_;
   AsyncExclusive<AsyncWriteStream>* const write_stream_;
+  const Options options_;
 
   using Registry = PoolMap<std::string_view, Item>;
   Registry registry_;
   bool write_outstanding_ = false;
 
-  char line_buffer_[kMaxLineLength] = {};
-  char arguments_[kMaxLineLength] = {};
+  char* const line_buffer_;
+  char* const arguments_;
 
   base::string_span group_arguments_;
   CommandFunction current_command_;
@@ -162,8 +167,9 @@ class CommandManager::Impl {
 CommandManager::CommandManager(
     Pool* pool,
     AsyncReadStream* read_stream,
-    AsyncExclusive<AsyncWriteStream>* write_stream)
-    : impl_(pool, pool, read_stream, write_stream) {}
+    AsyncExclusive<AsyncWriteStream>* write_stream,
+    const Options& options)
+    : impl_(pool, pool, read_stream, write_stream, options) {}
 
 CommandManager::~CommandManager() {}
 
