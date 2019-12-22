@@ -118,3 +118,21 @@ cc_test(
         "//mjlib/telemetry/js",
     ],
 )
+
+py_library(
+    name = "py_reader",
+    srcs = ["reader.py"],
+)
+
+py_test(
+    name = "py_reader_test",
+    srcs = ["test/py_reader_test.py"],
+    deps = [":py_reader"],
+)
+
+test_suite(
+    name = "py_test",
+    tests = [
+        "py_reader_test",
+    ],
+)

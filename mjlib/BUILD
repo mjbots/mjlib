@@ -25,6 +25,7 @@ test_suite(
         "//mjlib/multiplex:test",
         "//mjlib/multiplex:py_test",
         "//mjlib/telemetry:test",
+        "//mjlib/telemetry:py_test",
         "//mjlib/telemetry/js:test",
     ],
 )
