@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import collections
+import enum
 import struct
 
 
@@ -304,28 +305,27 @@ class ObjectType:
 
 class EnumType:
     @staticmethod
-    def from_binary(self, schema_stream, **kwargs):
+    def from_binary(schema_stream, name='_', **kwargs):
         type_class = Type.from_binary(schema_stream)
         nvalues = schema_stream.read_varuint()
         items = [
             (type_class.read(schema_stream), schema_stream.read_string())
             for _ in range(nvalues)]
-        items = { key : value for (key, value) in items }
+        items = { key : value for (value, key) in items }
 
-        return EnumType(type_class, items)
+        return EnumType(name, type_class, items)
 
-    def __init__(self, type_class, items):
+    def __init__(self, name, type_class, items):
         self.type_class = type_class
-        self.items = items
+        self.enum_class = enum.IntEnum(name, items)
 
     def read(self, data_stream):
-        key = self.type_class.read(data_stream)
-        return self.items[key]
+        return self.enum_class(self.type_class.read(data_stream))
 
 
 class ArrayType:
     @staticmethod
-    def from_binary(self, schema_stream, **kwargs):
+    def from_binary(schema_stream, **kwargs):
         return ArrayType(Type.from_binary(schema_stream))
 
     def __init__(self, type_class):
@@ -333,12 +333,12 @@ class ArrayType:
 
     def read(self, data_stream):
         nvalues = data_stream.read_varuint()
-        return [self.type_class.read(data_stream) for _ in range(nvalue)]
+        return [self.type_class.read(data_stream) for _ in range(nvalues)]
 
 
 class MapType:
     @staticmethod
-    def from_binary(self, schema_stream, **kwargs):
+    def from_binary(schema_stream, **kwargs):
         type_class = Type.from_binary(schema_stream)
         return MapType(type_class)
 
@@ -347,13 +347,13 @@ class MapType:
 
     def read(self, data_stream):
         nitems = data_stream.read_varuint()
-        return {(data_stream.read_string(), self.type_class.read(data_stream))
-                for _ in range(nitems)}
+        return dict((data_stream.read_string(), self.type_class.read(data_stream))
+                    for _ in range(nitems))
 
 
 class UnionType:
     @staticmethod
-    def from_binary(self, schema_stream, **kwargs):
+    def from_binary(schema_stream, **kwargs):
         items = []
         while True:
             type_class = Type.from_binary(schema_stream)
@@ -373,7 +373,7 @@ class UnionType:
 
 class TimestampType:
     @staticmethod
-    def from_binary(self, schema_stream, **kwargs):
+    def from_binary(schema_stream, **kwargs):
         return TimestampType()
 
     def read(self, data_stream):
@@ -383,7 +383,7 @@ class TimestampType:
 
 class DurationType:
     @staticmethod
-    def from_binary(self, schema_stream, **kwargs):
+    def from_binary(schema_stream, **kwargs):
         return DurationType()
 
     def read(self, data_stream):
@@ -392,30 +392,29 @@ class DurationType:
 
 
 TYPES = [
-    FinalType,
-    NullType,
-    BooleanType,
-    FixedIntType,
-    FixedUIntType,
-    VarintType,
-    VaruintType,
-    Float32Type,
-    Float64Type,
-    BytesType,
-    StringType,
+    FinalType,      # 0
+    NullType,       # 1
+    BooleanType,    # 2
+    FixedIntType,   # 3
+    FixedUIntType,  # 4
+    VarintType,     # 5
+    VaruintType,    # 6
+    Float32Type,    # 7
+    Float64Type,    # 8
+    BytesType,      # 9
+    StringType,     # 10
     None,
     None,
     None,
     None,
     None,
-    ObjectType,
-    EnumType,
-    ArrayType,
-    MapType,
-    UnionType,
-    TimestampType,
-    DurationType,
-    FinalType,
+    ObjectType,     # 16
+    EnumType,       # 17
+    ArrayType,      # 18
+    MapType,        # 19
+    UnionType,      # 20
+    TimestampType,  # 21
+    DurationType,   # 22
 ]
 
 

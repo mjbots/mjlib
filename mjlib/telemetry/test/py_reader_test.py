@@ -56,6 +56,32 @@ class ReaderTest(unittest.TestCase):
             ]), reader.ObjectType, bytes([0]),
              _TestType(lambda type_class, value :
                        value == type_class.namedtuple(False))),
+            (bytes([17, 4, 1,
+                    2,  # nvalues
+                      1,  3, 101, 110, 49,
+                      2,  3, 101, 110, 50,
+                   ]),
+             reader.EnumType, bytes([1]),
+             _TestType(lambda type_class, value :
+                       value == type_class.enum_class.en1)),
+            (bytes([18, 4, 1]), reader.ArrayType, bytes([3, 7, 8, 9]),
+             [7, 8, 9]),
+            (bytes([19, 4, 1]), reader.MapType,
+             bytes([2,
+                     2, 105, 49,
+                      10,
+                     2, 105, 50,
+                      11,
+                    ]),
+             {'i1' : 10, 'i2' : 11}),
+            (bytes([20,
+                    4, 1,
+                    10,
+                    0]),
+             reader.UnionType,
+             bytes([1, 3, 116, 115, 49]), 'ts1'),
+            # (bytes([21]), reader.TimestampType, bytes([0, 0, 0, 0, 0, 0, 0, 0]), ?),
+            (bytes([22]), reader.DurationType, bytes([0, 0, 0, 0, 0, 0, 0, 0]), 0.0),
         ]
 
         for (schema_data, expected_type, data_data, data_value) in _TESTS:
