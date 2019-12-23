@@ -14,7 +14,9 @@
 
 #pragma once
 
+#ifdef __cpp_exceptions
 #include <boost/asio/error.hpp>
+#endif
 
 #include "mjlib/base/assert.h"
 #include "mjlib/base/bytes.h"

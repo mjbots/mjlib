@@ -156,7 +156,8 @@ cc_library(
         "//mjlib/base:string_span",
         "//mjlib/base:tokenizer",
         "//mjlib/base:visit_archive",
-        "//mjlib/telemetry:telemetry_archive",
+        "//mjlib/telemetry:binary_read_archive",
+        "//mjlib/telemetry:binary_write_archive",
     ],
 )
 

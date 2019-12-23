@@ -19,7 +19,8 @@
 #include "mjlib/base/stream.h"
 #include "mjlib/base/string_span.h"
 
-#include "mjlib/telemetry/telemetry_archive.h"
+#include "mjlib/telemetry/binary_read_archive.h"
+#include "mjlib/telemetry/binary_write_archive.h"
 
 #include "mjlib/micro/async_stream.h"
 #include "mjlib/micro/async_types.h"
@@ -56,16 +57,20 @@ class SerializableHandler : public SerializableHandlerBase {
   ~SerializableHandler() override {}
 
   int WriteBinary(base::WriteStream& stream) override final {
-    telemetry::TelemetryWriteArchive<T>::Serialize(item_, stream);
+    telemetry::BinaryWriteArchive archive(stream);
+    archive.Accept(item_);
     return 0;
   }
 
   void WriteSchema(base::WriteStream& stream) override final {
-    telemetry::TelemetryWriteArchive<T>::WriteSchema(stream);
+    telemetry::BinarySchemaArchive archive(stream);
+    T temporary;
+    archive.Accept(&temporary);
   }
 
   int ReadBinary(base::ReadStream& stream) override final {
-    telemetry::TelemetrySimpleReadArchive<T>::Deserialize(item_, stream);
+    telemetry::BinaryReadArchive archive(stream);
+    archive.Accept(item_);
     return 0;
   }
 

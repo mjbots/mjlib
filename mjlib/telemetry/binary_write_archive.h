@@ -65,7 +65,7 @@ class BinaryWriteArchive : public base::VisitArchive<BinaryWriteArchive> {
                    std::array<T, N>* value,
                    base::PriorityTag<1>) {
     stream_.WriteVaruint(N);
-    VisitArray(*value);
+    VisitArrayHelper(*value);
   }
 
   template <typename NameValuePair, typename T>
@@ -73,11 +73,11 @@ class BinaryWriteArchive : public base::VisitArchive<BinaryWriteArchive> {
                    std::vector<T>* value,
                    base::PriorityTag<1>) {
     stream_.WriteVaruint(value->size());
-    VisitArray(*value);
+    VisitArrayHelper(*value);
   }
 
   template <typename Array>
-  void VisitArray(Array& value) {
+  void VisitArrayHelper(Array& value) {
     for (auto& item : value) {
       base::ReferenceNameValuePair sub_nvp(&item, "");
       Visit(sub_nvp);
@@ -214,7 +214,8 @@ class BinarySchemaArchive : public base::VisitArchive<BinarySchemaArchive> {
   void VisitHelper(const NameValuePair&,
                    std::array<T, N>*,
                    base::PriorityTag<1>) {
-    VisitArray(T{});
+    T item{};
+    VisitArrayHelper(item);
   }
 
   template <typename NameValuePair, typename T>
@@ -222,11 +223,11 @@ class BinarySchemaArchive : public base::VisitArchive<BinarySchemaArchive> {
                    std::vector<T>*,
                    base::PriorityTag<1>) {
     T item{};
-    VisitArray(item);
+    VisitArrayHelper(item);
   }
 
   template <typename T>
-  void VisitArray(T& value) {
+  void VisitArrayHelper(T& value) {
     stream_.WriteVaruint(TF::Type::kArray);
 
     base::ReferenceNameValuePair nvp(&value, "");

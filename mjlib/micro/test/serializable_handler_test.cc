@@ -68,12 +68,12 @@ BOOST_AUTO_TEST_CASE(BasicSerializableHandler) {
     char buffer[100] = {};
     base::BufferWriteStream write_stream{buffer};
     dut.WriteBinary(write_stream);
-    BOOST_TEST(write_stream.offset() == 37);
+    BOOST_TEST(write_stream.offset() == 39);
 
     my_struct.int_value = 20;
     BOOST_TEST(my_struct.int_value == 20);
 
-    base::BufferReadStream read_stream{{buffer, 37}};
+    base::BufferReadStream read_stream{{buffer, 39}};
     dut.ReadBinary(read_stream);
     BOOST_TEST(my_struct.int_value == 10);
   }
@@ -82,7 +82,7 @@ BOOST_AUTO_TEST_CASE(BasicSerializableHandler) {
     char buffer[1000] = {};
     base::BufferWriteStream write_stream{buffer};
     dut.WriteSchema(write_stream);
-    BOOST_TEST(write_stream.offset() == 263);
+    BOOST_TEST(write_stream.offset() == 204);
   }
 
   {

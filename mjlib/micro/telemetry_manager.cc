@@ -20,6 +20,8 @@
 #include "mjlib/base/stream.h"
 #include "mjlib/base/tokenizer.h"
 
+#include "mjlib/telemetry/format.h"
+
 #include "mjlib/micro/pool_map.h"
 
 namespace mjlib {
@@ -193,7 +195,7 @@ class TelemetryManager::Impl {
     work(element, &ostream);
 
     base::BufferWriteStream size_stream({size_position, sizeof(uint32_t)});
-    mjlib::telemetry::TelemetryWriteStream tstream(size_stream);
+    mjlib::telemetry::WriteStream tstream(size_stream);
     tstream.Write(static_cast<uint32_t>(
                       ostream.offset() + send_buffer_ -
                       (size_position + sizeof(uint32_t))));

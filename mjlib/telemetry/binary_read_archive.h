@@ -73,7 +73,7 @@ class BinaryReadArchive : public base::VisitArchive<BinaryReadArchive> {
       // TODO jpieper: Add exception.
       MJ_ASSERT(false);
     }
-    VisitArray(*value);
+    VisitArrayHelper(*value);
   }
 
   template <typename NameValuePair, typename T>
@@ -82,11 +82,11 @@ class BinaryReadArchive : public base::VisitArchive<BinaryReadArchive> {
                    base::PriorityTag<1>) {
     const auto size = stream_.ReadVaruint();
     value->resize(size);
-    VisitArray(*value);
+    VisitArrayHelper(*value);
   }
 
   template <typename Array>
-  void VisitArray(Array& value) {
+  void VisitArrayHelper(Array& value) {
     for (auto& item : value) {
       base::ReferenceNameValuePair sub_nvp(&item, "");
       Visit(sub_nvp);

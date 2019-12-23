@@ -21,6 +21,8 @@
 #include "mjlib/base/crc.h"
 #include "mjlib/base/tokenizer.h"
 
+#include "mjlib/telemetry/format.h"
+
 #include "mjlib/micro/flash.h"
 #include "mjlib/micro/pool_map.h"
 
@@ -183,13 +185,13 @@ class PersistentConfig::Impl {
     auto info = flash_.GetInfo();
     base::BufferReadStream flash_stream(
         std::string_view(info.start, info.end - info.start));
-    telemetry::TelemetryReadStream stream(flash_stream);
+    telemetry::ReadStream stream(flash_stream);
 
     while (true) {
-      uint32_t name_size = stream.Read<uint32_t>();
-      typedef telemetry::TelemetryFormat TF;
+      uint32_t name_size = stream.ReadVaruint();
+      typedef telemetry::Format TF;
       if (name_size == 0 ||
-          name_size >= static_cast<uint32_t>(TF::BlockOffsets::kMaxBlockSize)) {
+          name_size >= static_cast<uint32_t>(TF::kMaxStringSize)) {
         break;
       }
       std::string_view name(flash_stream.position(), name_size);
@@ -249,7 +251,7 @@ class PersistentConfig::Impl {
     flash_.Unlock();
     flash_.Erase();
     FlashWriteStream flash_stream(flash_, info.start);
-    telemetry::TelemetryWriteStream stream(flash_stream);
+    telemetry::WriteStream stream(flash_stream);
 
     for (const auto& item_pair : elements_) {
       const auto& element = item_pair.second;
