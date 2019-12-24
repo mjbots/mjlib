@@ -32,6 +32,7 @@
 #include "mjlib/io/stream_copy.h"
 #include "mjlib/io/stream_factory.h"
 #include "mjlib/multiplex/asio_client.h"
+#include "mjlib/multiplex/rs485_frame_stream.h"
 
 namespace mp = mjlib::multiplex;
 namespace po = boost::program_options;
@@ -107,7 +108,8 @@ class CommandRunner {
     base::FailIf(ec);
 
     stream_ = stream;
-    client_.emplace(stream_.get());
+    frame_stream_.emplace(stream_.get());
+    client_.emplace(&*frame_stream_);
 
     MaybeStart();
   }
@@ -388,6 +390,7 @@ class CommandRunner {
   io::StreamFactory* const stream_factory_;
   const Options options_;
   io::SharedStream stream_;
+  std::optional<mp::Rs485FrameStream> frame_stream_;
   std::optional<mp::AsioClient> client_;
 
   io::SharedStream tunnel_;

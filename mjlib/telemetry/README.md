@@ -395,8 +395,125 @@ TODO
 
 TODO
 
-# RPC transport #
+# Websocket #
 
-## HTTP ##
+A websocket based protocol is defined for clients to monitor the state
+of a system that produces a hierarchical set of formatted structures.
 
-## Websocket Publication / Subscription ##
+The available topics form a hierarchy, with levels separated by
+forward slashes ('/').  Each topic has a fixed schema, and provides
+data updates at regular or possibly irregular intervals.
+
+It is expected to use the websocket endpoint "/telemetry" with text
+frames containing JSON structures.  Each structure contains the field
+"command", wich may be one of the following:
+
+ - `subscribe`
+ - `unsubscribe`
+ - `publish_start`
+ - `publish`
+ - `publish_stop`
+ - `error`
+
+## `subscribe` ##
+
+The `subscribe` command is a message from the client to the server
+requesting to receive updates on specific topics when they are
+available.  The following fields are current defined.
+
+ * `topic` - a string to describe which topics are of interest.  It is
+   expanded according to glob(7) rules.
+ * `id` - a client assigned identifier used to refer to this
+   subscription in the future.  The client must ensure that
+   outstanding subscriptions have unique identifiers.
+ * `schema_only` - if present, and set to True, then no `publish`
+   messages will be sent for this subscription
+
+```
+{
+  "command" : "subscribe",
+  "topic" : "/my/first/topic",
+  "id" : "12abdcef"
+}
+```
+
+## `unsubscribe` ##
+
+The `unsubscribe` command is a message from the client to the server
+requesting to stop the given subscription.  A `publish_stop` message
+will be sent from the server to the client for any topics which have
+an outstanding `publish_start`.
+
+Fields:
+
+ * `id` - an identifier previously sent in a `subscribe` message and
+   not yet sent via `unsubscribe`.
+
+```
+{
+  "command" : "unsubscribe",
+  "id" : "12abdcef"
+}
+```
+
+
+## `publish_start` ##
+
+The `publish_start` is sent from the server to the client to indicate
+that the given message is available and may have `publish` messages
+sent for it.
+
+Fields:
+
+ * `subscribe_id` - the client assigned identifier for the `subscribe`
+   message that initiated this publish_start
+ * `publish_id` - a server assigned identifier unique to this stream
+   of data
+ * `topic` - the topic string
+ * `schema` - a base64 encoded binary schema representation
+
+```
+{
+  "command" : "publish_start",
+  "subscribe_id" : "12abdcef",
+  "publish_id" : "bvcdef",
+  "topic" : "/my/first/topic",
+  "schema" : "YWJjZGVm"
+}
+```
+
+
+## `publish` ##
+
+The `publish` message is sent from the server to the client to
+indicate that new data is available for the given topic.
+
+Fields:
+
+ * `id` - the unique identifier that was sent with the `publish_start` message
+ * `data` - a base64 encoded binary data representation
+
+```
+{
+  "command" : "publish",
+  "id" : "bvcdef",
+  "data" : "QUFBQQ==",
+}
+```
+
+## `publish_stop` ##
+
+The `publish_stop` message is sent from the server to the client to
+indicate that the given topic is no longer available.
+
+Fields:
+
+ * `id` - the unique identifier that was sent with the `publish_start`
+   message
+
+```
+{
+  "command" : "publish_stop",
+  "id" : "bvcdef",
+}
+```

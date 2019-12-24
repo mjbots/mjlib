@@ -45,10 +45,9 @@ uint32_t u32(T value) {
 
 class AsioClient::Impl {
  public:
-  Impl(io::AsyncStream* stream, const Options& options)
-      : stream_(stream),
-        options_(options),
-        frame_stream_(stream_) {}
+  Impl(FrameStream* frame_stream, const Options& options)
+      : options_(options),
+        frame_stream_(*frame_stream) {}
 
   void AsyncRegister(uint8_t id,
                      const RegisterRequest& request,
@@ -434,10 +433,9 @@ class AsioClient::Impl {
     std::shared_ptr<Tunnel> impl_;
   };
 
-  io::AsyncStream* const stream_;
-  boost::asio::executor executor_{stream_->get_executor()};
   const Options options_;
-  FrameStream frame_stream_;
+  FrameStream& frame_stream_;
+  boost::asio::executor executor_{frame_stream_.get_executor()};
 
   io::ExclusiveCommand lock_{executor_};
 
@@ -447,7 +445,7 @@ class AsioClient::Impl {
   std::vector<const Frame*> tx_frame_ptrs_;
 };
 
-AsioClient::AsioClient(io::AsyncStream* stream, const Options& options)
+AsioClient::AsioClient(FrameStream* stream, const Options& options)
     : impl_(std::make_unique<Impl>(stream, options)) {}
 
 AsioClient::~AsioClient() {}

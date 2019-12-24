@@ -22,6 +22,8 @@
 #include "mjlib/io/stream_pipe_factory.h"
 #include "mjlib/io/test/reader.h"
 
+#include "mjlib/multiplex/rs485_frame_stream.h"
+
 namespace base = mjlib::base;
 namespace io = mjlib::io;
 namespace mp = mjlib::multiplex;
@@ -49,7 +51,8 @@ struct Fixture {
     io::DebugDeadlineService::Install(context)};
   io::StreamPipeFactory pipe_factory{executor};
   io::SharedStream client_side{pipe_factory.GetStream("", 1)};
-  AsioClient dut{client_side.get()};
+  mp::Rs485FrameStream frame_stream{client_side.get()};
+  AsioClient dut{&frame_stream};
 
   io::SharedStream server_side{pipe_factory.GetStream("", 0)};
   io::test::Reader server_reader{server_side.get()};

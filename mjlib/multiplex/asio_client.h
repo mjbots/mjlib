@@ -20,6 +20,7 @@
 
 #include "mjlib/base/error_code.h"
 #include "mjlib/io/async_stream.h"
+#include "mjlib/multiplex/frame_stream.h"
 #include "mjlib/multiplex/register.h"
 
 namespace mjlib {
@@ -33,7 +34,7 @@ class AsioClient {
 
     Options() {}
   };
-  AsioClient(io::AsyncStream*, const Options& = Options());
+  AsioClient(FrameStream*, const Options& = Options());
   ~AsioClient();
 
   using RegisterHandler = std::function<

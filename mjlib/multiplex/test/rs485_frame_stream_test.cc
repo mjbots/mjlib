@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "mjlib/multiplex/frame_stream.h"
+#include "mjlib/multiplex/rs485_frame_stream.h"
 
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/write.hpp>
@@ -23,7 +23,7 @@
 
 namespace io = mjlib::io;
 using mjlib::multiplex::Frame;
-using mjlib::multiplex::FrameStream;
+using mjlib::multiplex::Rs485FrameStream;
 
 namespace {
 struct Fixture {
@@ -35,7 +35,7 @@ struct Fixture {
   boost::asio::io_context context;
   io::StreamPipeFactory pipe_factory{context.get_executor()};
   io::SharedStream client_side{pipe_factory.GetStream("", 1)};
-  FrameStream dut{client_side.get()};
+  Rs485FrameStream dut{client_side.get()};
 
   io::SharedStream server_side{pipe_factory.GetStream("", 0)};
   io::test::Reader server_reader{server_side.get()};

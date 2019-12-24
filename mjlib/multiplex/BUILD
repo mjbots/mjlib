@@ -61,8 +61,13 @@ cc_library(
 
 cc_library(
     name = "frame_stream",
-    hdrs = ["frame_stream.h"],
-    srcs = ["frame_stream.cc"],
+    hdrs = [
+        "frame_stream.h",
+        "rs485_frame_stream.h",
+    ],
+    srcs = [
+        "rs485_frame_stream.cc",
+    ],
     deps = [
         ":format",
         ":frame",
@@ -188,7 +193,7 @@ cc_test(
     srcs = [
         "test/asio_client_test.cc",
         "test/frame_test.cc",
-        "test/frame_stream_test.cc",
+        "test/rs485_frame_stream_test.cc",
         "test/micro_server_test.cc",
         "test/micro_stream_datagram_test.cc",
         "test/register_test.cc",

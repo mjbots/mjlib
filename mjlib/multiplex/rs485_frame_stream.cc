@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "mjlib/multiplex/frame_stream.h"
+#include "mjlib/multiplex/rs485_frame_stream.h"
 
 #include <functional>
 
@@ -37,7 +37,7 @@ namespace {
 constexpr size_t kBlockSize = 4096;
 }
 
-class FrameStream::Impl {
+class Rs485FrameStream::Impl {
  public:
   Impl(io::AsyncStream* stream) : stream_(stream) {}
 
@@ -99,6 +99,10 @@ class FrameStream::Impl {
 
   bool read_data_queued() const {
     return streambuf_.size() > 0;
+  }
+
+  boost::asio::executor get_executor() const {
+    return stream_->get_executor();
   }
 
  private:
@@ -240,31 +244,37 @@ class FrameStream::Impl {
   io::ErrorCallback current_callback_;
 };
 
-FrameStream::FrameStream(io::AsyncStream* stream)
+Rs485FrameStream::Rs485FrameStream(io::AsyncStream* stream)
     : impl_(std::make_unique<Impl>(stream)) {}
-FrameStream::~FrameStream() {}
+Rs485FrameStream::~Rs485FrameStream() {}
 
-void FrameStream::AsyncWrite(const Frame* frame, io::ErrorCallback callback) {
+void Rs485FrameStream::AsyncWrite(
+    const Frame* frame, io::ErrorCallback callback) {
   impl_->AsyncWrite(frame, callback);
 }
 
-void FrameStream::AsyncWriteMultiple(
+void Rs485FrameStream::AsyncWriteMultiple(
     const std::vector<const Frame*>& frames, io::ErrorCallback callback) {
   impl_->AsyncWriteMultiple(frames, callback);
 }
 
-void FrameStream::AsyncRead(Frame* frame,
-                            boost::posix_time::time_duration timeout,
-                            io::ErrorCallback callback) {
+void Rs485FrameStream::AsyncRead(
+    Frame* frame,
+    boost::posix_time::time_duration timeout,
+    io::ErrorCallback callback) {
   impl_->AsyncRead(frame, timeout, callback);
 }
 
-void FrameStream::cancel() {
+void Rs485FrameStream::cancel() {
   impl_->cancel();
 }
 
-bool FrameStream::read_data_queued() const {
+bool Rs485FrameStream::read_data_queued() const {
   return impl_->read_data_queued();
+}
+
+boost::asio::executor Rs485FrameStream::get_executor() const {
+  return impl_->get_executor();
 }
 
 }

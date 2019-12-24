@@ -16,44 +16,38 @@
 
 #include <vector>
 
+#include <boost/asio/executor.hpp>
 #include <boost/date_time/posix_time/posix_time_types.hpp>
 
-#include "mjlib/io/async_stream.h"
 #include "mjlib/io/async_types.h"
 #include "mjlib/multiplex/frame.h"
 
 namespace mjlib {
 namespace multiplex {
 
-/// Writes and reads a set of multiplex frames over a stream
-/// connection.
 class FrameStream {
  public:
-  FrameStream(io::AsyncStream*);
-  ~FrameStream();
+  virtual ~FrameStream() {}
 
-  void AsyncWrite(const Frame*, io::ErrorCallback);
-
-  void AsyncWriteMultiple(const std::vector<const Frame*>&,
-                          io::ErrorCallback);
+  virtual void AsyncWrite(const Frame*, io::ErrorCallback) = 0;
+  virtual void AsyncWriteMultiple(const std::vector<const Frame*>&,
+                                  io::ErrorCallback) = 0;
 
   /// If @p timeout is not-special, @p callback will be invoked with
   /// boost::asio::error::operation_aborted after that much time has
   /// elapsed.
-  void AsyncRead(Frame*, boost::posix_time::time_duration timeout,
-                 io::ErrorCallback callback);
+  virtual void AsyncRead(Frame*, boost::posix_time::time_duration timeout,
+                         io::ErrorCallback callback) = 0;
 
   /// Cancel any outstanding operations.
-  void cancel();
+  virtual void cancel() = 0;
 
-  /// @return true if there is data available to be read.  This means
+    /// @return true if there is data available to be read.  This means
   /// an AsyncRead *may* be able to complete without touching the
   /// operating system.
-  bool read_data_queued() const;
+  virtual bool read_data_queued() const = 0;
 
- private:
-  class Impl;
-  std::unique_ptr<Impl> impl_;
+  virtual boost::asio::executor get_executor() const = 0;
 };
 
 }
