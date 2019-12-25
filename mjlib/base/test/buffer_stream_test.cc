@@ -16,6 +16,8 @@
 
 #include <boost/test/auto_unit_test.hpp>
 
+#include "mjlib/base/string_span.h"
+
 BOOST_AUTO_TEST_CASE(BufferReadStreamTest) {
   const char data[] = "abcdef";
   {
@@ -36,5 +38,24 @@ BOOST_AUTO_TEST_CASE(BufferReadStreamTest) {
     BOOST_TEST(dut1.remaining() == 0);
     BOOST_TEST(dut1.size() == 6);
     BOOST_TEST(dut1.gcount() == 4);
+  }
+}
+
+BOOST_AUTO_TEST_CASE(BufferWriteStreamTest) {
+  char buf[64] = {};
+
+  {
+    mjlib::base::BufferWriteStream dut{mjlib::base::string_span(buf)};
+    mjlib::base::WriteStream::Iterator it{dut};
+    *it = 't';
+    ++it;
+    *it = 'e';
+    ++it;
+    *it = 's';
+    ++it;
+    *it = 't';
+    ++it;
+
+    BOOST_TEST(std::string(buf, 4) == "test");
   }
 }
