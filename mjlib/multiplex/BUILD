@@ -62,10 +62,12 @@ cc_library(
 cc_library(
     name = "frame_stream",
     hdrs = [
+        "fdcanusb_frame_stream.h",
         "frame_stream.h",
         "rs485_frame_stream.h",
     ],
     srcs = [
+        "fdcanusb_frame_stream.cc",
         "rs485_frame_stream.cc",
     ],
     deps = [
@@ -74,10 +76,12 @@ cc_library(
         ":stream",
         "//mjlib/base:crc_stream",
         "//mjlib/base:fail",
+        "//mjlib/base:tokenizer",
         "//mjlib/io:async_stream",
         "//mjlib/io:debug_time",
         "//mjlib/io:streambuf_read_stream",
         "@boost",
+        "@fmt",
     ],
 )
 
@@ -192,6 +196,7 @@ cc_test(
     name = "test",
     srcs = [
         "test/asio_client_test.cc",
+        "test/fdcanusb_frame_stream_test.cc",
         "test/frame_test.cc",
         "test/rs485_frame_stream_test.cc",
         "test/micro_server_test.cc",

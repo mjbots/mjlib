@@ -29,6 +29,12 @@ class FrameStream {
  public:
   virtual ~FrameStream() {}
 
+  struct Properties {
+    int max_size = -1;
+  };
+
+  virtual Properties properties() const = 0;
+
   virtual void AsyncWrite(const Frame*, io::ErrorCallback) = 0;
   virtual void AsyncWriteMultiple(const std::vector<const Frame*>&,
                                   io::ErrorCallback) = 0;

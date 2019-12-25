@@ -42,7 +42,7 @@ struct Fixture {
 };
 }
 
-BOOST_FIXTURE_TEST_CASE(FrameStreamWriteTest, Fixture) {
+BOOST_FIXTURE_TEST_CASE(Rs485FrameStreamWriteTest, Fixture) {
   Frame to_send;
   to_send.source_id = 1;
   to_send.dest_id = 2;
@@ -64,7 +64,7 @@ BOOST_FIXTURE_TEST_CASE(FrameStreamWriteTest, Fixture) {
              std::string("\x54\xab\x01\x02\x00\x03\x28", 7));
 }
 
-BOOST_FIXTURE_TEST_CASE(FrameStreamWriteMultipleTest, Fixture) {
+BOOST_FIXTURE_TEST_CASE(Rs485FrameStreamWriteMultipleTest, Fixture) {
   Frame to_send1;
   Frame to_send2;
   to_send1.source_id = 1;
@@ -94,7 +94,7 @@ BOOST_FIXTURE_TEST_CASE(FrameStreamWriteMultipleTest, Fixture) {
   BOOST_TEST(actual == expected);
 }
 
-BOOST_FIXTURE_TEST_CASE(FrameStreamReadTest, Fixture) {
+BOOST_FIXTURE_TEST_CASE(Rs485FrameStreamReadTest, Fixture) {
   Frame to_receive;
   int read_done = 0;
 
@@ -129,7 +129,7 @@ BOOST_FIXTURE_TEST_CASE(FrameStreamReadTest, Fixture) {
   BOOST_TEST(to_receive.payload == " ");
 }
 
-BOOST_FIXTURE_TEST_CASE(FrameStreamReadCancelTest, Fixture) {
+BOOST_FIXTURE_TEST_CASE(Rs485FrameStreamReadCancelTest, Fixture) {
   Frame to_receive;
   int read_done = 0;
 

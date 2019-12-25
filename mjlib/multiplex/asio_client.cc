@@ -171,7 +171,7 @@ class AsioClient::Impl {
       read_nonce_ = parent_->lock_.Invoke(
           [self=shared_from_this(), buffers](io::SizeCallback handler) {
             self->read_nonce_ = {};
-            self->MakeFrame(boost::asio::buffer("", 0), true);
+            self->MakeFrame(boost::asio::buffer("", 0), 0, true);
 
             self->parent_->frame_stream_.AsyncWrite(
                 &self->parent_->tx_frame_,
@@ -190,8 +190,18 @@ class AsioClient::Impl {
           [self=shared_from_this(), buffers](io::WriteHandler handler) {
             self->write_nonce_ = {};
             self->write_handler_ = {};
-            const auto size = boost::asio::buffer_size(buffers);
-            self->MakeFrame(buffers, false);
+            auto size = boost::asio::buffer_size(buffers);
+            if (self->parent_->stream_properties_.max_size >= 0) {
+              const int kVarUintSize = 1;
+              const int kNeededOverhead = 3 * kVarUintSize;
+
+              BOOST_ASSERT(kNeededOverhead <=
+                           self->parent_->stream_properties_.max_size);
+              size = std::min<size_t>(
+                  size, self->parent_->stream_properties_.max_size -
+                  kNeededOverhead);
+            }
+            self->MakeFrame(buffers, size, false);
 
             self->parent_->frame_stream_.AsyncWrite(
                 &self->parent_->tx_frame_,
@@ -337,14 +347,14 @@ class AsioClient::Impl {
       callback({}, read_bytes_read_);
     }
 
-    void MakeFrame(io::ConstBufferSequence buffers, bool request_reply) {
+    void MakeFrame(io::ConstBufferSequence buffers, size_t size,
+                   bool request_reply) {
       base::FastOStringStream stream;
       WriteStream writer{stream};
 
       writer.WriteVaruint(u32(Format::Subframe::kClientToServer));
       writer.WriteVaruint(channel_);
 
-      const auto size = boost::asio::buffer_size(buffers);
       writer.WriteVaruint(size);
       temp_data_.resize(size);
       boost::asio::buffer_copy(boost::asio::buffer(&temp_data_[0], size), buffers);
@@ -435,6 +445,7 @@ class AsioClient::Impl {
 
   const Options options_;
   FrameStream& frame_stream_;
+  const FrameStream::Properties stream_properties_{frame_stream_.properties()};
   boost::asio::executor executor_{frame_stream_.get_executor()};
 
   io::ExclusiveCommand lock_{executor_};

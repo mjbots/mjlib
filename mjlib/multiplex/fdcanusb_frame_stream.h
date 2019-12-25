@@ -29,10 +29,10 @@ namespace multiplex {
 
 /// Writes and reads a set of multiplex frames over a RS485 based
 /// connection.
-class Rs485FrameStream : public FrameStream {
+class FdcanusbFrameStream : public FrameStream {
  public:
-  Rs485FrameStream(io::AsyncStream*);
-  ~Rs485FrameStream() override;
+  FdcanusbFrameStream(io::AsyncStream*);
+  ~FdcanusbFrameStream() override;
 
   Properties properties() const override;
 

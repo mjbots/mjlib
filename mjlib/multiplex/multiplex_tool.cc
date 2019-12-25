@@ -32,6 +32,7 @@
 #include "mjlib/io/stream_copy.h"
 #include "mjlib/io/stream_factory.h"
 #include "mjlib/multiplex/asio_client.h"
+#include "mjlib/multiplex/fdcanusb_frame_stream.h"
 #include "mjlib/multiplex/rs485_frame_stream.h"
 
 namespace mp = mjlib::multiplex;
@@ -49,6 +50,7 @@ struct Options {
 
   bool console = false;
   bool register_tool = false;
+  std::string transport = "fdcanusb";
 };
 
 struct ValueFormatter {
@@ -108,8 +110,17 @@ class CommandRunner {
     base::FailIf(ec);
 
     stream_ = stream;
-    frame_stream_.emplace(stream_.get());
-    client_.emplace(&*frame_stream_);
+    client_.emplace([&]() -> mjlib::multiplex::FrameStream* {
+        if (options_.transport == "rs485") {
+          rs485_frame_stream_.emplace(stream_.get());
+          return &*rs485_frame_stream_;
+        } else if (options_.transport == "fdcanusb") {
+          fdcanusb_frame_stream_.emplace(stream_.get());
+          return &*fdcanusb_frame_stream_;
+        }
+        std::cerr << "Unknown transport: " << options_.transport << "\n";
+        std::exit(1);
+      }());
 
     MaybeStart();
   }
@@ -390,7 +401,8 @@ class CommandRunner {
   io::StreamFactory* const stream_factory_;
   const Options options_;
   io::SharedStream stream_;
-  std::optional<mp::Rs485FrameStream> frame_stream_;
+  std::optional<mp::Rs485FrameStream> rs485_frame_stream_;
+  std::optional<mp::FdcanusbFrameStream> fdcanusb_frame_stream_;
   std::optional<mp::AsioClient> client_;
 
   io::SharedStream tunnel_;
@@ -418,6 +430,7 @@ int multiplex_main(int argc, char** argv) {
       ("target,t", po::value(&options.targets), "")
       ("console,c", po::bool_switch(&options.console), "")
       ("register,r", po::bool_switch(&options.register_tool), "")
+      ("transport", po::value(&options.transport), "*fdcanusb*/rs485")
       ;
   base::ProgramOptionsArchive(&desc).Accept(&stream_options);
 

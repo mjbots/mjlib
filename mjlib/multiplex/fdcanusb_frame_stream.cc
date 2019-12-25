@@ -12,17 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "mjlib/multiplex/rs485_frame_stream.h"
+#include "mjlib/multiplex/fdcanusb_frame_stream.h"
 
 #include <functional>
 
+#include <boost/algorithm/string.hpp>
 #include <boost/asio/post.hpp>
 #include <boost/asio/write.hpp>
-#include <boost/crc.hpp>
 
-#include "mjlib/base/crc_stream.h"
+#include <fmt/format.h>
+
 #include "mjlib/base/fail.h"
 #include "mjlib/base/fast_stream.h"
+#include "mjlib/base/tokenizer.h"
 #include "mjlib/io/deadline_timer.h"
 #include "mjlib/io/streambuf_read_stream.h"
 #include "mjlib/multiplex/format.h"
@@ -35,16 +37,44 @@ namespace multiplex {
 
 namespace {
 constexpr size_t kBlockSize = 4096;
+constexpr ssize_t kMaxLineLength = 512;
+
+void EncodeFdcanusb(const Frame* frame, base::WriteStream* stream) {
+  base::WriteStream::Iterator output(*stream);
+  fmt::format_to(
+      output, "can send {:x} ",
+      (frame->source_id | (frame->request_reply ? 0x80 : 0x00)) << 8 |
+      (frame->dest_id));
+  for (uint8_t c : frame->payload) {
+    fmt::format_to(output, "{:02x}", c);
+  }
+  fmt::format_to(output, "\n");
 }
 
-class Rs485FrameStream::Impl {
+int ParseHexNybble(char c) {
+  if (c >= '0' && c <= '9') { return c - '0'; }
+  if (c >= 'a' && c <= 'f') { return c - 'a' + 10; }
+  if (c >= 'A' && c <= 'F') { return c - 'A' + 10; }
+  return -1;
+}
+
+int ParseHexByte(const char* value) {
+  int high = ParseHexNybble(value[0]);
+  if (high < 0) { return high; }
+  int low = ParseHexNybble(value[1]);
+  if (low < 0) { return low; }
+  return (high << 4) | low;
+}
+}
+
+class FdcanusbFrameStream::Impl {
  public:
   Impl(io::AsyncStream* stream) : stream_(stream) {}
 
   void AsyncWrite(const Frame* frame, io::ErrorCallback callback) {
     write_buffer_.data()->clear();
 
-    frame->encode(&write_buffer_);
+    EncodeFdcanusb(frame, &write_buffer_);
 
     boost::asio::async_write(
         *stream_,
@@ -57,7 +87,7 @@ class Rs485FrameStream::Impl {
     write_buffer_.data()->clear();
 
     for (auto& frame : frames) {
-      frame->encode(&write_buffer_);
+      EncodeFdcanusb(frame, &write_buffer_);
     }
     boost::asio::async_write(
         *stream_,
@@ -139,78 +169,70 @@ class Rs485FrameStream::Impl {
   void ParseFrame() {
     BOOST_ASSERT(current_frame_);
 
-    while (true) {
-      // Try to find a complete frame in our input buffer, discarding
-      // anything that doesn't look like a frame.
-      DiscardUntil(Format::kHeader & 0xff);
-
-      io::StreambufReadStream stream{&streambuf_};
-      base::CrcReadStream<boost::crc_ccitt_type> crc_stream{stream};
-      ReadStream reader{crc_stream};
-
-      auto maybe_header = reader.Read<uint16_t>();
-      if (!maybe_header) { return; }
-      if (*maybe_header != Format::kHeader) {
-        // Discard two bytes and try again.
-        streambuf_.consume(2);
-        continue;
+    // Look for a newline.
+    auto buffers = streambuf_.data();
+    const auto begin = iterator::begin(buffers);
+    const auto end = iterator::end(buffers);
+    const auto it = std::find_if(
+        begin, end, [&](char c) { return c == '\n' || c == '\r'; });
+    if (it == end) {
+      // No newline present.  See if we've exceeded our maximum line
+      // length and can discard.
+      if ((it - begin) > kMaxLineLength) {
+        streambuf_.consume(it - begin + 1);
       }
+      return;
+    }
 
-      auto maybe_source_id = reader.Read<uint8_t>();
-      if (!maybe_source_id) { return; }
-      current_frame_->source_id = *maybe_source_id & 0x7f;
-      current_frame_->request_reply = (*maybe_source_id & 0x80) != 0;
+    // We have a line, try to handle it.
+    ParseLine(std::string_view(&*begin, it - begin));
+    streambuf_.consume(it - begin + 1);
+  }
 
-      auto maybe_dest_id = reader.Read<uint8_t>();
-      if (!maybe_dest_id) { return; }
-      current_frame_->dest_id = *maybe_dest_id;
+  void ParseLine(std::string_view line) {
+    if (line.size() == 0) { return; }
 
-      auto maybe_payload_size = reader.ReadVaruint();
-      if (!maybe_payload_size) { return; }
+    // We just ignore OKs for now.
+    if (line == "OK") { return; }
 
-      if (stream.remaining() < (*maybe_payload_size + 2)) {
+    if (boost::starts_with(line, "rcv ")) {
+      BOOST_ASSERT(current_frame_);
+      // This means we have received a frame.  Lets parse it.
+      base::Tokenizer tokenizer(line, " ");
+      const auto rcv = tokenizer.next();
+      const auto address = tokenizer.next();
+      const auto data = tokenizer.next();
+
+      if (rcv.size() == 0 || address.size() == 0 || data.size() == 0) {
+        // This is malformed.  Ignore for now.
         return;
       }
 
-      current_frame_->payload.resize(*maybe_payload_size);
-      crc_stream.read(base::string_span(&current_frame_->payload[0],
-                                        *maybe_payload_size));
+      const auto int_address =
+          std::strtol(address.data(), 0, 16);
+      current_frame_->source_id = (int_address >> 8) & 0x7f;
+      current_frame_->request_reply = ((int_address >> 8) & 0x80) != 0;
+      current_frame_->dest_id = int_address & 0x7f;
 
-      const auto calculated_checksum = crc_stream.checksum();
-      const auto read_checksum = reader.Read<uint16_t>();
-
-      // We have enough data. Lets see if the checksum matches.
-      if (calculated_checksum != *read_checksum) {
-        // Nope.  Skip this header and try again.
-        streambuf_.consume(2);
-        continue;
-
-        // Maybe we should instead report this as an error?
+      current_frame_->payload.resize(data.size() / 2);
+      for (size_t i = 0; i < data.size(); i += 2) {
+        current_frame_->payload[i / 2] = ParseHexByte(&data[i]);
       }
 
-      streambuf_.consume(stream.offset());
-
-      // Woot!  We have a full functioning frame.  Let's report that.
-      current_frame_ = nullptr;
-      auto copy = current_callback_;
-      current_callback_ = {};
-
-      boost::asio::post(
-          stream_->get_executor(),
-          std::bind(copy, base::error_code()));
+      EmitFrame();
 
       return;
     }
   }
 
-  void DiscardUntil(uint8_t value) {
-    auto buffers = streambuf_.data();
-    const auto begin = iterator::begin(buffers);
-    const auto end = iterator::end(buffers);
-    const auto it = std::find_if(
-        begin, end, [&](char c) { return static_cast<uint8_t>(c) == value; });
-    const auto to_discard = it - begin;
-    streambuf_.consume(to_discard);
+  void EmitFrame() {
+    current_frame_ = nullptr;
+    auto copy = current_callback_;
+    current_callback_ = {};
+
+    boost::asio::post(
+        get_executor(),
+        std::bind(copy, base::error_code()));
   }
 
   void HandleTimer(const base::error_code& ec) {
@@ -244,41 +266,42 @@ class Rs485FrameStream::Impl {
   io::ErrorCallback current_callback_;
 };
 
-Rs485FrameStream::Rs485FrameStream(io::AsyncStream* stream)
+FdcanusbFrameStream::FdcanusbFrameStream(io::AsyncStream* stream)
     : impl_(std::make_unique<Impl>(stream)) {}
-Rs485FrameStream::~Rs485FrameStream() {}
+FdcanusbFrameStream::~FdcanusbFrameStream() {}
 
-FrameStream::Properties Rs485FrameStream::properties() const {
+FrameStream::Properties FdcanusbFrameStream::properties() const {
   Properties properties;
+  properties.max_size = 64;
   return properties;
 }
 
-void Rs485FrameStream::AsyncWrite(
+void FdcanusbFrameStream::AsyncWrite(
     const Frame* frame, io::ErrorCallback callback) {
   impl_->AsyncWrite(frame, callback);
 }
 
-void Rs485FrameStream::AsyncWriteMultiple(
+void FdcanusbFrameStream::AsyncWriteMultiple(
     const std::vector<const Frame*>& frames, io::ErrorCallback callback) {
   impl_->AsyncWriteMultiple(frames, callback);
 }
 
-void Rs485FrameStream::AsyncRead(
+void FdcanusbFrameStream::AsyncRead(
     Frame* frame,
     boost::posix_time::time_duration timeout,
     io::ErrorCallback callback) {
   impl_->AsyncRead(frame, timeout, callback);
 }
 
-void Rs485FrameStream::cancel() {
+void FdcanusbFrameStream::cancel() {
   impl_->cancel();
 }
 
-bool Rs485FrameStream::read_data_queued() const {
+bool FdcanusbFrameStream::read_data_queued() const {
   return impl_->read_data_queued();
 }
 
-boost::asio::executor Rs485FrameStream::get_executor() const {
+boost::asio::executor FdcanusbFrameStream::get_executor() const {
   return impl_->get_executor();
 }
 
