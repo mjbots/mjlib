@@ -31,10 +31,17 @@ namespace multiplex {
 /// connection.
 class FdcanusbFrameStream : public FrameStream {
  public:
-  FdcanusbFrameStream(io::AsyncStream*);
+  struct Options {
+    template <typename Archive>
+    void Serialize(Archive*) {}
+  };
+
+  FdcanusbFrameStream(const Options&, io::AsyncStream*);
   ~FdcanusbFrameStream() override;
 
   Properties properties() const override;
+
+  void AsyncStart(io::ErrorCallback);
 
   void AsyncWrite(const Frame*, io::ErrorCallback) override;
 

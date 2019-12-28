@@ -266,7 +266,7 @@ class FdcanusbFrameStream::Impl {
   io::ErrorCallback current_callback_;
 };
 
-FdcanusbFrameStream::FdcanusbFrameStream(io::AsyncStream* stream)
+FdcanusbFrameStream::FdcanusbFrameStream(const Options&, io::AsyncStream* stream)
     : impl_(std::make_unique<Impl>(stream)) {}
 FdcanusbFrameStream::~FdcanusbFrameStream() {}
 
@@ -274,6 +274,12 @@ FrameStream::Properties FdcanusbFrameStream::properties() const {
   Properties properties;
   properties.max_size = 64;
   return properties;
+}
+
+void FdcanusbFrameStream::AsyncStart(io::ErrorCallback callback) {
+  boost::asio::post(
+      impl_->get_executor(),
+      std::bind(callback, base::error_code()));
 }
 
 void FdcanusbFrameStream::AsyncWrite(

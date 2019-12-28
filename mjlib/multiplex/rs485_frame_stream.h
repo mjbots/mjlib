@@ -31,10 +31,17 @@ namespace multiplex {
 /// connection.
 class Rs485FrameStream : public FrameStream {
  public:
-  Rs485FrameStream(io::AsyncStream*);
+  struct Options {
+    template <typename Archive>
+    void Serialize(Archive*) {}
+  };
+
+  Rs485FrameStream(const Options&, io::AsyncStream*);
   ~Rs485FrameStream() override;
 
   Properties properties() const override;
+
+  void AsyncStart(io::ErrorCallback);
 
   void AsyncWrite(const Frame*, io::ErrorCallback) override;
 

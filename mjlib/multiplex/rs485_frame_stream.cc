@@ -244,13 +244,19 @@ class Rs485FrameStream::Impl {
   io::ErrorCallback current_callback_;
 };
 
-Rs485FrameStream::Rs485FrameStream(io::AsyncStream* stream)
+Rs485FrameStream::Rs485FrameStream(const Options&, io::AsyncStream* stream)
     : impl_(std::make_unique<Impl>(stream)) {}
 Rs485FrameStream::~Rs485FrameStream() {}
 
 FrameStream::Properties Rs485FrameStream::properties() const {
   Properties properties;
   return properties;
+}
+
+void Rs485FrameStream::AsyncStart(io::ErrorCallback callback) {
+  boost::asio::post(
+      impl_->get_executor(),
+      std::bind(callback, base::error_code()));
 }
 
 void Rs485FrameStream::AsyncWrite(

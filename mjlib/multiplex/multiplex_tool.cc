@@ -33,6 +33,7 @@
 #include "mjlib/io/stream_factory.h"
 #include "mjlib/multiplex/asio_client.h"
 #include "mjlib/multiplex/fdcanusb_frame_stream.h"
+#include "mjlib/multiplex/multiplex_tool.h"
 #include "mjlib/multiplex/rs485_frame_stream.h"
 
 namespace mp = mjlib::multiplex;
@@ -50,7 +51,6 @@ struct Options {
 
   bool console = false;
   bool register_tool = false;
-  std::string transport = "fdcanusb";
 };
 
 struct ValueFormatter {
@@ -82,9 +82,11 @@ class CommandRunner {
   CommandRunner(const boost::asio::executor& executor,
                 io::StreamFactory* stream_factory,
                 const io::StreamFactory::Options& stream_options,
+                io::Selector<FrameStream, io::AsyncStream*>* frame_stream_selector,
                 const Options& options)
       : executor_(executor),
         stream_factory_(stream_factory),
+        frame_stream_selector_(frame_stream_selector),
         options_(options) {
     stream_factory->AsyncCreate(
         stream_options,
@@ -110,17 +112,12 @@ class CommandRunner {
     base::FailIf(ec);
 
     stream_ = stream;
-    client_.emplace([&]() -> mjlib::multiplex::FrameStream* {
-        if (options_.transport == "rs485") {
-          rs485_frame_stream_.emplace(stream_.get());
-          return &*rs485_frame_stream_;
-        } else if (options_.transport == "fdcanusb") {
-          fdcanusb_frame_stream_.emplace(stream_.get());
-          return &*fdcanusb_frame_stream_;
-        }
-        std::cerr << "Unknown transport: " << options_.transport << "\n";
-        std::exit(1);
-      }());
+    frame_stream_selector_->AsyncStart([this](const base::error_code& ec) {
+        base::FailIf(ec);
+        client_.emplace(frame_stream_selector_->selected());
+        MaybeStart();
+      },
+      stream_.get());
 
     MaybeStart();
   }
@@ -399,6 +396,7 @@ class CommandRunner {
 
   boost::asio::executor executor_;
   io::StreamFactory* const stream_factory_;
+  io::Selector<FrameStream, io::AsyncStream*>* const frame_stream_selector_;
   const Options options_;
   io::SharedStream stream_;
   std::optional<mp::Rs485FrameStream> rs485_frame_stream_;
@@ -416,12 +414,21 @@ class CommandRunner {
 };
 }
 
-int multiplex_main(int argc, char** argv) {
+int multiplex_main(int argc, char** argv,
+                   io::Selector<FrameStream, io::AsyncStream*>* selector) {
   boost::asio::io_context context;
   io::StreamFactory factory{context.get_executor()};
 
   io::StreamFactory::Options stream_options;
   po::options_description desc("Allowable options");
+
+  io::Selector<FrameStream, io::AsyncStream*> default_frame_selector{"frame_type"};
+  if (selector == nullptr) {
+    default_frame_selector.Register<Rs485FrameStream>("rs485");
+    default_frame_selector.Register<FdcanusbFrameStream>("fdcanusb");
+    default_frame_selector.set_default("fdcanusb");
+    selector = &default_frame_selector;
+  }
 
   Options options;
 
@@ -430,9 +437,9 @@ int multiplex_main(int argc, char** argv) {
       ("target,t", po::value(&options.targets), "")
       ("console,c", po::bool_switch(&options.console), "")
       ("register,r", po::bool_switch(&options.register_tool), "")
-      ("transport", po::value(&options.transport), "*fdcanusb*/rs485")
       ;
   base::ProgramOptionsArchive(&desc).Accept(&stream_options);
+  selector->AddToProgramOptions(&desc, "frame");
 
   po::variables_map vm;
   po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -444,7 +451,7 @@ int multiplex_main(int argc, char** argv) {
   }
 
   CommandRunner command_runner{
-    context.get_executor(), &factory, stream_options, options};
+    context.get_executor(), &factory, stream_options, selector, options};
 
   context.run();
 

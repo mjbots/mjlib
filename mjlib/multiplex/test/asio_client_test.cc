@@ -51,7 +51,7 @@ struct Fixture {
     io::DebugDeadlineService::Install(context)};
   io::StreamPipeFactory pipe_factory{executor};
   io::SharedStream client_side{pipe_factory.GetStream("", 1)};
-  mp::Rs485FrameStream frame_stream{client_side.get()};
+  mp::Rs485FrameStream frame_stream{{}, client_side.get()};
   AsioClient dut{&frame_stream};
 
   io::SharedStream server_side{pipe_factory.GetStream("", 0)};
