@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "mjlib/multiplex/asio_client.h"
+#include "mjlib/multiplex/stream_asio_client.h"
 
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/write.hpp>
@@ -27,7 +27,7 @@
 namespace base = mjlib::base;
 namespace io = mjlib::io;
 namespace mp = mjlib::multiplex;
-using mp::AsioClient;
+using mp::StreamAsioClient;
 
 namespace {
 struct Fixture {
@@ -52,7 +52,7 @@ struct Fixture {
   io::StreamPipeFactory pipe_factory{executor};
   io::SharedStream client_side{pipe_factory.GetStream("", 1)};
   mp::Rs485FrameStream frame_stream{{}, client_side.get()};
-  AsioClient dut{&frame_stream};
+  StreamAsioClient dut{&frame_stream};
 
   io::SharedStream server_side{pipe_factory.GetStream("", 0)};
   io::test::Reader server_reader{server_side.get()};
@@ -62,7 +62,7 @@ struct Fixture {
 };
 }
 
-BOOST_FIXTURE_TEST_CASE(AsioClientRegisterNoReply, Fixture) {
+BOOST_FIXTURE_TEST_CASE(StreamAsioClientRegisterNoReply, Fixture) {
   mp::RegisterRequest request;
   request.WriteSingle(1, static_cast<int8_t>(10));
 
@@ -77,7 +77,7 @@ BOOST_FIXTURE_TEST_CASE(AsioClientRegisterNoReply, Fixture) {
   BOOST_TEST(server_reader.data().size() == 10u);
 }
 
-BOOST_FIXTURE_TEST_CASE(AsioClientRegisterReply, Fixture) {
+BOOST_FIXTURE_TEST_CASE(StreamAsioClientRegisterReply, Fixture) {
   mp::RegisterRequest request;
   request.ReadSingle(3, 0);
 
@@ -110,7 +110,7 @@ BOOST_FIXTURE_TEST_CASE(AsioClientRegisterReply, Fixture) {
                   mp::Format::Value(static_cast<int8_t>(4)))));
 }
 
-BOOST_FIXTURE_TEST_CASE(AsioClientTunnelWrite, Fixture) {
+BOOST_FIXTURE_TEST_CASE(StreamAsioClientTunnelWrite, Fixture) {
   auto tunnel = dut.MakeTunnel(2, 3);
 
   int write_done = 0;
@@ -132,7 +132,7 @@ BOOST_FIXTURE_TEST_CASE(AsioClientTunnelWrite, Fixture) {
              std::string("\x54\xab\x00\x02\x08\x40\x03\x05hello\xb7\xe2", 15));
 }
 
-BOOST_FIXTURE_TEST_CASE(AsioClientTunnelRead, Fixture) {
+BOOST_FIXTURE_TEST_CASE(StreamAsioClientTunnelRead, Fixture) {
   auto tunnel = dut.MakeTunnel(2, 3);
 
   char buf[10] = {};
@@ -169,7 +169,7 @@ BOOST_FIXTURE_TEST_CASE(AsioClientTunnelRead, Fixture) {
   BOOST_TEST(std::string(buf, 2) == "ab");
 }
 
-BOOST_FIXTURE_TEST_CASE(AsioClientTunnelReadCancel, Fixture) {
+BOOST_FIXTURE_TEST_CASE(StreamAsioClientTunnelReadCancel, Fixture) {
   auto tunnel = dut.MakeTunnel(2, 3);
 
   char buf[10] = {};
@@ -210,7 +210,7 @@ BOOST_FIXTURE_TEST_CASE(AsioClientTunnelReadCancel, Fixture) {
   BOOST_TEST(read_done == 1);
 }
 
-BOOST_FIXTURE_TEST_CASE(AsioClientTunnelReadFlush, Fixture) {
+BOOST_FIXTURE_TEST_CASE(StreamAsioClientTunnelReadFlush, Fixture) {
   auto tunnel = dut.MakeTunnel(2, 3);
 
   // Assume the device had some timing issues and sent a bunch of
@@ -258,7 +258,7 @@ BOOST_FIXTURE_TEST_CASE(AsioClientTunnelReadFlush, Fixture) {
              std::string("\x54\xab\x80\x02\x03\x40\x03\x00\x96\x38", 10));
 }
 
-BOOST_FIXTURE_TEST_CASE(AsioClientTunnelReadFlushRace, Fixture) {
+BOOST_FIXTURE_TEST_CASE(StreamAsioClientTunnelReadFlushRace, Fixture) {
   // Here, if there were multiple tunnels outstanding, and a bunch of
   // data came in at once that needed a flush, we could assert because
   // the tunnel was calling read outside of the ExclusiveCommand lock.

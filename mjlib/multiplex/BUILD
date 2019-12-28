@@ -90,8 +90,15 @@ cc_library(
 cc_library(
     name = "asio_client",
     hdrs = ["asio_client.h"],
-    srcs = ["asio_client.cc"],
+    deps = [":register"],
+)
+
+cc_library(
+    name = "stream_asio_client",
+    hdrs = ["stream_asio_client.h"],
+    srcs = ["stream_asio_client.cc"],
     deps = [
+        ":asio_client",
         ":frame_stream",
         ":register",
         ":stream",
@@ -177,7 +184,7 @@ cc_library(
     hdrs = ["multiplex_tool.h"],
     srcs = ["multiplex_tool.cc"],
     deps = [
-        ":asio_client",
+        ":stream_asio_client",
         "//mjlib/base:error_code",
         "//mjlib/base:fail",
         "//mjlib/base:program_options_archive",
@@ -198,7 +205,7 @@ cc_binary(
 cc_test(
     name = "test",
     srcs = [
-        "test/asio_client_test.cc",
+        "test/stream_asio_client_test.cc",
         "test/fdcanusb_frame_stream_test.cc",
         "test/frame_test.cc",
         "test/rs485_frame_stream_test.cc",
@@ -209,7 +216,7 @@ cc_test(
         "test/threaded_client_test.cc",
     ],
     deps = [
-        ":asio_client",
+        ":stream_asio_client",
         ":frame",
         ":frame_stream",
         ":micro_server",

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "mjlib/multiplex/asio_client.h"
+#include "mjlib/multiplex/stream_asio_client.h"
 
 #include <functional>
 
@@ -43,7 +43,7 @@ uint32_t u32(T value) {
 }
 }
 
-class AsioClient::Impl {
+class StreamAsioClient::Impl {
  public:
   Impl(FrameStream* frame_stream, const Options& options)
       : options_(options),
@@ -456,24 +456,25 @@ class AsioClient::Impl {
   std::vector<const Frame*> tx_frame_ptrs_;
 };
 
-AsioClient::AsioClient(FrameStream* stream, const Options& options)
+StreamAsioClient::StreamAsioClient(FrameStream* stream, const Options& options)
     : impl_(std::make_unique<Impl>(stream, options)) {}
 
-AsioClient::~AsioClient() {}
+StreamAsioClient::~StreamAsioClient() {}
 
-void AsioClient::AsyncRegister(uint8_t id,
-                               const RegisterRequest& request,
-                               RegisterHandler handler) {
+void StreamAsioClient::AsyncRegister(
+    uint8_t id,
+    const RegisterRequest& request,
+    RegisterHandler handler) {
   impl_->AsyncRegister(id, request, handler);
 }
 
-void AsioClient::AsyncRegisterMultiple(
+void StreamAsioClient::AsyncRegisterMultiple(
     const std::vector<IdRequest>& requests,
     io::ErrorCallback handler) {
   impl_->AsyncRegisterMultiple(requests, handler);
 }
 
-io::SharedStream AsioClient::MakeTunnel(
+io::SharedStream StreamAsioClient::MakeTunnel(
     uint8_t id, uint32_t channel, const TunnelOptions& options) {
   return impl_->MakeTunnel(id, channel, options);
 }

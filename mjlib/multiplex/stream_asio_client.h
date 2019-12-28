@@ -14,53 +14,49 @@
 
 #pragma once
 
+#include <memory>
+
 #include <boost/date_time/posix_time/posix_time_types.hpp>
 
 #include "mjlib/base/error_code.h"
 #include "mjlib/io/async_stream.h"
+#include "mjlib/multiplex/asio_client.h"
+#include "mjlib/multiplex/frame_stream.h"
 #include "mjlib/multiplex/register.h"
 
 namespace mjlib {
 namespace multiplex {
 
-class AsioClient {
+/// A client for the MultiplexProtocol based on boost::asio which uses
+/// FrameStream.
+class StreamAsioClient : public AsioClient {
  public:
-  virtual ~AsioClient() {};
+  struct Options {
+    uint8_t source_id = 0;
 
-  using RegisterHandler = std::function<
-    void (const base::error_code&, const RegisterReply&)>;
-
-  struct IdRequest {
-    uint8_t id = 0;
-    RegisterRequest request;
+    Options() {}
   };
+  StreamAsioClient(FrameStream*, const Options& = Options());
+  ~StreamAsioClient();
 
-  /// Make a single register request.  The handler will always be
-  /// invoked.  If a reply was requested, it will only be invoked on
-  /// error or the reply.  If no reply was requested, it will be
-  /// invoked once the write has been completed.
-  virtual void AsyncRegister(uint8_t id, const RegisterRequest&,
-                             RegisterHandler) = 0;
+  void AsyncRegister(uint8_t id, const RegisterRequest&,
+                     RegisterHandler) override;
 
   /// If only commands (and no queries are sent), multiple devices may
   /// be addressed in a single operation.
-  virtual void AsyncRegisterMultiple(const std::vector<IdRequest>&,
-                                     io::ErrorCallback) = 0;
-
-  struct TunnelOptions {
-    // Poll this often for data to be received.
-    boost::posix_time::time_duration poll_rate =
-        boost::posix_time::milliseconds(10);
-
-    TunnelOptions() {}
-  };
+  void AsyncRegisterMultiple(const std::vector<IdRequest>&,
+                             io::ErrorCallback) override;
 
   /// Allocate a tunnel which can be used to send and receive serial
   /// stream data.
-  virtual io::SharedStream MakeTunnel(
+  io::SharedStream MakeTunnel(
       uint8_t id,
       uint32_t channel,
-      const TunnelOptions& options = TunnelOptions()) = 0;
+      const TunnelOptions& options = TunnelOptions()) override;
+
+ private:
+  class Impl;
+  std::unique_ptr<Impl> impl_;
 };
 
 }

@@ -31,7 +31,7 @@
 #include "mjlib/io/deadline_timer.h"
 #include "mjlib/io/stream_copy.h"
 #include "mjlib/io/stream_factory.h"
-#include "mjlib/multiplex/asio_client.h"
+#include "mjlib/multiplex/stream_asio_client.h"
 #include "mjlib/multiplex/fdcanusb_frame_stream.h"
 #include "mjlib/multiplex/multiplex_tool.h"
 #include "mjlib/multiplex/rs485_frame_stream.h"
@@ -401,7 +401,7 @@ class CommandRunner {
   io::SharedStream stream_;
   std::optional<mp::Rs485FrameStream> rs485_frame_stream_;
   std::optional<mp::FdcanusbFrameStream> fdcanusb_frame_stream_;
-  std::optional<mp::AsioClient> client_;
+  std::optional<mp::StreamAsioClient> client_;
 
   io::SharedStream tunnel_;
   io::SharedStream stdio_;
