@@ -135,6 +135,17 @@ cc_library(
 )
 
 cc_library(
+    name = "selector",
+    hdrs = ["selector.h"],
+    deps = [
+        ":async_types",
+        "//mjlib/base:system_error",
+        "//mjlib/base:program_options_archive",
+        "@boost",
+    ],
+)
+
+cc_library(
     name = "stream_copy",
     hdrs = ["stream_copy.h"],
     deps = [
@@ -186,6 +197,7 @@ cc_test(
         "test/offset_buffer_test.cc",
         "test/realtime_executor_test.cc",
         "test/repeating_timer_test.cc",
+        "test/selector_test.cc",
         "test/streambuf_read_stream_test.cc",
         "test/test_main.cc",
         "test/virtual_deadline_timer_test.cc",
@@ -198,6 +210,7 @@ cc_test(
         ":offset_buffer",
         ":realtime_executor",
         ":repeating_timer",
+        ":selector",
         ":streambuf_read_stream",
         ":stream_factory",
         "@boost//:test",
