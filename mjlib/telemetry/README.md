@@ -421,8 +421,11 @@ The `subscribe` command is a message from the client to the server
 requesting to receive updates on specific topics when they are
 available.  The following fields are current defined.
 
- * `topic` - a string to describe which topics are of interest.  It is
-   expanded according to glob(7) rules.
+ * `topic` - a string to describe which topics are of interest.  It
+   supports the '*' wildcard which does not match the directory
+   separator, and the '**' wildcard, which matches zero or more
+   complete path segments, but can only be used as a complete path
+   segment.
  * `id` - a client assigned identifier used to refer to this
    subscription in the future.  The client must ensure that
    outstanding subscriptions have unique identifiers.
