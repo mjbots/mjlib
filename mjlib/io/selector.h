@@ -19,6 +19,7 @@
 #include <sstream>
 #include <string>
 
+#include <boost/asio/executor.hpp>
 #include <boost/program_options.hpp>
 
 #include "mjlib/base/program_options_archive.h"
@@ -41,8 +42,10 @@ namespace io {
 template <typename Base, typename... Args>
 class Selector {
  public:
-  Selector(const std::string& selector_name)
-      : selector_name_(selector_name) {}
+  Selector(const boost::asio::executor& executor,
+           const std::string& selector_name)
+      : executor_(executor),
+        selector_name_(selector_name) {}
 
   template <typename Derived>
   void Register(const std::string& name) {
@@ -88,7 +91,7 @@ class Selector {
         it == items_.end(), "unknown type: '" + name_ + "'");
 
     selected_ =
-        it->second->AsyncStart(callback, std::forward<Args>(args)...);
+        it->second->AsyncStart(executor_, callback, std::forward<Args>(args)...);
   }
 
  private:
@@ -100,6 +103,7 @@ class Selector {
         boost::program_options::options_description*,
         const std::string& prefix) = 0;
     virtual std::unique_ptr<Base> AsyncStart(
+        const boost::asio::executor&,
         mjlib::io::ErrorCallback, Args...) = 0;
   };
 
@@ -114,10 +118,12 @@ class Selector {
       base::ProgramOptionsArchive(options, prefix).Accept(&options_);
     }
 
-    std::unique_ptr<Base> AsyncStart(io::ErrorCallback callback,
-                                     Args... args) override {
+    std::unique_ptr<Base> AsyncStart(
+        const boost::asio::executor& executor,
+        io::ErrorCallback callback,
+        Args... args) override {
       auto result = std::make_unique<T>(
-          options_, std::forward<Args>(args)...);
+          executor, options_, std::forward<Args>(args)...);
       result->AsyncStart(callback);
       return result;
     }
@@ -125,6 +131,7 @@ class Selector {
     typename T::Options options_;
   };
 
+  boost::asio::executor executor_;
   const std::string selector_name_;
   std::unique_ptr<Base> selected_;
 

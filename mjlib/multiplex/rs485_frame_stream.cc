@@ -244,7 +244,8 @@ class Rs485FrameStream::Impl {
   io::ErrorCallback current_callback_;
 };
 
-Rs485FrameStream::Rs485FrameStream(const Options&, io::AsyncStream* stream)
+Rs485FrameStream::Rs485FrameStream(
+    const boost::asio::executor&, const Options&, io::AsyncStream* stream)
     : impl_(std::make_unique<Impl>(stream)) {}
 Rs485FrameStream::~Rs485FrameStream() {}
 

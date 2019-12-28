@@ -422,7 +422,8 @@ int multiplex_main(int argc, char** argv,
   io::StreamFactory::Options stream_options;
   po::options_description desc("Allowable options");
 
-  io::Selector<FrameStream, io::AsyncStream*> default_frame_selector{"frame_type"};
+  io::Selector<FrameStream, io::AsyncStream*> default_frame_selector{
+    context.get_executor(), "frame_type"};
   if (selector == nullptr) {
     default_frame_selector.Register<Rs485FrameStream>("rs485");
     default_frame_selector.Register<FdcanusbFrameStream>("fdcanusb");

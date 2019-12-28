@@ -16,6 +16,7 @@
 
 #include <sstream>
 
+#include <boost/asio/io_context.hpp>
 #include <boost/program_options.hpp>
 #include <boost/test/auto_unit_test.hpp>
 
@@ -46,7 +47,8 @@ class Class1 : public Base {
     }
   };
 
-  Class1(const Options& options, Resource*) : options_(options) {}
+  Class1(const boost::asio::executor&, const Options& options, Resource*)
+      : options_(options) {}
   ~Class1() override {}
 
   int type() override { return 1; }
@@ -74,7 +76,8 @@ class Class2 : public Base {
     }
   };
 
-  Class2(const Options& options, Resource*) : options_(options) {}
+  Class2(const boost::asio::executor&, const Options& options, Resource*)
+      : options_(options) {}
   ~Class2() override {}
 
   int type() override { return 2; }
@@ -112,7 +115,8 @@ void SetOption(
 }
 
 BOOST_AUTO_TEST_CASE(BasicSelectorTest) {
-  Selector<Base, Resource*> dut{"mode"};
+  boost::asio::io_context context;
+  Selector<Base, Resource*> dut{context.get_executor(), "mode"};
   dut.Register<Class1>("class1");
   dut.Register<Class2>("class2");
 

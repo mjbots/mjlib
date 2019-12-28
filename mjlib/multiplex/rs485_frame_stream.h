@@ -36,7 +36,8 @@ class Rs485FrameStream : public FrameStream {
     void Serialize(Archive*) {}
   };
 
-  Rs485FrameStream(const Options&, io::AsyncStream*);
+  Rs485FrameStream(const boost::asio::executor&, const Options&,
+                   io::AsyncStream*);
   ~Rs485FrameStream() override;
 
   Properties properties() const override;

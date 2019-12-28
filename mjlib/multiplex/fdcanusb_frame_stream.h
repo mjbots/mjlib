@@ -36,7 +36,8 @@ class FdcanusbFrameStream : public FrameStream {
     void Serialize(Archive*) {}
   };
 
-  FdcanusbFrameStream(const Options&, io::AsyncStream*);
+  FdcanusbFrameStream(const boost::asio::executor&, const Options&,
+                      io::AsyncStream*);
   ~FdcanusbFrameStream() override;
 
   Properties properties() const override;

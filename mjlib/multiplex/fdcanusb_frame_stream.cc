@@ -266,7 +266,8 @@ class FdcanusbFrameStream::Impl {
   io::ErrorCallback current_callback_;
 };
 
-FdcanusbFrameStream::FdcanusbFrameStream(const Options&, io::AsyncStream* stream)
+FdcanusbFrameStream::FdcanusbFrameStream(
+    const boost::asio::executor&, const Options&, io::AsyncStream* stream)
     : impl_(std::make_unique<Impl>(stream)) {}
 FdcanusbFrameStream::~FdcanusbFrameStream() {}
 

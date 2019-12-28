@@ -35,7 +35,7 @@ struct Fixture {
   boost::asio::io_context context;
   io::StreamPipeFactory pipe_factory{context.get_executor()};
   io::SharedStream client_side{pipe_factory.GetStream("", 1)};
-  Rs485FrameStream dut{{}, client_side.get()};
+  Rs485FrameStream dut{context.get_executor(), {}, client_side.get()};
 
   io::SharedStream server_side{pipe_factory.GetStream("", 0)};
   io::test::Reader server_reader{server_side.get()};
