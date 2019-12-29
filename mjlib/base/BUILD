@@ -17,6 +17,17 @@
 package(default_visibility = ["//visibility:public"])
 
 cc_library(
+    name = "args",
+    hdrs = ["args.h"],
+)
+
+cc_library(
+    name = "args_visitor",
+    hdrs = ["args_visitor.h"],
+    deps = [":visitor"],
+)
+
+cc_library(
     name = "assert",
     hdrs = ["assert.h"],
     srcs = ["assert.cc"],
@@ -182,6 +193,22 @@ cc_library(
 )
 
 cc_library(
+    name = "clipp",
+    hdrs = ["clipp.h"],
+    deps = ["@com_github_muellan_clipp//:clipp"],
+)
+
+cc_library(
+    name = "clipp_archive",
+    hdrs = ["clipp_archive.h"],
+    deps = [
+        ":args_visitor",
+        ":visit_archive",
+        "@com_github_muellan_clipp//:clipp",
+    ],
+)
+
+cc_library(
     name = "time_conversions",
     hdrs = [
         "time_conversions.h",
@@ -285,6 +312,7 @@ cc_test(
     name = "test",
     srcs = [
         "test/buffer_stream_test.cc",
+        "test/clipp_archive_test.cc",
         "test/crc_stream_test.cc",
         "test/eigen_test.cc",
         "test/error_code_test.cc",
@@ -302,7 +330,9 @@ cc_test(
     ],
     deps = [
         ":all_types_struct",
+        ":args",
         ":buffer_stream",
+        ":clipp_archive",
         ":crc_stream",
         ":eigen",
         ":error_code",
