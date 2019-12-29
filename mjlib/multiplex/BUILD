@@ -111,6 +111,15 @@ cc_library(
 )
 
 cc_library(
+    name = "stream_asio_client_builder",
+    hdrs = ["stream_asio_client_builder.h"],
+    deps = [
+        ":frame_stream",
+        ":stream_asio_client",
+    ],
+)
+
+cc_library(
     name = "threaded_client",
     hdrs = ["threaded_client.h"],
     srcs = ["threaded_client.cc"],
@@ -184,7 +193,7 @@ cc_library(
     hdrs = ["multiplex_tool.h"],
     srcs = ["multiplex_tool.cc"],
     deps = [
-        ":stream_asio_client",
+        ":stream_asio_client_builder",
         "//mjlib/base:error_code",
         "//mjlib/base:fail",
         "//mjlib/base:program_options_archive",

@@ -19,6 +19,7 @@
 #include <boost/date_time/posix_time/posix_time_types.hpp>
 
 #include "mjlib/base/error_code.h"
+#include "mjlib/base/visitor.h"
 #include "mjlib/io/async_stream.h"
 #include "mjlib/multiplex/asio_client.h"
 #include "mjlib/multiplex/frame_stream.h"
@@ -33,6 +34,11 @@ class StreamAsioClient : public AsioClient {
  public:
   struct Options {
     uint8_t source_id = 0;
+
+    template <typename Archive>
+    void Serialize(Archive* a) {
+      a->Visit(MJ_NVP(source_id));
+    }
 
     Options() {}
   };

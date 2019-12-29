@@ -14,16 +14,15 @@
 
 #pragma once
 
-#include "mjlib/io/async_stream.h"
 #include "mjlib/io/selector.h"
+#include "mjlib/multiplex/asio_client.h"
 
-#include "mjlib/multiplex/frame_stream.h"
 
 namespace mjlib {
 namespace multiplex {
 
 int multiplex_main(int argc, char** argv,
-                   io::Selector<FrameStream, io::AsyncStream*>* = nullptr);
+                   io::Selector<AsioClient>* = nullptr);
 
 }
 }

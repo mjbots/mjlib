@@ -31,10 +31,8 @@
 #include "mjlib/io/deadline_timer.h"
 #include "mjlib/io/stream_copy.h"
 #include "mjlib/io/stream_factory.h"
-#include "mjlib/multiplex/stream_asio_client.h"
-#include "mjlib/multiplex/fdcanusb_frame_stream.h"
 #include "mjlib/multiplex/multiplex_tool.h"
-#include "mjlib/multiplex/rs485_frame_stream.h"
+#include "mjlib/multiplex/stream_asio_client_builder.h"
 
 namespace mp = mjlib::multiplex;
 namespace po = boost::program_options;
@@ -81,21 +79,21 @@ class CommandRunner {
  public:
   CommandRunner(const boost::asio::executor& executor,
                 io::StreamFactory* stream_factory,
-                const io::StreamFactory::Options& stream_options,
-                io::Selector<FrameStream, io::AsyncStream*>* frame_stream_selector,
+                io::Selector<AsioClient>* client_selector,
                 const Options& options)
       : executor_(executor),
-        stream_factory_(stream_factory),
-        frame_stream_selector_(frame_stream_selector),
+        client_selector_(client_selector),
         options_(options) {
-    stream_factory->AsyncCreate(
-        stream_options,
-        std::bind(&CommandRunner::HandleStream, this, pl::_1, pl::_2));
+    client_selector_->AsyncStart([this](const base::error_code& ec) {
+        base::FailIf(ec);
+        client_ = client_selector_->selected();
+        MaybeStart();
+      });
 
     io::StreamFactory::Options stdio_options;
     stdio_options.type = io::StreamFactory::Type::kStdio;
 
-    stream_factory_->AsyncCreate(
+    stream_factory->AsyncCreate(
         stdio_options,
         std::bind(&CommandRunner::HandleConsole, this, pl::_1, pl::_2));
   }
@@ -108,22 +106,8 @@ class CommandRunner {
     MaybeStart();
   }
 
-  void HandleStream(const base::error_code& ec, io::SharedStream stream) {
-    base::FailIf(ec);
-
-    stream_ = stream;
-    frame_stream_selector_->AsyncStart([this](const base::error_code& ec) {
-        base::FailIf(ec);
-        client_.emplace(frame_stream_selector_->selected());
-        MaybeStart();
-      },
-      stream_.get());
-
-    MaybeStart();
-  }
-
   void MaybeStart() {
-    if (!stream_) { return; }
+    if (!client_) { return; }
     if (!stdio_) { return; }
 
     RunCommand();
@@ -395,13 +379,9 @@ class CommandRunner {
   }
 
   boost::asio::executor executor_;
-  io::StreamFactory* const stream_factory_;
-  io::Selector<FrameStream, io::AsyncStream*>* const frame_stream_selector_;
+  io::Selector<AsioClient>* const client_selector_;
   const Options options_;
-  io::SharedStream stream_;
-  std::optional<mp::Rs485FrameStream> rs485_frame_stream_;
-  std::optional<mp::FdcanusbFrameStream> fdcanusb_frame_stream_;
-  std::optional<mp::StreamAsioClient> client_;
+  mp::AsioClient* client_ = nullptr;
 
   io::SharedStream tunnel_;
   io::SharedStream stdio_;
@@ -415,19 +395,17 @@ class CommandRunner {
 }
 
 int multiplex_main(int argc, char** argv,
-                   io::Selector<FrameStream, io::AsyncStream*>* selector) {
+                   io::Selector<AsioClient>* selector) {
   boost::asio::io_context context;
   io::StreamFactory factory{context.get_executor()};
 
-  io::StreamFactory::Options stream_options;
   po::options_description desc("Allowable options");
 
-  io::Selector<FrameStream, io::AsyncStream*> default_frame_selector{
-    context.get_executor(), "frame_type"};
+  io::Selector<AsioClient> default_frame_selector{
+    context.get_executor(), "client_type"};
   if (selector == nullptr) {
-    default_frame_selector.Register<Rs485FrameStream>("rs485");
-    default_frame_selector.Register<FdcanusbFrameStream>("fdcanusb");
-    default_frame_selector.set_default("fdcanusb");
+    default_frame_selector.Register<StreamAsioClientBuilder>("stream");
+    default_frame_selector.set_default("stream");
     selector = &default_frame_selector;
   }
 
@@ -439,7 +417,6 @@ int multiplex_main(int argc, char** argv,
       ("console,c", po::bool_switch(&options.console), "")
       ("register,r", po::bool_switch(&options.register_tool), "")
       ;
-  base::ProgramOptionsArchive(&desc).Accept(&stream_options);
   selector->AddToProgramOptions(&desc, "frame");
 
   po::variables_map vm;
@@ -452,7 +429,7 @@ int multiplex_main(int argc, char** argv,
   }
 
   CommandRunner command_runner{
-    context.get_executor(), &factory, stream_options, selector, options};
+    context.get_executor(), &factory, selector, options};
 
   context.run();
 
