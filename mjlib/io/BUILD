@@ -174,7 +174,8 @@ cc_binary(
         ":stream_copy",
         ":stream_factory",
         "//mjlib/base:fail",
-        "//mjlib/base:program_options_archive",
+        "//mjlib/base:clipp",
+        "//mjlib/base:clipp_archive",
     ],
 )
 

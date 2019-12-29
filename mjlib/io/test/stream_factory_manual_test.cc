@@ -18,21 +18,22 @@
 #include <iostream>
 #include <optional>
 
+#include <clipp/clipp.h>
+
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/read.hpp>
 #include <boost/asio/streambuf.hpp>
 #include <boost/asio/write.hpp>
 #include <boost/exception/all.hpp>
-#include <boost/program_options.hpp>
 
+#include "mjlib/base/clipp.h"
+#include "mjlib/base/clipp_archive.h"
 #include "mjlib/base/fail.h"
-#include "mjlib/base/program_options_archive.h"
 #include "mjlib/io/stream_copy.h"
 
 namespace pl = std::placeholders;
 namespace base = mjlib::base;
 namespace io = mjlib::io;
-namespace po = boost::program_options;
 
 namespace {
 class Communicator {
@@ -94,19 +95,9 @@ int main(int argc, char** argv) {
   io::StreamFactory factory(context.get_executor());
 
   io::StreamFactory::Options options;
-  po::options_description desc("Allowable options");
 
-  desc.add_options()("help,h", "display usage message");
-  base::ProgramOptionsArchive(&desc).Accept(&options);
-
-  po::variables_map vm;
-  po::store(po::parse_command_line(argc, argv, desc), vm);
-  po::notify(vm);
-
-  if (vm.count("help")) {
-    std::cerr << desc;
-    return 1;
-  }
+  auto group = base::ClippArchive().Accept(&options).release();
+  mjlib::base::ClippParse(argc, argv, group);
 
   Communicator communicator{context.get_executor(), &factory, options};
 
