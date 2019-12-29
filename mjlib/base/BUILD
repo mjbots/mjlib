@@ -209,6 +209,11 @@ cc_library(
 )
 
 cc_library(
+    name = "collapse_whitespace",
+    hdrs = ["collapse_whitespace.h"],
+)
+
+cc_library(
     name = "time_conversions",
     hdrs = [
         "time_conversions.h",
@@ -333,6 +338,7 @@ cc_test(
         ":args",
         ":buffer_stream",
         ":clipp_archive",
+        ":collapse_whitespace",
         ":crc_stream",
         ":eigen",
         ":error_code",

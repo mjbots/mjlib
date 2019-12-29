@@ -19,12 +19,14 @@
 
 #pragma once
 
+#include <iostream>
+
 #include <clipp/clipp.h>
 
 namespace mjlib {
 namespace base {
 
-clipp::doc_formatting UsageFormat() {
+inline clipp::doc_formatting UsageFormat() {
   return clipp::doc_formatting()
       .first_column(2)
       .doc_column(40);
@@ -46,7 +48,7 @@ void ClippParse(int argc, char** argv, const Token& token) {
           EmitUsage(std::cout, group);
           std::exit(0);
         }),
-      token
+      clipp::with_prefixes_short_long("-", "--", token)
   );
   if (!clipp::parse(argc, argv, group)) {
     std::cerr << "Invalid options, try --help\n";

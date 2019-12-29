@@ -14,14 +14,12 @@
 
 #include "mjlib/base/clipp_archive.h"
 
-#include <cctype>
-#include <sstream>
-
 #include <boost/lexical_cast.hpp>
 #include <boost/test/auto_unit_test.hpp>
 
 #include "mjlib/base/args.h"
 #include "mjlib/base/args_visitor.h"
+#include "mjlib/base/collapse_whitespace.h"
 
 namespace {
 enum MyEnum {
@@ -36,53 +34,54 @@ std::map<MyEnum, const char*> MyEnumMapper() {
   };
 }
 
+struct SubStruct {
+  bool bool_switch = false;
+
+  template <typename Archive>
+  void Serialize(Archive* a) {
+    a->Visit(MJ_NVP(bool_switch));
+  }
+};
+
 struct MyStruct {
   int int_value = 1;
   std::string string_value = "2";
   MyEnum enum_value = kValue1;
+  SubStruct sub_struct;
 
   // TODO
   //  array_value
-  //  substruct_value
 
   template <typename Archive>
   void Serialize(Archive* a) {
     a->Visit(MJ_NVPT(int_value).help("special text"));
     a->Visit(MJ_NVPT(string_value).label("STR"));
     a->Visit(MJ_ENUMT(enum_value, MyEnumMapper).help("stuff"));
+    a->Visit(MJ_NVP(sub_struct));
   }
 };
-
-std::string CollpaseWhitespace(const std::string& str) {
-  std::ostringstream ostr;
-  bool was_whitespace = true;
-  for (char c : str) {
-    if (!was_whitespace || !std::isspace(c)) {
-      ostr.put(c);
-    }
-    was_whitespace = std::isspace(c);
-  }
-  return ostr.str();
-}
 }
 
 BOOST_AUTO_TEST_CASE(ClippArchiveTest) {
   MyStruct my_struct;
   auto group = mjlib::base::ClippArchive().Accept(&my_struct).release();
 
-  const auto actual_usage = CollpaseWhitespace(
+  const auto actual_usage = mjlib::base::CollapseWhitespace(
       boost::lexical_cast<std::string>(clipp::usage_lines(group)) +
       boost::lexical_cast<std::string>(clipp::documentation(group)));
-  BOOST_TEST(actual_usage == R"XX([--int_value <arg>] [--string_value <STR>] [--enum_value <arg>] --int_value <arg>
+  const std::string expected = R"XX([int_value <arg>] [string_value <STR>] [enum_value <arg>] [sub_struct.bool_switch <arg>] int_value <arg>
 special text
---string_value <STR>
---enum_value <arg>
-stuff (kValue1/kValue2))XX");
+string_value <STR>
+enum_value <arg>
+stuff (kValue1/kValue2)
+sub_struct.bool_switch <arg>
+)XX";
+  BOOST_TEST(actual_usage == expected);
 
   mjlib::base::Args args(
       {"progname",
-            "--int_value", "87",
-            "--string_value", "foo",
+            "int_value", "87",
+            "string_value", "foo",
             });
   clipp::parse(args.argc, args.argv, group);
   BOOST_TEST(my_struct.int_value == 87);

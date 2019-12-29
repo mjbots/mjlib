@@ -40,6 +40,13 @@ class ClippArchive : public VisitArchive<ClippArchive> {
   }
 
   template <typename NameValuePair>
+  void VisitSerializable(const NameValuePair& pair) {
+    group_.push_back(
+        clipp::with_prefix(std::string(pair.name()) + ".", ClippArchive()
+                           .Accept(pair.value()).release()));
+  }
+
+  template <typename NameValuePair>
   void VisitEnumeration(const NameValuePair& nvp) {
     auto option = clipp::option(MakeName(nvp)) &
         clipp::value(get_label(nvp, PriorityTag<1>()), [nvp](std::string value) {
@@ -101,7 +108,7 @@ class ClippArchive : public VisitArchive<ClippArchive> {
 
   template <typename NameValuePair>
   std::string MakeName(const NameValuePair& nvp) const {
-    return "--" + prefix_ + nvp.name();
+    return prefix_ + nvp.name();
   }
 
   template <typename Option, typename NameValuePair>
