@@ -106,7 +106,9 @@ ReferenceNameValuePair<T> MakeNameValuePair(T* value, const char* name) {
 template <typename RawEnumeration, typename NameMapGetter>
 class EnumerationNameValuePair {
  public:
-  typedef RawEnumeration Base;
+  using Base = RawEnumeration;
+  using NameMapper = NameMapGetter;
+
   EnumerationNameValuePair(RawEnumeration* value,
                            const char* name,
                            NameMapGetter mapper)
