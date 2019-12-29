@@ -18,7 +18,7 @@
 
 #include <boost/asio/executor.hpp>
 
-#include "mjlib/base/visitor.h"
+#include "mjlib/base/args_visitor.h"
 #include "mjlib/io/async_stream.h"
 
 namespace mjlib {
@@ -61,11 +61,11 @@ class StreamFactory : boost::noncopyable {
     template <typename Archive>
     void Serialize(Archive* a) {
       a->Visit(MJ_ENUM(type, TypeMapper));
-      a->Visit(MJ_NVP(stdio_in));
-      a->Visit(MJ_NVP(stdio_out));
-      a->Visit(MJ_NVP(serial_port));
-      a->Visit(MJ_NVP(serial_baud));
-      a->Visit(MJ_NVP(serial_parity));
+      a->Visit(MJ_NVPT(stdio_in).label("FD"));
+      a->Visit(MJ_NVPT(stdio_out).label("FD"));
+      a->Visit(MJ_NVPT(serial_port).label("PORT"));
+      a->Visit(MJ_NVPT(serial_baud).label("BAUD"));
+      a->Visit(MJ_NVPT(serial_parity).label("PARITY").help("n|o|e"));
       a->Visit(MJ_NVP(serial_data_bits));
       a->Visit(MJ_NVP(serial_low_latency));
       a->Visit(MJ_NVP(tcp_target));

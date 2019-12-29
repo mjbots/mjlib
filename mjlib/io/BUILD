@@ -63,7 +63,7 @@ cc_library(
     deps = [
         ":async_stream",
         "//mjlib/base:system_error",
-        "//mjlib/base:visitor",
+        "//mjlib/base:args_visitor",
         "@fmt",
     ],
 )
