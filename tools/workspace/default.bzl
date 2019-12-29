@@ -16,6 +16,7 @@
 
 load("//tools/workspace/bazel_deps:repository.bzl", "bazel_deps_repository")
 load("//tools/workspace/bazel:repository.bzl", "bazel_repository")
+load("//tools/workspace/clipp:repository.bzl", "clipp_repository")
 load("//tools/workspace/rules_mbed:repository.bzl", "rules_mbed_repository")
 load("//tools/workspace/rules_nodejs:repository.bzl", "rules_nodejs_repository")
 
@@ -26,5 +27,7 @@ def add_default_repositories(excludes = []):
         bazel_repository()
     if "bazel_deps" not in excludes:
         bazel_deps_repository(name = "com_github_mjbots_bazel_deps")
+    if "clipp" not in excludes:
+        clipp_repository(name = "com_github_muellan_clipp")
     if "build_bazel_rules_nodejs" not in excludes:
         rules_nodejs_repository()
