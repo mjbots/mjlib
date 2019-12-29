@@ -17,9 +17,10 @@
 #include <sstream>
 
 #include <boost/asio/io_context.hpp>
-#include <boost/program_options.hpp>
 #include <boost/test/auto_unit_test.hpp>
 
+#include "mjlib/base/clipp.h"
+#include "mjlib/base/collapse_whitespace.h"
 #include "mjlib/base/fail.h"
 #include "mjlib/base/visitor.h"
 
@@ -93,25 +94,6 @@ class Class2 : public Base {
  private:
   Options options_;
 };
-
-std::string StripSpaces(const std::string& in) {
-  std::stringstream result;
-  for (char c : in) {
-    if (c != ' ') { result.write(&c, 1); }
-  }
-  return result.str();
-}
-
-void SetOption(
-    boost::program_options::options_description* source,
-    const std::string& key,
-    const std::string& value) {
-  auto semantic = source->find(key, false).semantic();
-  boost::any any_value;
-  semantic->parse(any_value, std::vector<std::string>({value}), true);
-  semantic->notify(any_value);
-}
-
 }
 
 BOOST_AUTO_TEST_CASE(BasicSelectorTest) {
@@ -120,16 +102,17 @@ BOOST_AUTO_TEST_CASE(BasicSelectorTest) {
   dut.Register<Class1>("class1");
   dut.Register<Class2>("class2");
 
-  boost::program_options::options_description options;
   dut.set_default("class1");
-  dut.AddToProgramOptions(&options, "test");
+  auto group = dut.program_options();
   std::ostringstream ostr;
-  ostr << options;
-  std::string expected = "--modearg*class1*/class2\n--test.class1.value1\n--test.class2.value2\n";
-  BOOST_TEST(StripSpaces(ostr.str()) == expected);
+  mjlib::base::EmitUsage(ostr, group);
 
-  SetOption(&options, "mode", "class2");
-  SetOption(&options, "test.class2.value2", "97");
+  std::string expected = "Usage:\nmode <arg> *class1*/class2\nclass1.value1 <arg>\nclass2.value2 <arg>\n";
+  BOOST_TEST(mjlib::base::CollapseWhitespace(ostr.str()) == expected);
+
+  const bool parse_fail = !clipp::parse({"mode", "class2", "class2.value2", "97"}, group);
+  BOOST_TEST_REQUIRE(!parse_fail);
+
   Resource resource;
   int done = 0;
   dut.AsyncStart([&](const mjlib::base::error_code& ec) {

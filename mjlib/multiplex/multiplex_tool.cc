@@ -15,6 +15,8 @@
 #include <optional>
 #include <vector>
 
+#include <clipp/clipp.h>
+
 #include <fmt/format.h>
 
 #include <boost/algorithm/string/classification.hpp>
@@ -22,11 +24,11 @@
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/read_until.hpp>
 #include <boost/asio/streambuf.hpp>
-#include <boost/program_options.hpp>
 
+#include "mjlib/base/clipp.h"
+#include "mjlib/base/clipp_archive.h"
 #include "mjlib/base/error_code.h"
 #include "mjlib/base/fail.h"
-#include "mjlib/base/program_options_archive.h"
 #include "mjlib/io/async_stream.h"
 #include "mjlib/io/deadline_timer.h"
 #include "mjlib/io/stream_copy.h"
@@ -35,7 +37,6 @@
 #include "mjlib/multiplex/stream_asio_client_builder.h"
 
 namespace mp = mjlib::multiplex;
-namespace po = boost::program_options;
 namespace pl = std::placeholders;
 
 namespace mjlib {
@@ -399,8 +400,6 @@ int multiplex_main(int argc, char** argv,
   boost::asio::io_context context;
   io::StreamFactory factory{context.get_executor()};
 
-  po::options_description desc("Allowable options");
-
   io::Selector<AsioClient> default_frame_selector{
     context.get_executor(), "client_type"};
   if (selector == nullptr) {
@@ -411,22 +410,16 @@ int multiplex_main(int argc, char** argv,
 
   Options options;
 
-  desc.add_options()
-      ("help,h", "display usage message")
-      ("target,t", po::value(&options.targets), "")
-      ("console,c", po::bool_switch(&options.console), "")
-      ("register,r", po::bool_switch(&options.register_tool), "")
-      ;
-  selector->AddToProgramOptions(&desc, "frame");
+  auto group = clipp::group(
+      clipp::repeatable(
+          (clipp::option("t", "target") &
+           clipp::integer("TGT", options.targets)) % "one or more target devices"),
+      clipp::option("c", "console").set(options.console),
+      clipp::option("r", "register").set(options.register_tool)
+  );
+  group.merge(clipp::with_prefix("frame.", selector->program_options()));
 
-  po::variables_map vm;
-  po::store(po::parse_command_line(argc, argv, desc), vm);
-  po::notify(vm);
-
-  if (vm.count("help")) {
-    std::cout << desc;
-    return 0;
-  }
+  mjlib::base::ClippParse(argc, argv, group);
 
   CommandRunner command_runner{
     context.get_executor(), &factory, selector, options};

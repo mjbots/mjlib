@@ -139,8 +139,8 @@ cc_library(
     hdrs = ["selector.h"],
     deps = [
         ":async_types",
+        "//mjlib/base:clipp_archive",
         "//mjlib/base:system_error",
-        "//mjlib/base:program_options_archive",
         "@boost",
     ],
 )
@@ -214,6 +214,8 @@ cc_test(
         ":selector",
         ":streambuf_read_stream",
         ":stream_factory",
+        "//mjlib/base:clipp",
+        "//mjlib/base:collapse_whitespace",
         "@boost//:test",
     ],
     data = [

@@ -20,9 +20,8 @@
 #include <string>
 
 #include <boost/asio/executor.hpp>
-#include <boost/program_options.hpp>
 
-#include "mjlib/base/program_options_archive.h"
+#include "mjlib/base/clipp_archive.h"
 #include "mjlib/base/system_error.h"
 #include "mjlib/io/async_types.h"
 
@@ -53,9 +52,9 @@ class Selector {
     items_.insert(std::make_pair(name, std::move(derived)));
   }
 
-  void AddToProgramOptions(
-      boost::program_options::options_description* options,
-      const std::string& prefix) {
+  clipp::group program_options() {
+    clipp::group result;
+
     std::ostringstream help_text;
     bool first = true;
     for (auto& item_pair : items_) {
@@ -70,14 +69,17 @@ class Selector {
       }
     }
 
-    (*options).add_options()
-        (selector_name_.c_str(), boost::program_options::value(&name_),
-         help_text.str().c_str());
+    result.push_back(
+        (clipp::option(selector_name_) & clipp::value("arg", name_)) % help_text.str()
+    );
 
     for (auto& item_pair : items_) {
-      item_pair.second->AddToProgramOptions(
-          options, prefix + "." + item_pair.first + ".");
+      result.push_back(clipp::with_prefix(
+                           (item_pair.first + "."),
+                           item_pair.second->program_options()));
     }
+
+    return result;
   }
 
   void set_default(const std::string& name) { name_ = name; }
@@ -99,9 +101,7 @@ class Selector {
    public:
     virtual ~Holder() {}
 
-    virtual void AddToProgramOptions(
-        boost::program_options::options_description*,
-        const std::string& prefix) = 0;
+    virtual clipp::group program_options() = 0;
     virtual std::unique_ptr<Base> AsyncStart(
         const boost::asio::executor&,
         mjlib::io::ErrorCallback, Args...) = 0;
@@ -112,10 +112,8 @@ class Selector {
    public:
     ~Concrete() override {}
 
-    void AddToProgramOptions(
-        boost::program_options::options_description* options,
-        const std::string& prefix) override {
-      base::ProgramOptionsArchive(options, prefix).Accept(&options_);
+    clipp::group program_options() override {
+      return base::ClippArchive().Accept(&options_).release();
     }
 
     std::unique_ptr<Base> AsyncStart(

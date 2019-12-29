@@ -76,7 +76,6 @@ cc_library(
         ":stream",
         "//mjlib/base:crc_stream",
         "//mjlib/base:fail",
-        "//mjlib/base:program_options_archive",
         "//mjlib/base:tokenizer",
         "//mjlib/io:async_stream",
         "//mjlib/io:debug_time",
@@ -194,9 +193,9 @@ cc_library(
     srcs = ["multiplex_tool.cc"],
     deps = [
         ":stream_asio_client_builder",
+        "//mjlib/base:clipp",
         "//mjlib/base:error_code",
         "//mjlib/base:fail",
-        "//mjlib/base:program_options_archive",
         "//mjlib/io:selector",
         "//mjlib/io:stream_copy",
         "//mjlib/io:stream_factory",
