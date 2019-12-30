@@ -26,6 +26,8 @@ namespace io {
 
 class AsyncReadStream : boost::noncopyable {
  public:
+  using executor_type = boost::asio::executor;
+
   virtual ~AsyncReadStream() {}
 
   virtual void async_read_some(MutableBufferSequence, ReadHandler) = 0;
@@ -33,6 +35,8 @@ class AsyncReadStream : boost::noncopyable {
 
 class AsyncWriteStream : boost::noncopyable {
  public:
+  using executor_type = boost::asio::executor;
+
   virtual ~AsyncWriteStream() {}
 
   virtual void async_write_some(ConstBufferSequence, WriteHandler) = 0;
@@ -40,6 +44,8 @@ class AsyncWriteStream : boost::noncopyable {
 
 class AsyncStream : public AsyncReadStream, public AsyncWriteStream {
  public:
+  using executor_type = boost::asio::executor;
+
   ~AsyncStream() override {}
 
   virtual boost::asio::executor get_executor() = 0;
