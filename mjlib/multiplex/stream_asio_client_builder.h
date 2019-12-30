@@ -17,6 +17,9 @@
 #include <functional>
 
 #include <boost/asio/executor.hpp>
+#include <boost/asio/post.hpp>
+
+#include "mjlib/io/stream_factory.h"
 
 #include "mjlib/multiplex/stream_asio_client.h"
 #include "mjlib/multiplex/fdcanusb_frame_stream.h"
