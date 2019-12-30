@@ -14,6 +14,9 @@
 
 #include "mjlib/multiplex/multiplex_tool.h"
 
+#include <boost/asio/io_context.hpp>
+
 int main(int argc, char** argv) {
-  return mjlib::multiplex::multiplex_main(argc, argv);
+  boost::asio::io_context context;
+  return mjlib::multiplex::multiplex_main(context, argc, argv);
 }

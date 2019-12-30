@@ -14,14 +14,16 @@
 
 #pragma once
 
+#include <boost/asio/io_context.hpp>
+
 #include "mjlib/io/selector.h"
 #include "mjlib/multiplex/asio_client.h"
-
 
 namespace mjlib {
 namespace multiplex {
 
-int multiplex_main(int argc, char** argv,
+int multiplex_main(boost::asio::io_context&,
+                   int argc, char** argv,
                    io::Selector<AsioClient>* = nullptr);
 
 }

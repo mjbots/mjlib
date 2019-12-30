@@ -395,9 +395,9 @@ class CommandRunner {
 };
 }
 
-int multiplex_main(int argc, char** argv,
+int multiplex_main(boost::asio::io_context& context,
+                   int argc, char** argv,
                    io::Selector<AsioClient>* selector) {
-  boost::asio::io_context context;
   io::StreamFactory factory{context.get_executor()};
 
   io::Selector<AsioClient> default_frame_selector{
