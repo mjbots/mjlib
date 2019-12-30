@@ -417,7 +417,7 @@ int multiplex_main(int argc, char** argv,
       clipp::option("c", "console").set(options.console),
       clipp::option("r", "register").set(options.register_tool)
   );
-  group.merge(clipp::with_prefix("frame.", selector->program_options()));
+  group.merge(clipp::with_prefix("client.", selector->program_options()));
 
   mjlib::base::ClippParse(argc, argv, group);
 
