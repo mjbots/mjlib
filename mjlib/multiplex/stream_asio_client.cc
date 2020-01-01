@@ -52,22 +52,24 @@ class StreamAsioClient::Impl {
   void AsyncRegister(uint8_t id,
                      const RegisterRequest& request,
                      RegisterHandler handler) {
-    lock_.Invoke([this, id, request](RegisterHandler handler) {
+    lock_.Invoke([this, id, request](RegisterHandler handler_in) mutable {
         tx_frame_.source_id = this->options_.source_id;
         tx_frame_.dest_id = id;
         tx_frame_.request_reply = request.request_reply();
         tx_frame_.payload = request.buffer();
 
         frame_stream_.AsyncWrite(
-            &tx_frame_, std::bind(&Impl::HandleWrite, this, pl::_1,
-                                  handler, request.request_reply()));
+            &tx_frame_, [this, handler_in = std::move(handler_in),
+                         reply=request.request_reply()](const auto& ec) mutable {
+              this->HandleWrite(ec, std::move(handler_in), reply);
+            });
       },
-      handler);
+      std::move(handler));
   }
 
   void AsyncRegisterMultiple(const std::vector<IdRequest>& requests,
                              io::ErrorCallback handler) {
-    lock_.Invoke([this, requests](io::ErrorCallback handler) {
+    lock_.Invoke([this, requests](io::ErrorCallback handler) mutable {
         tx_frames_.resize(requests.size());
         tx_frame_ptrs_.clear();
 
@@ -80,18 +82,19 @@ class StreamAsioClient::Impl {
           tx_frame_ptrs_.push_back(&tx_frames_[i]);
         }
 
-        RegisterHandler reg_handler = [handler](
-            const base::error_code& ec,
-            const RegisterReply&) {
-          handler(ec);
-        };
+        RegisterHandler reg_handler{[handler = std::move(handler)](
+              const base::error_code& ec,
+              const RegisterReply&) mutable {
+            handler(ec);
+          }};
 
         frame_stream_.AsyncWriteMultiple(
-            tx_frame_ptrs_, std::bind(
-                &Impl::HandleWrite, this, pl::_1,
-                reg_handler, false));
+            tx_frame_ptrs_, [this, reg_handler = std::move(reg_handler)](
+                auto ec) mutable {
+              this->HandleWrite(ec, std::move(reg_handler), false);
+            });
       },
-      handler);
+      std::move(handler));
   }
 
   void HandleWrite(const base::error_code& ec,
@@ -100,7 +103,7 @@ class StreamAsioClient::Impl {
     if (!request_reply) {
       boost::asio::post(
           executor_,
-          std::bind(handler, ec, RegisterReply()));
+          std::bind(std::move(handler), ec, RegisterReply()));
       return;
     }
 
@@ -108,7 +111,9 @@ class StreamAsioClient::Impl {
 
     frame_stream_.AsyncRead(
         &rx_frame_, kDefaultTimeout,
-        std::bind(&Impl::HandleRead, this, pl::_1, handler));
+        [this, handler=std::move(handler)](const auto& ec) mutable {
+          this->HandleRead(ec, std::move(handler));
+        });
   }
 
   void HandleRead(const base::error_code& ec, RegisterHandler handler) {
@@ -116,7 +121,7 @@ class StreamAsioClient::Impl {
     if (ec == boost::asio::error::operation_aborted) {
       boost::asio::post(
           executor_,
-          std::bind(handler, ec, RegisterReply()));
+          std::bind(std::move(handler), ec, RegisterReply()));
       return;
     }
 
@@ -127,7 +132,9 @@ class StreamAsioClient::Impl {
         rx_frame_.dest_id != tx_frame_.source_id) {
       frame_stream_.AsyncRead(
           &rx_frame_, kDefaultTimeout,
-          std::bind(&Impl::HandleRead, this, pl::_1, handler));
+          [this, handler=std::move(handler)](const auto& ec) mutable {
+            this->HandleRead(ec, std::move(handler));
+          });
       return;
     }
 
@@ -135,7 +142,7 @@ class StreamAsioClient::Impl {
     auto reply = ParseRegisterReply(stream);
     boost::asio::post(
         executor_,
-        std::bind(handler, ec, reply));
+        std::bind(std::move(handler), ec, reply));
   }
 
   io::SharedStream MakeTunnel(uint8_t id, uint32_t channel,
@@ -165,18 +172,19 @@ class StreamAsioClient::Impl {
       // this ever be more clear if we could express it with
       // coroutines.
 
-      read_handler_ = handler;
+      read_handler_ = std::move(handler);
       read_bytes_read_ = 0;
 
       read_nonce_ = parent_->lock_.Invoke(
-          [self=shared_from_this(), buffers](io::SizeCallback handler) {
+          [self=shared_from_this(), buffers](io::SizeCallback handler) mutable {
             self->read_nonce_ = {};
             self->MakeFrame(boost::asio::buffer("", 0), 0, true);
 
             self->parent_->frame_stream_.AsyncWrite(
                 &self->parent_->tx_frame_,
-                std::bind(&Tunnel::HandleRequestRead, self, pl::_1,
-                          buffers, handler));
+                [self, buffers, handler=std::move(handler)](const auto& ec) mutable {
+                  self->HandleRequestRead(ec, buffers, std::move(handler));
+                });
           },
           std::bind(&Tunnel::MaybeRetry, shared_from_this(),
                     pl::_1, pl::_2, buffers));
@@ -185,11 +193,10 @@ class StreamAsioClient::Impl {
     void async_write_some(io::ConstBufferSequence buffers,
                           io::WriteHandler handler) override {
       MJ_ASSERT(!write_handler_);
-      write_handler_ = handler;
+      write_handler_ = std::move(handler);
       write_nonce_ = parent_->lock_.Invoke(
-          [self=shared_from_this(), buffers](io::WriteHandler handler) {
-            self->write_nonce_ = {};
-            self->write_handler_ = {};
+          [self=shared_from_this(), buffers](
+              io::WriteHandler inner_handler) mutable {
             auto size = boost::asio::buffer_size(buffers);
             if (self->parent_->stream_properties_.max_size >= 0) {
               const int kVarUintSize = 1;
@@ -205,15 +212,21 @@ class StreamAsioClient::Impl {
 
             self->parent_->frame_stream_.AsyncWrite(
                 &self->parent_->tx_frame_,
-                [handler, size](auto&& ec) {
+                [inner_handler = std::move(inner_handler), size](
+                    auto&& ec) mutable {
                   if (ec) {
-                    handler(ec, 0);
+                    inner_handler(ec, 0);
                   } else {
-                    handler(ec, size);
+                    inner_handler(ec, size);
                   }
                 });
-        },
-        handler);
+          },
+          [this](auto&& _1, auto&& _2) {
+            auto copy = std::move(this->write_handler_);
+            this->write_handler_ = {};
+            this->write_nonce_ = {};
+            copy(_1, _2);
+          });
     }
 
     boost::asio::executor get_executor() override {
@@ -228,7 +241,7 @@ class StreamAsioClient::Impl {
       if (read_handler_) {
         boost::asio::post(
             get_executor(),
-            std::bind(read_handler_,
+            std::bind(std::move(read_handler_),
                       boost::asio::error::operation_aborted, 0));
       }
       read_handler_ = {};
@@ -237,7 +250,7 @@ class StreamAsioClient::Impl {
       if (parent_->lock_.remove(write_nonce_)) {
         boost::asio::post(
             get_executor(),
-            std::bind(write_handler_,
+            std::bind(std::move(write_handler_),
                       boost::asio::error::operation_aborted, 0));
       }
       write_handler_ = {};
@@ -256,8 +269,10 @@ class StreamAsioClient::Impl {
       parent_->frame_stream_.AsyncRead(
           &parent_->rx_frame_,
           kDefaultTimeout,
-          std::bind(&Tunnel::HandleRead, shared_from_this(),
-                    pl::_1, buffers, callback));
+          [self=shared_from_this(), buffers,
+           callback = std::move(callback)](const auto& ec) mutable {
+            self->HandleRead(ec, buffers, std::move(callback));
+          });
     }
 
     void HandleRead(const base::error_code& ec,
@@ -339,7 +354,7 @@ class StreamAsioClient::Impl {
 
         HandleRequestRead(base::error_code(),
                           offset_buffers,
-                          callback);
+                          std::move(callback));
         return;
       }
 
@@ -378,7 +393,8 @@ class StreamAsioClient::Impl {
         // No need to retry, we're done.
         boost::asio::post(
             parent_->executor_,
-            std::bind(read_handler_, base::error_code(), read_bytes_read_));
+            std::bind(std::move(read_handler_),
+                      base::error_code(), read_bytes_read_));
         read_handler_ = {};
         read_bytes_read_ = 0;
         return;
@@ -389,10 +405,10 @@ class StreamAsioClient::Impl {
       poll_timer_.expires_from_now(options_.poll_rate);
       poll_timer_.async_wait([self = shared_from_this(), buffers](auto&& ec) {
           if (ec == boost::asio::error::operation_aborted) { return; }
-          auto copy = self->read_handler_;
+          auto copy = std::move(self->read_handler_);
           self->read_handler_ = {};
           self->read_bytes_read_ = 0;
-          self->async_read_some(buffers, copy);
+          self->async_read_some(buffers, std::move(copy));
         });
     }
 
@@ -423,12 +439,12 @@ class StreamAsioClient::Impl {
 
     void async_read_some(io::MutableBufferSequence buffers,
                          io::ReadHandler handler) override {
-      return impl_->async_read_some(buffers, handler);
+      return impl_->async_read_some(buffers, std::move(handler));
     }
 
     void async_write_some(io::ConstBufferSequence buffers,
                           io::WriteHandler handler) override {
-      return impl_->async_write_some(buffers, handler);
+      return impl_->async_write_some(buffers, std::move(handler));
     }
 
     boost::asio::executor get_executor() override {
@@ -465,13 +481,13 @@ void StreamAsioClient::AsyncRegister(
     uint8_t id,
     const RegisterRequest& request,
     RegisterHandler handler) {
-  impl_->AsyncRegister(id, request, handler);
+  impl_->AsyncRegister(id, request, std::move(handler));
 }
 
 void StreamAsioClient::AsyncRegisterMultiple(
     const std::vector<IdRequest>& requests,
     io::ErrorCallback handler) {
-  impl_->AsyncRegisterMultiple(requests, handler);
+  impl_->AsyncRegisterMultiple(requests, std::move(handler));
 }
 
 io::SharedStream StreamAsioClient::MakeTunnel(

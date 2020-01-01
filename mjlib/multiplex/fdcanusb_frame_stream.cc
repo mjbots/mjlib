@@ -79,7 +79,8 @@ class FdcanusbFrameStream::Impl {
     boost::asio::async_write(
         *stream_,
         boost::asio::buffer(write_buffer_.view()),
-        [callback](auto&& ec, auto&&) { callback(ec); });
+        [callback = std::move(callback)](
+            auto&& ec, auto&&) mutable { callback(ec); });
   }
 
   void AsyncWriteMultiple(const std::vector<const Frame*>& frames,
@@ -92,7 +93,8 @@ class FdcanusbFrameStream::Impl {
     boost::asio::async_write(
         *stream_,
         boost::asio::buffer(write_buffer_.view()),
-        [callback](auto&& ec, auto&&) { callback(ec); });
+        [callback = std::move(callback)](
+            auto&& ec, auto&&) mutable { callback(ec); });
   }
 
   void AsyncRead(Frame* frame,
@@ -102,7 +104,7 @@ class FdcanusbFrameStream::Impl {
     BOOST_ASSERT(!current_callback_);
 
     current_frame_ = frame;
-    current_callback_ = callback;
+    current_callback_ = std::move(callback);
 
     if (timeout == boost::posix_time::time_duration()) {
       timer_.cancel();
@@ -119,7 +121,7 @@ class FdcanusbFrameStream::Impl {
       auto ec = base::error_code(boost::asio::error::operation_aborted);
       boost::asio::post(
           stream_->get_executor(),
-          std::bind(current_callback_, ec));
+          std::bind(std::move(current_callback_), ec));
       current_callback_ = {};
       current_frame_ = nullptr;
     }
@@ -227,12 +229,12 @@ class FdcanusbFrameStream::Impl {
 
   void EmitFrame() {
     current_frame_ = nullptr;
-    auto copy = current_callback_;
+    auto copy = std::move(current_callback_);
     current_callback_ = {};
 
     boost::asio::post(
         get_executor(),
-        std::bind(copy, base::error_code()));
+        std::bind(std::move(copy), base::error_code()));
   }
 
   void HandleTimer(const base::error_code& ec) {
@@ -246,7 +248,7 @@ class FdcanusbFrameStream::Impl {
     if (current_callback_) {
       BOOST_ASSERT(current_frame_);
       current_frame_ = nullptr;
-      auto copy = current_callback_;
+      auto copy = std::move(current_callback_);
       current_callback_ = {};
       copy(boost::asio::error::operation_aborted);
     }
@@ -280,24 +282,24 @@ FrameStream::Properties FdcanusbFrameStream::properties() const {
 void FdcanusbFrameStream::AsyncStart(io::ErrorCallback callback) {
   boost::asio::post(
       impl_->get_executor(),
-      std::bind(callback, base::error_code()));
+      std::bind(std::move(callback), base::error_code()));
 }
 
 void FdcanusbFrameStream::AsyncWrite(
     const Frame* frame, io::ErrorCallback callback) {
-  impl_->AsyncWrite(frame, callback);
+  impl_->AsyncWrite(frame, std::move(callback));
 }
 
 void FdcanusbFrameStream::AsyncWriteMultiple(
     const std::vector<const Frame*>& frames, io::ErrorCallback callback) {
-  impl_->AsyncWriteMultiple(frames, callback);
+  impl_->AsyncWriteMultiple(frames, std::move(callback));
 }
 
 void FdcanusbFrameStream::AsyncRead(
     Frame* frame,
     boost::posix_time::time_duration timeout,
     io::ErrorCallback callback) {
-  impl_->AsyncRead(frame, timeout, callback);
+  impl_->AsyncRead(frame, timeout, std::move(callback));
 }
 
 void FdcanusbFrameStream::cancel() {

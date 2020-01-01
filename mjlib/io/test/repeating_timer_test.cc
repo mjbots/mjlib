@@ -41,7 +41,7 @@ BOOST_AUTO_TEST_CASE(BasicRepeatingTimer) {
   mjlib::base::error_code ms100_last_error_ec;
   mjlib::base::error_code ms100_ec;
 
-  auto ms100_callback = [&](const mjlib::base::error_code& ec) {
+  auto ms100_callback = [&](const mjlib::base::error_code& ec) mutable {
     ms100_count++;
     if (ec) { ms100_last_error_ec = ec; }
     ms100_ec = ec;

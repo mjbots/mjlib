@@ -33,7 +33,7 @@ class StreamCopy {
       : executor_(executor),
         read_stream_(read_stream),
         write_stream_(write_stream),
-        done_callback_(done_callback) {
+        done_callback_(std::move(done_callback)) {
     StartRead();
   }
 
@@ -50,7 +50,7 @@ class StreamCopy {
       if (done_callback_) {
         boost::asio::post(
             executor_,
-            std::bind(done_callback_, ec));
+            std::bind(std::move(done_callback_), ec));
         done_callback_ = {};
       }
       return;
@@ -67,7 +67,7 @@ class StreamCopy {
       if (done_callback_) {
         boost::asio::post(
             executor_,
-            std::bind(done_callback_, ec));
+            std::bind(std::move(done_callback_), ec));
         done_callback_ = {};
       }
       return;
@@ -94,7 +94,7 @@ class BidirectionalStreamCopy {
         copy2_(executor, right, left, std::bind(
                    &BidirectionalStreamCopy::HandleDone, this,
                    std::placeholders::_1)),
-        done_callback_(done_callback) {}
+        done_callback_(std::move(done_callback)) {}
 
  private:
   void HandleDone(const base::error_code& ec) {
@@ -102,7 +102,7 @@ class BidirectionalStreamCopy {
 
     boost::asio::post(
         executor_,
-        std::bind(done_callback_, ec));
+        std::bind(std::move(done_callback_), ec));
     done_callback_ = {};
   }
 

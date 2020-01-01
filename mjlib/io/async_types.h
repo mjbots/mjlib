@@ -14,10 +14,11 @@
 
 #pragma once
 
-#include <functional>
 #include <vector>
 
 #include <boost/asio/buffer.hpp>
+
+#include <function2/function2.hpp>
 
 #include "mjlib/base/error_code.h"
 
@@ -26,10 +27,10 @@ namespace io {
 
 // Concrete types that model various callbacks, including concepts
 // from boost::asio.
-using VoidCallback = std::function<void ()>;
-using ErrorCallback = std::function<void (const base::error_code&)>;
-using SizeCallback = std::function<void (const base::error_code&, size_t)>;
-using ChainableCallback = std::function<void (ErrorCallback)>;
+using VoidCallback = fu2::unique_function<void ()>;
+using ErrorCallback = fu2::unique_function<void (const base::error_code&)>;
+using SizeCallback = fu2::unique_function<void (const base::error_code&, size_t)>;
+using ChainableCallback = fu2::unique_function<void (ErrorCallback)>;
 
 using ReadHandler = SizeCallback;
 using WriteHandler = SizeCallback;

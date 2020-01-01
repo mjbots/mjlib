@@ -40,12 +40,12 @@ class StdioStream : public AsyncStream {
 
   void async_read_some(MutableBufferSequence buffers,
                        ReadHandler handler) override {
-    stdin_.async_read_some(buffers, handler);
+    stdin_.async_read_some(buffers, std::move(handler));
   }
 
   void async_write_some(ConstBufferSequence buffers,
                         WriteHandler handler) override {
-    stdout_.async_write_some(buffers, handler);
+    stdout_.async_write_some(buffers, std::move(handler));
   }
 
   void cancel() override {
@@ -66,7 +66,7 @@ void AsyncCreateStdio(
     StreamHandler handler) {
   boost::asio::post(
       executor,
-      std::bind(handler, base::error_code(),
+      std::bind(std::move(handler), base::error_code(),
                 std::make_shared<StdioStream>(executor, options)));
 }
 

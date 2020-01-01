@@ -82,7 +82,7 @@ class AsioTimer : public TimerBase {
   }
 
   void async_wait(ErrorCallback callback) override {
-    return timer_.async_wait(callback);
+    return timer_.async_wait(std::move(callback));
   }
 
   void wait() override {

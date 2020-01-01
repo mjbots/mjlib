@@ -53,7 +53,8 @@ class AsyncStream : public AsyncReadStream, public AsyncWriteStream {
 };
 
 using SharedStream = std::shared_ptr<AsyncStream>;
-using StreamHandler = std::function<void (const base::error_code&, SharedStream)>;
+using StreamHandler = fu2::unique_function<
+  void (const base::error_code&, SharedStream)>;
 
 }
 }

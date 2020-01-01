@@ -52,7 +52,7 @@ class DebugDeadlineService {
 
       item.position_ = queue_.end();
       item.executor_.post(
-          std::bind(entry.handler, boost::system::error_code()),
+          std::bind(std::move(entry.handler), boost::system::error_code()),
           std::allocator<void>());
       queue_.erase(queue_.begin());
     }
@@ -86,7 +86,8 @@ class DebugDeadlineService {
         auto& entry = position_->second;
         MJ_ASSERT(this == entry.item);
         executor_.post(
-            std::bind(entry.handler, boost::asio::error::operation_aborted),
+            std::bind(std::move(entry.handler),
+                      boost::asio::error::operation_aborted),
             std::allocator<void>());
         queue.erase(position_);
         position_ = queue.end();
@@ -124,9 +125,9 @@ class DebugDeadlineService {
     void async_wait(ErrorCallback handler) override {
       Entry entry;
       entry.item = this;
-      entry.handler = handler;
+      entry.handler = std::move(handler);
       position_ = debug_service_->queue_.insert(
-          std::make_pair(timestamp_, entry));
+          std::make_pair(timestamp_, std::move(entry)));
     }
 
     void wait() override {

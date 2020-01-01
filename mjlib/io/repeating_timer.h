@@ -17,6 +17,8 @@
 #include <boost/asio/executor.hpp>
 #include <boost/date_time/posix_time/posix_time_types.hpp>
 
+#include <function2/function2.hpp>
+
 #include "mjlib/base/error_code.h"
 #include "mjlib/io/async_types.h"
 #include "mjlib/io/deadline_timer.h"
@@ -33,9 +35,11 @@ class RepeatingTimer {
  public:
   RepeatingTimer(const boost::asio::executor&);
 
+  using Callback = fu2::function<void (const mjlib::base::error_code&)>;
+
   // Unlike most boost::asio callbacks, @p callback is invoked
   // possibly many times, at a regular interval.
-  void start(boost::posix_time::time_duration, io::ErrorCallback callback);
+  void start(boost::posix_time::time_duration, Callback callback);
 
   // Stop invoking the callback.  Return if anything was actually
   // cancelled.  If the timer callback has already been enqueued, the
@@ -49,7 +53,7 @@ class RepeatingTimer {
   boost::asio::executor executor_;
   DeadlineTimer timer_;
   boost::posix_time::time_duration period_;
-  io::ErrorCallback callback_;
+  Callback callback_;
 };
 
 }

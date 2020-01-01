@@ -55,7 +55,7 @@ class TcpServerStream : public AsyncStream {
     BOOST_ASSERT(started_);
 
     read_buffers_ = buffers;
-    read_handler_ = handler;
+    read_handler_ = std::move(handler);
 
     if (connected_) {
       socket_.async_read_some(
@@ -70,7 +70,7 @@ class TcpServerStream : public AsyncStream {
     BOOST_ASSERT(started_);
 
     write_buffers_ = buffers;
-    write_handler_ = handler;
+    write_handler_ = std::move(handler);
 
     if (connected_) {
       socket_.async_write_some(
@@ -90,14 +90,14 @@ class TcpServerStream : public AsyncStream {
         read_queued_ = false;
         boost::asio::post(
             executor_,
-            std::bind(read_handler_,
+            std::bind(std::move(read_handler_),
                       boost::asio::error::operation_aborted, 0));
       }
       if (write_queued_) {
         write_queued_ = false;
         boost::asio::post(
             executor_,
-            std::bind(write_handler_,
+            std::bind(std::move(write_handler_),
                       boost::asio::error::operation_aborted, 0));
       }
     }
@@ -110,18 +110,18 @@ class TcpServerStream : public AsyncStream {
     if (!started_) {
       boost::asio::post(
           executor_,
-          std::bind(start_handler_, ec));
+          std::bind(std::move(start_handler_), ec));
       started_ = true;
     }
     connected_ = true;
 
     if (read_queued_) {
       read_queued_ = false;
-      async_read_some(read_buffers_, read_handler_);
+      async_read_some(read_buffers_, std::move(read_handler_));
     }
     if (write_queued_) {
       write_queued_ = false;
-      async_write_some(write_buffers_, write_handler_);
+      async_write_some(write_buffers_, std::move(write_handler_));
     }
   }
 
@@ -135,7 +135,7 @@ class TcpServerStream : public AsyncStream {
     } else {
       boost::asio::post(
           executor_,
-          std::bind(read_handler_, ec, size));
+          std::bind(std::move(read_handler_), ec, size));
     }
   }
 
@@ -149,7 +149,7 @@ class TcpServerStream : public AsyncStream {
     } else {
       boost::asio::post(
           executor_,
-          std::bind(write_handler_, ec, size));
+          std::bind(std::move(write_handler_), ec, size));
     }
   }
 
@@ -175,7 +175,7 @@ void AsyncCreateTcpServer(
     const StreamFactory::Options& options,
     StreamHandler handler) {
   auto stream = std::make_shared<TcpServerStream>(executor, options);
-  stream->start_handler_ = std::bind(handler, pl::_1, stream);
+  stream->start_handler_ = std::bind(std::move(handler), pl::_1, stream);
 }
 
 }

@@ -29,7 +29,7 @@ struct Item {
 
   Item(ChainableCallback callback_in,
        std::string_view description_in)
-      : callback(callback_in),
+      : callback(std::move(callback_in)),
         description(description_in) {}
 };
 
@@ -40,7 +40,7 @@ class AsyncSequence::Impl : public std::enable_shared_from_this<Impl> {
 
   void Start(ErrorCallback completion_callback) {
     MJ_ASSERT(!completion_callback_);
-    completion_callback_ = completion_callback;
+    completion_callback_ = std::move(completion_callback);
     RunNextOperation();
   }
 
@@ -48,7 +48,7 @@ class AsyncSequence::Impl : public std::enable_shared_from_this<Impl> {
     if (sequence_.empty()) {
       // Success!
       boost::asio::post(
-          executor_, std::bind(completion_callback_, base::error_code()));
+          executor_, std::bind(std::move(completion_callback_), base::error_code()));
       return;
     }
 
@@ -58,20 +58,20 @@ class AsyncSequence::Impl : public std::enable_shared_from_this<Impl> {
     boost::asio::post(
         executor_,
         [self=shared_from_this(), next_item]() {
-          next_item.callback(
+          next_item->callback(
               std::bind(&Impl::HandleCallback,
                         self, std::placeholders::_1, next_item));
         });
   }
 
-  void HandleCallback(base::error_code ec, const Item& item) {
+  void HandleCallback(base::error_code ec, std::shared_ptr<Item> item) {
     if (ec) {
-      if (!item.description.empty()) {
-        ec.Append("When executing: " + item.description);
+      if (!item->description.empty()) {
+        ec.Append("When executing: " + item->description);
       }
       boost::asio::post(
           executor_,
-          std::bind(completion_callback_, ec));
+          std::bind(std::move(completion_callback_), ec));
       return;
     }
 
@@ -79,7 +79,7 @@ class AsyncSequence::Impl : public std::enable_shared_from_this<Impl> {
   }
 
   boost::asio::executor executor_;
-  std::deque<Item> sequence_;
+  std::deque<std::shared_ptr<Item>> sequence_;
   ErrorCallback completion_callback_;
 };
 
@@ -89,12 +89,13 @@ AsyncSequence::AsyncSequence(const boost::asio::executor& executor)
 AsyncSequence& AsyncSequence::Add(ChainableCallback callback,
                                   std::string_view description) {
   BOOST_ASSERT(!impl_->completion_callback_);
-  impl_->sequence_.emplace_back(callback, description);
+  impl_->sequence_.emplace_back(
+      std::make_shared<Item>(std::move(callback), description));
   return *this;
 }
 
 void AsyncSequence::Start(ErrorCallback completion) {
-  impl_->Start(completion);
+  impl_->Start(std::move(completion));
 }
 
 }

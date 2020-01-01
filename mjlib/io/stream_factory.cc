@@ -51,26 +51,26 @@ StreamFactory::~StreamFactory() {}
 void StreamFactory::AsyncCreate(const Options& options, StreamHandler handler) {
   switch (options.type) {
     case Type::kStdio: {
-      detail::AsyncCreateStdio(impl_->executor_, options, handler);
+      detail::AsyncCreateStdio(impl_->executor_, options, std::move(handler));
       return;
     }
     case Type::kSerial: {
-      detail::AsyncCreateSerial(impl_->executor_, options, handler);
+      detail::AsyncCreateSerial(impl_->executor_, options, std::move(handler));
       return;
     }
     case Type::kTcpClient: {
-      detail::AsyncCreateTcpClient(impl_->executor_, options, handler);
+      detail::AsyncCreateTcpClient(impl_->executor_, options, std::move(handler));
       return;
     }
     case Type::kTcpServer: {
-      detail::AsyncCreateTcpServer(impl_->executor_, options, handler);
+      detail::AsyncCreateTcpServer(impl_->executor_, options, std::move(handler));
       return;
     }
     case Type::kPipe: {
       auto stream = impl_->pipe_factory_.GetStream(
           options.pipe_key, options.pipe_direction);
       boost::asio::post(impl_->executor_,
-                        std::bind(handler, base::error_code(), stream));
+                        std::bind(std::move(handler), base::error_code(), stream));
       return;
     }
   }

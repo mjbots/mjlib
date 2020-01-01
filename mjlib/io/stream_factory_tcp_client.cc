@@ -46,12 +46,12 @@ class TcpStream : public AsyncStream {
 
   void async_read_some(MutableBufferSequence buffers,
                        ReadHandler handler) override {
-    socket_.async_read_some(buffers, handler);
+    socket_.async_read_some(buffers, std::move(handler));
   }
 
   void async_write_some(ConstBufferSequence buffers,
                         WriteHandler handler) override {
-    socket_.async_write_some(buffers, handler);
+    socket_.async_write_some(buffers, std::move(handler));
   }
 
   void cancel() override {
@@ -69,7 +69,7 @@ class TcpStream : public AsyncStream {
                             options_.tcp_target, options_.tcp_target_port));
       boost::asio::post(
           executor_,
-          std::bind(start_handler_, ec));
+          std::bind(std::move(start_handler_), ec));
       return;
     }
 
@@ -83,7 +83,7 @@ class TcpStream : public AsyncStream {
     }
     boost::asio::post(
         executor_,
-        std::bind(start_handler_, ec));
+        std::bind(std::move(start_handler_), ec));
   }
 
   boost::asio::executor executor_;
@@ -99,7 +99,7 @@ void AsyncCreateTcpClient(
     const StreamFactory::Options& options,
     StreamHandler handler) {
   auto stream = std::make_shared<TcpStream>(executor, options);
-  stream->start_handler_ = std::bind(handler, pl::_1, stream);
+  stream->start_handler_ = std::bind(std::move(handler), pl::_1, stream);
 }
 
 }

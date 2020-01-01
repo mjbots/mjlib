@@ -85,12 +85,12 @@ class SerialStream : public AsyncStream {
 
   void async_read_some(MutableBufferSequence buffers,
                        ReadHandler handler) override {
-    port_.async_read_some(buffers, handler);
+    port_.async_read_some(buffers, std::move(handler));
   }
 
   void async_write_some(ConstBufferSequence buffers,
                         WriteHandler handler) override {
-    port_.async_write_some(buffers, handler);
+    port_.async_write_some(buffers, std::move(handler));
   }
 
   void cancel() override {
@@ -116,7 +116,7 @@ void AsyncCreateSerial(
     ec.Append("When opening: '" + options.serial_port + "'");
   }
 
-  boost::asio::post(executor, std::bind(handler, ec, stream));
+  boost::asio::post(executor, std::bind(std::move(handler), ec, stream));
 }
 
 }

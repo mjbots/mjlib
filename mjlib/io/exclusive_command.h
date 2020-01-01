@@ -21,6 +21,8 @@
 #include <boost/asio/post.hpp>
 #include <boost/noncopyable.hpp>
 
+#include "mjlib/base/assert.h"
+
 namespace mjlib {
 namespace io {
 
@@ -46,7 +48,8 @@ class ExclusiveCommand : boost::noncopyable {
   /// complete.
   template <typename Command, typename Handler>
   Nonce Invoke(Command command, Handler handler) {
-    auto ptr = std::make_shared<Concrete<Command, Handler>>(this, command, handler);
+    auto ptr = std::make_shared<Concrete<Command, Handler>>(
+        this, command, std::move(handler));
     queued_.push_back(ptr);
     MaybeStart();
     return ptr;
@@ -65,7 +68,7 @@ class ExclusiveCommand : boost::noncopyable {
 
  private:
   void ItemDone() {
-    BOOST_ASSERT(waiting_);
+    MJ_ASSERT(waiting_);
     waiting_.reset();
     MaybeStart();
   }
@@ -85,8 +88,9 @@ class ExclusiveCommand : boost::noncopyable {
    public:
     Concrete(ExclusiveCommand* parent,
              const Command& command,
-             const Handler& handler)
-        : parent_(parent), command_(command), handler_(handler) {}
+             Handler handler)
+        : parent_(parent), command_(command), handler_(std::move(handler)) {
+    }
 
     ~Concrete() override {}
 
@@ -103,7 +107,7 @@ class ExclusiveCommand : boost::noncopyable {
       void operator()(Args&&... args) {
         concrete_->handler_(std::forward<Args>(args)...);
 
-        BOOST_ASSERT(concrete_->parent_->waiting_);
+        MJ_ASSERT(concrete_->parent_->waiting_);
         boost::asio::post(
             concrete_->parent_->get_executor(),
             std::bind(&ExclusiveCommand::ItemDone, concrete_->parent_));
@@ -113,6 +117,7 @@ class ExclusiveCommand : boost::noncopyable {
       Concrete* const concrete_;
     };
 
+    bool called_ = false;
     ExclusiveCommand* const parent_;
     Command command_;
     Handler handler_;

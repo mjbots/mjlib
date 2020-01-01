@@ -41,7 +41,7 @@ class DeadlineTimer {
   ~DeadlineTimer() {}
 
   void async_wait(ErrorCallback handler) {
-    make_delegate()->async_wait(handler);
+    make_delegate()->async_wait(std::move(handler));
   }
 
   void wait() {

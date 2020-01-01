@@ -22,6 +22,7 @@ cc_library(
     deps = [
         "//mjlib/base:error_code",
         "@boost",
+        "@com_github_Naios_function2//:function2",
     ],
 )
 
@@ -194,6 +195,7 @@ cc_test(
     srcs = [
         "test/async_sequence_test.cc",
         "test/async_stream_test.cc",
+        "test/async_types_test.cc",
         "test/exclusive_command_test.cc",
         "test/offset_buffer_test.cc",
         "test/realtime_executor_test.cc",

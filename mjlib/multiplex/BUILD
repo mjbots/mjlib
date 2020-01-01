@@ -119,22 +119,6 @@ cc_library(
 )
 
 cc_library(
-    name = "threaded_client",
-    hdrs = ["threaded_client.h"],
-    srcs = ["threaded_client.cc"],
-    deps = [
-        ":frame",
-        ":register",
-        ":stream",
-        "//mjlib/base:buffer_stream",
-        "//mjlib/base:system_error",
-        "//mjlib/base:visitor",
-        "//mjlib/io:async_types",
-        "@fmt",
-    ],
-)
-
-cc_library(
     name = "micro_error",
     hdrs = ["micro_error.h"],
     srcs = ["micro_error.cc"],
@@ -221,7 +205,6 @@ cc_test(
         "test/micro_stream_datagram_test.cc",
         "test/register_test.cc",
         "test/test_main.cc",
-        "test/threaded_client_test.cc",
     ],
     deps = [
         ":stream_asio_client",
@@ -230,7 +213,6 @@ cc_test(
         ":micro_server",
         ":micro_stream_datagram",
         ":register",
-        ":threaded_client",
         "//mjlib/io:stream_factory",
         "//mjlib/io:test_reader",
         "//mjlib/micro:stream_pipe",

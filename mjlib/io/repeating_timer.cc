@@ -29,7 +29,7 @@ RepeatingTimer::RepeatingTimer(const boost::asio::executor& executor)
       timer_(executor) {}
 
 void RepeatingTimer::start(boost::posix_time::time_duration period,
-                           io::ErrorCallback callback) {
+                           Callback callback) {
   period_ = period;
   callback_ = callback;
 

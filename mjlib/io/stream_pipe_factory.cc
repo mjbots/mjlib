@@ -41,7 +41,7 @@ class HalfPipe : public AsyncStream {
       // Post immediately.
       boost::asio::post(
           executor_,
-          std::bind(handler, base::error_code(), 0));
+          std::bind(std::move(handler), base::error_code(), 0));
       return;
     }
 
@@ -50,16 +50,17 @@ class HalfPipe : public AsyncStream {
           boost::asio::buffer_copy(buffers, *other_->write_buffers_);
       boost::asio::post(
           executor_,
-          std::bind(*other_->write_handler_, base::error_code(), written));
+          std::bind(std::move(*other_->write_handler_),
+                    base::error_code(), written));
       boost::asio::post(
           executor_,
-          std::bind(handler, base::error_code(), written));
+          std::bind(std::move(handler), base::error_code(), written));
 
       other_->write_handler_ = {};
       other_->write_buffers_ = {};
     } else {
-      read_buffers_ = buffers;
-      read_handler_ = handler;
+      read_buffers_ = std::move(buffers);
+      read_handler_ = std::move(handler);
     }
   }
 
@@ -72,7 +73,7 @@ class HalfPipe : public AsyncStream {
       // Post immediately.
       boost::asio::post(
           executor_,
-          std::bind(handler, base::error_code(), 0));
+          std::bind(std::move(handler), base::error_code(), 0));
       return;
     }
 
@@ -81,16 +82,17 @@ class HalfPipe : public AsyncStream {
           boost::asio::buffer_copy(*other_->read_buffers_, buffers);
       boost::asio::post(
           executor_,
-          std::bind(*other_->read_handler_, base::error_code(), written));
+          std::bind(std::move(*other_->read_handler_),
+                    base::error_code(), written));
       boost::asio::post(
           executor_,
-          std::bind(handler, base::error_code(), written));
+          std::bind(std::move(handler), base::error_code(), written));
 
       other_->read_handler_ = {};
       other_->read_buffers_ = {};
     } else {
-      write_buffers_ = buffers;
-      write_handler_ = handler;
+      write_buffers_ = std::move(buffers);
+      write_handler_ = std::move(handler);
     }
   }
 
@@ -98,7 +100,8 @@ class HalfPipe : public AsyncStream {
     if (read_handler_) {
       boost::asio::post(
           executor_,
-          std::bind(*read_handler_, boost::asio::error::operation_aborted, 0));
+          std::bind(std::move(*read_handler_),
+                    boost::asio::error::operation_aborted, 0));
       read_handler_ = {};
       read_buffers_ = {};
     }
@@ -106,7 +109,7 @@ class HalfPipe : public AsyncStream {
     if (write_handler_) {
       boost::asio::post(
           executor_,
-          std::bind(*write_handler_,
+          std::bind(std::move(*write_handler_),
                     boost::asio::error::operation_aborted, 0));
       write_handler_ = {};
       write_buffers_ = {};
@@ -155,12 +158,12 @@ class HalfPipeRef : public AsyncStream {
 
   void async_read_some(MutableBufferSequence buffers,
                        ReadHandler handler) override {
-    return pipe_->async_read_some(buffers, handler);
+    return pipe_->async_read_some(buffers, std::move(handler));
   }
 
   void async_write_some(ConstBufferSequence buffers,
                         WriteHandler handler) override {
-    return pipe_->async_write_some(buffers, handler);
+    return pipe_->async_write_some(buffers, std::move(handler));
   }
 
  private:

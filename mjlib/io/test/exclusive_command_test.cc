@@ -33,7 +33,7 @@ BOOST_AUTO_TEST_CASE(ExclusiveCommandTest) {
   dut.Invoke(
       [&](Callback done_callback) {
         item1_started++;
-        item1_callback = done_callback;
+        item1_callback = std::move(done_callback);
       },
       [&]() {
         item1_done++;
@@ -45,7 +45,7 @@ BOOST_AUTO_TEST_CASE(ExclusiveCommandTest) {
   dut.Invoke(
       [&](Callback done_callback) {
         item2_started++;
-        item2_callback = done_callback;
+        item2_callback = std::move(done_callback);
       },
       [&]() {
         item2_done++;
@@ -96,7 +96,7 @@ BOOST_AUTO_TEST_CASE(CancelTest) {
   const auto nonce1 = dut.Invoke(
       [&](Callback done_callback) {
         item1_started++;
-        item1_callback = done_callback;
+        item1_callback = std::move(done_callback);
       },
       [&]() {
         item1_done++;
@@ -108,7 +108,7 @@ BOOST_AUTO_TEST_CASE(CancelTest) {
   const auto nonce2 = dut.Invoke(
       [&](Callback done_callback) {
         item2_started++;
-        item2_callback = done_callback;
+        item2_callback = std::move(done_callback);
       },
       [&]() {
         item2_done++;

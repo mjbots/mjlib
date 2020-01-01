@@ -93,7 +93,8 @@ class Selector {
         it == items_.end(), "unknown type: '" + name_ + "'");
 
     selected_ =
-        it->second->AsyncStart(executor_, callback, std::forward<Args>(args)...);
+        it->second->AsyncStart(executor_, std::move(callback),
+                               std::forward<Args>(args)...);
   }
 
  private:
@@ -122,7 +123,7 @@ class Selector {
         Args... args) override {
       auto result = std::make_unique<T>(
           executor, options_, std::forward<Args>(args)...);
-      result->AsyncStart(callback);
+      result->AsyncStart(std::move(callback));
       return result;
     }
 

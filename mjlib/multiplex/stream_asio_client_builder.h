@@ -61,19 +61,20 @@ class StreamAsioClientBuilder : public AsioClient {
 
   void AsyncStart(mjlib::io::ErrorCallback callback) {
     factory_.AsyncCreate(
-        options_.stream, std::bind(
-            &StreamAsioClientBuilder::HandleStream, this,
-            std::placeholders::_1, std::placeholders::_2, callback));
+        options_.stream, [this, callback = std::move(callback)](
+            auto&& _1, auto&& _2) mutable {
+          this->HandleStream(_1, _2, std::move(callback));
+        });
   }
 
   void AsyncRegister(uint8_t id, const RegisterRequest& request,
                      RegisterHandler handler) override {
-    client_->AsyncRegister(id, request, handler);
+    client_->AsyncRegister(id, request, std::move(handler));
   }
 
   void AsyncRegisterMultiple(const std::vector<IdRequest>& requests,
                              io::ErrorCallback callback) override {
-    client_->AsyncRegisterMultiple(requests, callback);
+    client_->AsyncRegisterMultiple(requests, std::move(callback));
   }
 
   io::SharedStream MakeTunnel(
@@ -89,7 +90,7 @@ class StreamAsioClientBuilder : public AsioClient {
     if (ec) {
       boost::asio::post(
           executor_,
-          std::bind(callback, ec));
+          std::bind(std::move(callback), ec));
       return;
     }
 
@@ -97,8 +98,9 @@ class StreamAsioClientBuilder : public AsioClient {
 
     frame_stream_selector_.set_default(options_.frame_type);
     frame_stream_selector_.AsyncStart(
-        std::bind(&StreamAsioClientBuilder::HandleFrameStream, this,
-                  std::placeholders::_1, callback),
+        [this, callback = std::move(callback)](auto&& _1) mutable {
+          this->HandleFrameStream(_1, std::move(callback));
+        },
         stream_.get());
   }
 
@@ -106,14 +108,14 @@ class StreamAsioClientBuilder : public AsioClient {
     if (ec) {
       boost::asio::post(
           executor_,
-          std::bind(callback, ec));
+          std::bind(std::move(callback), ec));
       return;
     }
 
     client_.emplace(frame_stream_selector_.selected());
     boost::asio::post(
         executor_,
-        std::bind(callback, base::error_code()));
+        std::bind(std::move(callback), base::error_code()));
   }
 
   boost::asio::executor executor_;

@@ -16,6 +16,8 @@
 
 #include <boost/date_time/posix_time/posix_time_types.hpp>
 
+#include <function2/function2.hpp>
+
 #include "mjlib/base/error_code.h"
 #include "mjlib/io/async_stream.h"
 #include "mjlib/multiplex/register.h"
@@ -27,7 +29,7 @@ class AsioClient {
  public:
   virtual ~AsioClient() {};
 
-  using RegisterHandler = std::function<
+  using RegisterHandler = fu2::unique_function<
     void (const base::error_code&, const RegisterReply&)>;
 
   struct IdRequest {
