@@ -81,11 +81,11 @@ BOOST_FIXTURE_TEST_CASE(FdcanusbFrameStreamReadTest, Fixture) {
   int write_done = 0;
   boost::asio::async_write(
       *server_side,
-      boost::asio::buffer("rcv 405 20\n", 11),
+      boost::asio::buffer("\n\nrcv 405 20\n", 13),
       [&](auto&& ec, size_t size) {
         mjlib::base::FailIf(ec);
         write_done++;
-        BOOST_TEST(size == 11);
+        BOOST_TEST(size == 13);
       });
 
   BOOST_TEST(write_done == 0);

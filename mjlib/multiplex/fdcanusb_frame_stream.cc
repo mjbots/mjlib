@@ -161,14 +161,14 @@ class FdcanusbFrameStream::Impl {
     streambuf_.commit(size);
     read_outstanding_ = false;
 
-    if (current_callback_) {
-      ParseFrame();
+    while (current_callback_) {
+      if (!ParseFrame()) { break; }
     }
 
     MaybeStartRead();
   }
 
-  void ParseFrame() {
+  bool ParseFrame() {
     BOOST_ASSERT(current_frame_);
 
     // Look for a newline.
@@ -183,12 +183,13 @@ class FdcanusbFrameStream::Impl {
       if ((it - begin) > kMaxLineLength) {
         streambuf_.consume(it - begin + 1);
       }
-      return;
+      return false;
     }
 
     // We have a line, try to handle it.
     ParseLine(std::string_view(&*begin, it - begin));
     streambuf_.consume(it - begin + 1);
+    return true;
   }
 
   void ParseLine(std::string_view line) {
