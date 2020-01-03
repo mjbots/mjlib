@@ -358,7 +358,6 @@ class StreamAsioClient::Impl {
         return;
       }
 
-
       callback({}, read_bytes_read_);
     }
 
