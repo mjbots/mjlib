@@ -15,6 +15,7 @@
 #include "mjlib/multiplex/fdcanusb_frame_stream.h"
 
 #include <functional>
+#include <regex>
 
 #include <boost/algorithm/string.hpp>
 #include <boost/asio/post.hpp>
@@ -130,7 +131,14 @@ class FdcanusbFrameStream::Impl {
   }
 
   bool read_data_queued() const {
-    return streambuf_.size() > 0;
+    // We need to see if there is a full "rcv" line in our buffer.
+    if (streambuf_.size() == 0) { return false; }
+
+    const auto buffers = streambuf_.data();
+    auto begin = boost::asio::buffers_begin(buffers);
+    auto end = boost::asio::buffers_end(buffers);
+
+    return std::regex_search(begin, end, rcv_present_regex_);
   }
 
   boost::asio::executor get_executor() const {
@@ -267,6 +275,8 @@ class FdcanusbFrameStream::Impl {
 
   Frame* current_frame_ = nullptr;
   io::ErrorCallback current_callback_;
+
+  std::regex rcv_present_regex_{"[\r\n]rcv[^\r\n]+[\r\n]"};
 };
 
 FdcanusbFrameStream::FdcanusbFrameStream(
