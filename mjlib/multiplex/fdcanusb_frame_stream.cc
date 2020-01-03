@@ -276,7 +276,7 @@ class FdcanusbFrameStream::Impl {
   Frame* current_frame_ = nullptr;
   io::ErrorCallback current_callback_;
 
-  std::regex rcv_present_regex_{"[\r\n]rcv[^\r\n]+[\r\n]"};
+  std::regex rcv_present_regex_{"^rcv[[:print:]]+$"};
 };
 
 FdcanusbFrameStream::FdcanusbFrameStream(
