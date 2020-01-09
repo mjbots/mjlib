@@ -51,7 +51,16 @@ class BinaryReadArchive : public base::VisitArchive<BinaryReadArchive> {
 
   template <typename NameValuePair>
   void VisitEnumeration(const NameValuePair& nvp) {
-    nvp.set_value(stream_.ReadVaruint());
+    const auto maybe_value = stream_.ReadVaruint();
+    if (!maybe_value) {
+      error_ = true;
+      return;
+    }
+    nvp.set_value(*maybe_value);
+  }
+
+  bool error() const {
+    return error_;
   }
 
  private:
@@ -59,19 +68,32 @@ class BinaryReadArchive : public base::VisitArchive<BinaryReadArchive> {
   void VisitHelper(const NameValuePair&,
                    base::Bytes* value,
                    base::PriorityTag<2>) {
-    const auto size = stream_.ReadVaruint();
+    const auto maybe_size = stream_.ReadVaruint();
+    if (!maybe_size) {
+      error_ = true;
+      return;
+    }
+    const auto size = *maybe_size;
     value->resize(size);
-    stream_.RawRead(reinterpret_cast<char*>(&(*value)[0]), size);
+    const bool valid =
+        stream_.RawRead(reinterpret_cast<char*>(&(*value)[0]), size);
+    if (!valid) { error_ = true; }
   }
 
   template <typename NameValuePair, typename T, std::size_t N>
   void VisitHelper(const NameValuePair&,
                    std::array<T, N>* value,
                    base::PriorityTag<1>) {
-    const auto size = stream_.ReadVaruint();
+    const auto maybe_size = stream_.ReadVaruint();
+    if (!maybe_size) {
+      error_ = true;
+      return;
+    }
+    const auto size = *maybe_size;
+
     if (size != N) {
-      // TODO jpieper: Add exception.
-      MJ_ASSERT(false);
+      error_ = true;
+      return;
     }
     VisitArrayHelper(*value);
   }
@@ -80,7 +102,12 @@ class BinaryReadArchive : public base::VisitArchive<BinaryReadArchive> {
   void VisitHelper(const NameValuePair&,
                    std::vector<T>* value,
                    base::PriorityTag<1>) {
-    const auto size = stream_.ReadVaruint();
+    const auto maybe_size = stream_.ReadVaruint();
+    if (!maybe_size) {
+      error_ = true;
+      return;
+    }
+    const auto size = *maybe_size;
     value->resize(size);
     VisitArrayHelper(*value);
   }
@@ -90,6 +117,7 @@ class BinaryReadArchive : public base::VisitArchive<BinaryReadArchive> {
     for (auto& item : value) {
       base::ReferenceNameValuePair sub_nvp(&item, "");
       Visit(sub_nvp);
+      if (error_) { return; }
     }
   }
 
@@ -97,7 +125,12 @@ class BinaryReadArchive : public base::VisitArchive<BinaryReadArchive> {
   void VisitHelper(const NameValuePair&,
                    std::optional<T>* value,
                    base::PriorityTag<1>) {
-    const uint8_t present = stream_.Read<uint8_t>();
+    const auto maybe_present = stream_.Read<uint8_t>();
+    if (!maybe_present) {
+      error_ = true;
+      return;
+    }
+    const auto present = *maybe_present;
     if (present == 0) {
       // nothing
     } else if (present == 1) {
@@ -106,7 +139,7 @@ class BinaryReadArchive : public base::VisitArchive<BinaryReadArchive> {
       Visit(sub_nvp);
       *value = item;
     } else {
-      MJ_ASSERT(false);
+      error_ = true;
     }
   }
 
@@ -114,33 +147,52 @@ class BinaryReadArchive : public base::VisitArchive<BinaryReadArchive> {
   void VisitHelper(const NameValuePair& nvp,
                    boost::posix_time::ptime*,
                    base::PriorityTag<1>) {
-    nvp.set_value(
-        base::ConvertEpochMicrosecondsToPtime(stream_.Read<int64_t>()));
+    const auto maybe_data = stream_.Read<int64_t>();
+    if (!maybe_data) {
+      error_ = true;
+      return;
+    }
+    nvp.set_value(base::ConvertEpochMicrosecondsToPtime(*maybe_data));
   }
 
   template <typename NameValuePair>
   void VisitHelper(const NameValuePair& nvp,
                    boost::posix_time::time_duration*,
                    base::PriorityTag<1>) {
-    nvp.set_value(
-        base::ConvertMicrosecondsToDuration(stream_.Read<int64_t>()));
+    const auto maybe_data = stream_.Read<int64_t>();
+    if (!maybe_data) {
+      error_ = true;
+      return;
+    }
+    nvp.set_value(base::ConvertMicrosecondsToDuration(*maybe_data));
   }
 
   template <typename NameValuePair>
   void VisitHelper(const NameValuePair& nvp,
                    std::string*,
                    base::PriorityTag<1>) {
-    nvp.set_value(stream_.ReadString());
+    const auto maybe_data = stream_.ReadString();
+    if (!maybe_data) {
+      error_ = true;
+      return;
+    }
+    nvp.set_value(*maybe_data);
   }
 
   template <typename NameValuePair, typename T>
   void VisitHelper(const NameValuePair& nvp,
                    T*,
                    base::PriorityTag<0>) {
-    nvp.set_value(stream_.Read<T>());
+    const auto maybe_value = stream_.Read<T>();
+    if (!maybe_value) {
+      error_ = true;
+      return;
+    }
+    nvp.set_value(*maybe_value);
   }
 
   ReadStream stream_;
+  bool error_ = false;
 };
 
 }

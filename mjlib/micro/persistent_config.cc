@@ -188,7 +188,12 @@ class PersistentConfig::Impl {
     telemetry::ReadStream stream(flash_stream);
 
     while (true) {
-      uint32_t name_size = stream.ReadVaruint();
+      const auto maybe_name_size = stream.ReadVaruint();
+      if (!maybe_name_size) {
+        // Whoops, an error of some sort.
+        break;
+      }
+      const auto name_size = *maybe_name_size;
       typedef telemetry::Format TF;
       if (name_size == 0 ||
           name_size >= static_cast<uint32_t>(TF::kMaxStringSize)) {
@@ -199,8 +204,12 @@ class PersistentConfig::Impl {
 
       if (flash_stream.remaining() < 8) { break; }
 
-      const uint32_t expected_crc = stream.Read<uint32_t>();
-      const uint32_t data_size = stream.Read<uint32_t>();
+      const auto maybe_expected_crc = stream.Read<uint32_t>();
+      const auto maybe_data_size = stream.Read<uint32_t>();
+
+      if (!maybe_expected_crc || !maybe_data_size) { break; }
+      const auto expected_crc = *maybe_expected_crc;
+      const auto data_size = *maybe_data_size;
 
       // We are now committed to reading the entirety of the data one
       // way or another.
@@ -223,7 +232,9 @@ class PersistentConfig::Impl {
         continue;
       }
 
-      element.serializable->ReadBinary(flash_stream);
+      if (element.serializable->ReadBinary(flash_stream)) {
+        // It would be nice to let the caller know this failed.
+      }
     }
 
     // Notify everyone that they have changed.

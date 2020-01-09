@@ -71,6 +71,7 @@ class SerializableHandler : public SerializableHandlerBase {
   int ReadBinary(base::ReadStream& stream) override final {
     telemetry::BinaryReadArchive archive(stream);
     archive.Accept(item_);
+    if (archive.error()) { return 1; }
     return 0;
   }
 

@@ -116,92 +116,110 @@ struct ReadFixture {
 BOOST_AUTO_TEST_CASE(BasicRead) {
   {
     ReadFixture f({0x00});
-    const auto found = f.dut.Read<uint8_t>();
-    BOOST_TEST(found == 0);
+    const auto maybe_found = f.dut.Read<uint8_t>();
+    BOOST_TEST_REQUIRE(!!maybe_found);
+    BOOST_TEST(*maybe_found == 0);
   }
   {
     ReadFixture f({0x00});
-    const auto found = f.dut.Read<bool>();
-    BOOST_TEST(found == false);
+    const auto maybe_found = f.dut.Read<bool>();
+    BOOST_TEST_REQUIRE(!!maybe_found);
+    BOOST_TEST(*maybe_found == false);
   }
   {
     ReadFixture f({0x01});
-    const auto found = f.dut.Read<bool>();
-    BOOST_TEST(found == true);
+    const auto maybe_found = f.dut.Read<bool>();
+    BOOST_TEST_REQUIRE(!!maybe_found);
+    BOOST_TEST(*maybe_found == true);
   }
   {
     ReadFixture f({0x00, 0x01});
-    const auto found = f.dut.Read<uint16_t>();
-    BOOST_TEST(found == 256);
+    const auto maybe_found = f.dut.Read<uint16_t>();
+    BOOST_TEST(!!maybe_found);
+    BOOST_TEST(*maybe_found == 256);
   }
 }
 
 BOOST_AUTO_TEST_CASE(ReadVaruint) {
   {
     ReadFixture f({0x00});
-    const auto found = f.dut.ReadVaruint();
-    BOOST_TEST(found == 0);
+    const auto maybe_found = f.dut.ReadVaruint();
+    BOOST_TEST_REQUIRE(!!maybe_found);
+    BOOST_TEST(*maybe_found == 0);
   }
   {
     ReadFixture f({0x01});
-    const auto found = f.dut.ReadVaruint();
-    BOOST_TEST(found == 1);
+    const auto maybe_found = f.dut.ReadVaruint();
+    BOOST_TEST_REQUIRE(!!maybe_found);
+    BOOST_TEST(*maybe_found == 1);
   }
   {
     ReadFixture f({0x80, 0x01});
-    const auto found = f.dut.ReadVaruint();
-    BOOST_TEST(found == 128);
+    const auto maybe_found = f.dut.ReadVaruint();
+    BOOST_TEST_REQUIRE(!!maybe_found);
+    BOOST_TEST(*maybe_found == 128);
   }
   {
     ReadFixture f({0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x01});
-    const auto found = f.dut.ReadVaruint();
-    BOOST_TEST(found == std::numeric_limits<uint64_t>::max());
+    const auto maybe_found = f.dut.ReadVaruint();
+    BOOST_TEST(!!maybe_found);
+    BOOST_TEST(*maybe_found == std::numeric_limits<uint64_t>::max());
   }
 }
 
 BOOST_AUTO_TEST_CASE(ReadVarint) {
   {
     ReadFixture f({0x00});
-    const auto found = f.dut.ReadVarint();
-    BOOST_TEST(found == 0);
+    const auto maybe_found = f.dut.ReadVarint();
+    BOOST_TEST_REQUIRE(!!maybe_found);
+    BOOST_TEST(*maybe_found == 0);
   }
   {
     ReadFixture f({0x01});
-    const auto found = f.dut.ReadVarint();
-    BOOST_TEST(found == -1);
+    const auto maybe_found = f.dut.ReadVarint();
+    BOOST_TEST_REQUIRE(!!maybe_found);
+    BOOST_TEST(*maybe_found == -1);
   }
   {
     ReadFixture f({0x02});
-    const auto found = f.dut.ReadVarint();
-    BOOST_TEST(found == 1);
+    const auto maybe_found = f.dut.ReadVarint();
+    BOOST_TEST_REQUIRE(!!maybe_found);
+    BOOST_TEST(*maybe_found == 1);
   }
   {
     ReadFixture f({0xfe, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x01});
-    const auto found = f.dut.ReadVarint();
-    BOOST_TEST(found == std::numeric_limits<int64_t>::max());
+    const auto maybe_found = f.dut.ReadVarint();
+    BOOST_TEST_REQUIRE(!!maybe_found);
+    BOOST_TEST(*maybe_found == std::numeric_limits<int64_t>::max());
   }
   {
     ReadFixture f({0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x01});
-    const auto found = f.dut.ReadVarint();
-    BOOST_TEST(found == std::numeric_limits<int64_t>::min());
+    const auto maybe_found = f.dut.ReadVarint();
+    BOOST_TEST_REQUIRE(!!maybe_found);
+    BOOST_TEST(*maybe_found == std::numeric_limits<int64_t>::min());
   }
 }
 
 BOOST_AUTO_TEST_CASE(ReadString) {
   ReadFixture f({0x03, 'a', 'b', 'c'});
-  const auto found = f.dut.ReadString();
-  BOOST_TEST(found == "abc");
+  const auto maybe_found = f.dut.ReadString();
+  BOOST_TEST_REQUIRE(!!maybe_found);
+  BOOST_TEST(*maybe_found == "abc");
 }
 
 BOOST_AUTO_TEST_CASE(ReadTimestamp) {
   ReadFixture f({0x00, 0x00, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00});
-  const auto found = base::ConvertPtimeToEpochMicroseconds(f.dut.ReadTimestamp());
+  const auto maybe_timestamp = f.dut.ReadTimestamp();
+  BOOST_TEST_REQUIRE(!!maybe_timestamp);
+  const auto timestamp = *maybe_timestamp;
+  const auto found = base::ConvertPtimeToEpochMicroseconds(timestamp);
   BOOST_TEST(found == 0x100000);
 }
 
 BOOST_AUTO_TEST_CASE(ReadIgnore) {
   ReadFixture f({0x99, 0x03, 'a', 'b', 'c'});
   f.dut.Ignore(1);
-  const auto found = f.dut.ReadString();
-  BOOST_TEST(found == "abc");
+  const auto maybe_found = f.dut.ReadString();
+  BOOST_TEST_REQUIRE(!!maybe_found);
+  BOOST_TEST(*maybe_found == "abc");
 }

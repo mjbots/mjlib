@@ -14,18 +14,10 @@
 
 #pragma once
 
-#ifdef __cpp_exceptions
-#include <boost/asio/error.hpp>
-#endif
-
 #include "mjlib/base/assert.h"
 #include "mjlib/base/bytes.h"
 #include "mjlib/base/stream.h"
 #include "mjlib/base/time_conversions.h"
-
-#ifdef __cpp_exceptions
-#include "mjlib/base/system_error.h"
-#endif
 
 /// @file
 ///
@@ -198,40 +190,44 @@ class ReadStream {
 
   void Ignore(std::streamsize size) {
     base_.ignore(size);
-    if (base_.gcount() != size) {
-#ifdef __cpp_exceptions
-      throw base::system_error(boost::system::error_code(boost::asio::error::eof));
-#else
-      MJ_ASSERT(false);
-#endif
-    }
   }
 
   template <typename T>
-  T Read() {
+  std::optional<T> Read() {
     return ReadScalar<T>();
   }
 
-  std::string ReadString() {
-    auto size = ReadVaruint();
+  std::optional<std::string> ReadString() {
+    const auto maybe_size = ReadVaruint();
+    if (!maybe_size) {
+      return {};
+    }
+    const auto size = *maybe_size;
     if (size > Format::kMaxStringSize) {
       MJ_ASSERT(false);
     }
     std::string result(size, static_cast<char>(0));
-    RawRead(&result[0], size);
+    if (!RawRead(&result[0], size)) {
+      return {};
+    }
     return result;
   }
 
-  boost::posix_time::ptime ReadTimestamp() {
-    return base::ConvertEpochMicrosecondsToPtime(Read<int64_t>());
+  std::optional<boost::posix_time::ptime> ReadTimestamp() {
+    const auto maybe_data = Read<int64_t>();
+    if (!maybe_data) { return {}; }
+    return base::ConvertEpochMicrosecondsToPtime(*maybe_data);
   }
 
-  uint64_t ReadVaruint() {
+  std::optional<uint64_t> ReadVaruint() {
     uint64_t result = 0;
     int position = 0;
     uint8_t value = 0;
     do {
-      value = Read<uint8_t>();
+      const auto maybe_value = Read<uint8_t>();
+      if (!maybe_value) { return {}; }
+      value = *maybe_value;
+
       result |= static_cast<uint64_t>(value & 0x7f) << position;
       position += 7;
       // TODO jpieper: Handle malformed values that overflow a uint64.
@@ -240,27 +236,28 @@ class ReadStream {
     return result;
   }
 
-  int64_t ReadVarint() {
-    auto encoded = ReadVaruint();
+  std::optional<int64_t> ReadVarint() {
+    const auto maybe_encoded = ReadVaruint();
+    if (!maybe_encoded) { return {}; }
+    const auto encoded = *maybe_encoded;
     return (encoded >> 1) - (encoded & 1) * encoded;
   }
 
-  void RawRead(char* out, std::streamsize size) {
+  bool RawRead(char* out, std::streamsize size) {
     base_.read({out, size});
     if (base_.gcount() != size) {
-#ifdef __cpp_exceptions
-      throw base::system_error(boost::system::error_code(boost::asio::error::eof));
-#else
-      MJ_ASSERT(false);
-#endif
+      return false;
     }
+    return true;
   }
 
  private:
   template <typename T>
-  T ReadScalar() {
+  std::optional<T> ReadScalar() {
     T result = T{};
-    RawRead(reinterpret_cast<char*>(&result), sizeof(result));
+    if (!RawRead(reinterpret_cast<char*>(&result), sizeof(result))) {
+      return {};
+    }
     return result;
   }
 
