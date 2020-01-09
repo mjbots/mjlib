@@ -317,7 +317,13 @@ class EnumType:
 
     def __init__(self, name, type_class, items):
         self.type_class = type_class
-        self.enum_class = enum.IntEnum(name, items)
+
+        class Enum(enum.IntEnum):
+            @classmethod
+            def _missing_(cls, name):
+                return name
+
+        self.enum_class = Enum(name, items)
 
     def read(self, data_stream):
         return self.enum_class(self.type_class.read(data_stream))

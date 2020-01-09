@@ -95,6 +95,15 @@ class ReaderTest(unittest.TestCase):
             else:
                 self.assertEqual(actual_value, data_value)
 
+    def test_enum(self):
+        enum_schema_data = bytes([17, 4, 1, 0])
+
+        actual_type = reader.Type.from_binary(io.BytesIO(enum_schema_data))
+        self.assertTrue(isinstance(actual_type, reader.EnumType))
+
+        actual_value = actual_type.read(reader.Stream(io.BytesIO(bytes([10]))))
+        self.assertEqual(actual_value, 10)
+
 
 if __name__ == '__main__':
     unittest.main()
