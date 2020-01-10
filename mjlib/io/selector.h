@@ -47,8 +47,11 @@ class Selector {
         selector_name_(selector_name) {}
 
   template <typename Derived>
-  void Register(const std::string& name) {
-    auto derived = std::make_unique<Concrete<Derived>>();
+  void Register(
+      const std::string& name,
+      const typename Derived::Options& default_options =
+      typename Derived::Options()) {
+    auto derived = std::make_unique<Concrete<Derived>>(default_options);
     items_.insert(std::make_pair(name, std::move(derived)));
   }
 
@@ -111,6 +114,7 @@ class Selector {
   template <typename T>
   class Concrete : public Holder {
    public:
+    Concrete(const typename T::Options& options) : options_(options) {}
     ~Concrete() override {}
 
     clipp::group program_options() override {
