@@ -38,3 +38,18 @@ BOOST_AUTO_TEST_CASE(WindowedAverageTest) {
   dut.Add(10);
   BOOST_TEST(dut.average() == 7);
 }
+
+BOOST_AUTO_TEST_CASE(WindowedAverageCapacityTest) {
+  WindowedAverage<int16_t, 4, int32_t> dut{2};
+  BOOST_TEST(dut.average() == 0);
+
+  dut.Add(2);
+  BOOST_TEST(dut.average() == 2);
+
+  dut.Add(4);
+  BOOST_TEST(dut.average() == 3);
+
+  // This will drop the  2.
+  dut.Add(6);
+  BOOST_TEST(dut.average() == 5);
+}

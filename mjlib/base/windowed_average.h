@@ -21,9 +21,11 @@
 namespace mjlib {
 namespace base {
 
-template <typename T, size_t Size,  typename AccumType>
+template <typename T, size_t MaxCapacity,  typename AccumType>
 class WindowedAverage {
  public:
+  WindowedAverage(size_t capacity = MaxCapacity) : capacity_(capacity) {}
+
   static_assert(
       std::is_integral_v<T>,
       "this will not function with floating point rounding error");
@@ -35,9 +37,9 @@ class WindowedAverage {
     const auto old = data_[pos_];
     total_ += value;
     data_[pos_] = value;
-    pos_ = (pos_ + 1) % Size;
+    pos_ = (pos_ + 1) % capacity_;
     const auto old_size = size_;
-    size_ = std::min(size_ + 1, Size);
+    size_ = std::min(size_ + 1, capacity_);
     if (old_size == size_) {
       total_ -= old;
     }
@@ -49,8 +51,9 @@ class WindowedAverage {
   }
 
  private:
-  T data_[Size] = {};
+  T data_[MaxCapacity] = {};
   AccumType total_ = 0;
+  size_t capacity_ = 0;
   size_t size_ = 0;
   size_t pos_ = 0;
 };
