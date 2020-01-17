@@ -1,4 +1,4 @@
-// Copyright 2018 Josh Pieper, jjp@pobox.com.
+// Copyright 2018-2020 Josh Pieper, jjp@pobox.com.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,7 +14,11 @@
 
 #include "mjlib/micro/telemetry_manager.h"
 
+#include <boost/algorithm/string.hpp>
 #include <boost/test/auto_unit_test.hpp>
+
+#include "mjlib/base/buffer_stream.h"
+#include "mjlib/telemetry/format.h"
 
 #include "mjlib/micro/test/command_manager_fixture.h"
 #include "mjlib/micro/test/str.h"
@@ -93,4 +97,73 @@ BOOST_FIXTURE_TEST_CASE(TelemetryManagerText, Fixture) {
 
   Command("tel get my_data\n");
   ExpectResponse("my_data.value 0\r\nOK\r\n");
+}
+
+namespace {
+std::map<std::string, int> CountReceipts(std::string data) {
+  std::map<std::string, int> result;
+
+  while (!data.empty()) {
+    const size_t pos = data.find("\r\n");
+    if (pos == std::string::npos) { break; }
+    BOOST_TEST_REQUIRE(boost::starts_with(data, "emit "));
+
+    const std::string name = data.substr(5, pos - 5);
+    data = data.substr(pos + 2);
+    mjlib::base::BufferReadStream buffer_stream(data);
+    mjlib::telemetry::ReadStream stream{buffer_stream};
+    const auto maybe_size = stream.Read<uint32_t>();
+    if (!maybe_size) { break; }
+
+    const auto size = *maybe_size;
+    if (data.size() < (size + 4)) {
+      break;
+    }
+    data = data.substr(size + 4);
+
+    result[name]++;
+  }
+
+  return result;
+}
+}
+
+BOOST_FIXTURE_TEST_CASE(TelemetryManagerOverloadTest, Fixture) {
+  // When reads are serviced intermittently, we want to make sure that
+  // all channels get equal chance to have their data emitted.
+  Command("tel rate my_data 20\n");
+  ExpectResponse("OK\r\n");
+  Command("tel rate other_data 20\n");
+  ExpectResponse("OK\r\n");
+
+  // With no limiting of reads, we should get full data from each.
+  for (int i = 0; i < 105; i++) {
+    dut.PollMillisecond();
+    event_queue.Poll();
+  }
+
+  {
+    auto counts = CountReceipts(reader.data_.str());
+    reader.data_.str("");
+
+    BOOST_TEST(counts["my_data"] == 5);
+    BOOST_TEST(counts["other_data"] == 5);
+  }
+
+  // Now we will limit our reads to only once per 20ms.
+  reader.AllowReads(0);
+  for (int i = 0; i < 200; i++) {
+    if ((i % 20) == 0) { reader.AllowReads(2); }
+    dut.PollMillisecond();
+    event_queue.Poll();
+  }
+
+  {
+    // We should still have an equal distribution of counts.
+    auto counts = CountReceipts(reader.data_.str());
+    reader.data_.str("");
+
+    BOOST_TEST(counts["my_data"] == 3);
+    BOOST_TEST(counts["other_data"] == 3);
+  }
 }

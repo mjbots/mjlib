@@ -1,4 +1,4 @@
-// Copyright 2015-2019 Josh Pieper, jjp@pobox.com.
+// Copyright 2015-2020 Josh Pieper, jjp@pobox.com.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -101,18 +101,22 @@ class TelemetryManager::Impl {
         if (element.next == 0) {
           element.to_send = true;
           element.next = element.rate;
-          MaybeStartSend();
         }
       }
     }
+    MaybeStartSend();
   }
 
   void MaybeStartSend() {
     if (outstanding_write_) { return; }
 
     // Look to see if something is good to send.
-    for (auto& item_pair : elements_) {
-      auto& element = item_pair.second;
+    //
+    // We start checking one after the last sent item, that way we
+    // fairly service all the channels.
+    for (size_t i = 0; i < elements_.size(); i++) {
+      const size_t to_check = (i + last_sent_ + 1) % elements_.size();
+      auto& element = elements_[to_check].second;
 
       if (element.to_send) {
         element.to_send = false;
@@ -133,6 +137,7 @@ class TelemetryManager::Impl {
               CommandManager::Response response{stream, actual_release};
               this->EmitData(eptr, response);
             });
+        last_sent_ = to_check;
         return;
       }
     }
@@ -363,6 +368,7 @@ class TelemetryManager::Impl {
 
   bool outstanding_write_ = false;
   VoidCallback write_release_;
+  size_t last_sent_ = 0;
 };
 
 TelemetryManager::TelemetryManager(

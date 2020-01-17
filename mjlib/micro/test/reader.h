@@ -1,4 +1,4 @@
-// Copyright 2018-2019 Josh Pieper, jjp@pobox.com.
+// Copyright 2018-2020 Josh Pieper, jjp@pobox.com.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -29,19 +29,39 @@ class Reader {
     StartRead();
   }
 
+  void AllowReads(int count) {
+    allowed_read_count_ = count;
+    MaybeStartRead();
+  }
+
+  void MaybeStartRead() {
+    if ((allowed_read_count_ == -1 || allowed_read_count_ > 0) &&
+        !outstanding_) {
+      StartRead();
+    }
+  }
+
   void StartRead() {
+    outstanding_ = true;
     stream_->AsyncReadSome(
         base::string_span(buffer_, buffer_ + sizeof(buffer_)),
         [this](error_code ec, ssize_t size) {
           BOOST_TEST(!ec);
           data_.write(buffer_, size);
-          this->StartRead();
+          outstanding_ = false;
+          if (allowed_read_count_ > 0) {
+            allowed_read_count_--;
+          }
+
+          this->MaybeStartRead();
         });
   }
 
   AsyncReadStream* const stream_;
   std::ostringstream data_;
   char buffer_[10] = {};
+  int allowed_read_count_ = -1;
+  bool outstanding_ = false;
 };
 
 }
