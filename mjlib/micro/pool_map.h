@@ -1,4 +1,4 @@
-// Copyright 2018 Josh Pieper, jjp@pobox.com.
+// Copyright 2018-2020 Josh Pieper, jjp@pobox.com.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -60,6 +60,14 @@ class PoolMap {
 
   size_t size() const { return size_; }
   bool empty() const { return size_ == 0; }
+
+  Node& operator[](size_t i) {
+    return data_[i];
+  }
+
+  const Node& operator[](size_t i) const {
+    return data_[i];
+  }
 
   std::pair<iterator, bool> insert(const value_type& value) {
     Node* iter = begin();

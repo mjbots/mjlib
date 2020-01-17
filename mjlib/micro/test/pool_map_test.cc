@@ -1,4 +1,4 @@
-// Copyright 2018 Josh Pieper, jjp@pobox.com.
+// Copyright 2018-2020 Josh Pieper, jjp@pobox.com.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -32,6 +32,8 @@ BOOST_AUTO_TEST_CASE(BasicPoolMap) {
     BOOST_TEST(result.first->first == 3);
     BOOST_TEST(result.first->second == 6.0);
     BOOST_TEST(result.first != dut.end());
+    BOOST_TEST(dut[0].first == 3);
+    BOOST_TEST(dut[0].second == 6.0);
   }
 
   {
