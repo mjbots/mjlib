@@ -24,7 +24,8 @@ namespace base {
 template <typename T, size_t MaxCapacity,  typename AccumType>
 class WindowedAverage {
  public:
-  WindowedAverage(size_t capacity = MaxCapacity) : capacity_(capacity) {}
+  WindowedAverage(size_t capacity = MaxCapacity)
+      : capacity_(std::min<size_t>(MaxCapacity, capacity)) {}
 
   static_assert(
       std::is_integral_v<T>,
