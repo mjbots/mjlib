@@ -40,6 +40,26 @@ namespace {
 constexpr size_t kBlockSize = 4096;
 constexpr ssize_t kMaxLineLength = 512;
 
+size_t RoundUpDlc(size_t value) {
+  if (value == 0) { return 0; }
+  if (value == 1) { return 1; }
+  if (value == 2) { return 2; }
+  if (value == 3) { return 3; }
+  if (value == 4) { return 4; }
+  if (value == 5) { return 5; }
+  if (value == 6) { return 6; }
+  if (value == 7) { return 7; }
+  if (value == 8) { return 8; }
+  if (value <= 12) { return 12; }
+  if (value <= 16) { return 16; }
+  if (value <= 20) { return 20; }
+  if (value <= 24) { return 24; }
+  if (value <= 32) { return 32; }
+  if (value <= 48) { return 48; }
+  if (value <= 64) { return 64; }
+  return 0;
+}
+
 void EncodeFdcanusb(const Frame* frame, base::WriteStream* stream) {
   base::WriteStream::Iterator output(*stream);
   fmt::format_to(
@@ -48,6 +68,12 @@ void EncodeFdcanusb(const Frame* frame, base::WriteStream* stream) {
       (frame->dest_id));
   for (uint8_t c : frame->payload) {
     fmt::format_to(output, "{:02x}", c);
+  }
+  // FDCAN doesn't allow arbitrary frame sizes.  Thus, we pad to reach
+  // an allowable size.
+  const auto actual_size = RoundUpDlc(frame->payload.size());
+  for (size_t i = frame->payload.size(); i < actual_size; i++) {
+    fmt::format_to(output, "50");
   }
   fmt::format_to(output, "\n");
 }

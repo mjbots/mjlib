@@ -699,3 +699,30 @@ BOOST_FIXTURE_TEST_CASE(ReadMultipleInt8s, Fixture) {
   BOOST_TEST(std::string_view(receive_buffer, read_size) ==
              str(kExpectedResponse));
 }
+
+namespace {
+const uint8_t kNop[] = {
+  0x54, 0xab,  // header
+  0x82,  // source id
+  0x01,  // destination id
+  0x01,  // payload size
+    0x50,  // nop
+  0x1a, 0xd0,  // CRC
+  0x00,  // null terminator
+};
+}
+
+BOOST_FIXTURE_TEST_CASE(NopTest, Fixture) {
+  int write_count = 0;
+  AsyncWrite(*dut_stream.side_a(), str(kNop),
+             [&](micro::error_code ec) {
+               BOOST_TEST(!ec);
+               write_count++;
+             });
+
+  event_queue.Poll();
+  BOOST_TEST(write_count == 1);
+
+  // Nothing bad should have happened.
+  BOOST_TEST(dut.stats()->unknown_subframe == 0);
+}

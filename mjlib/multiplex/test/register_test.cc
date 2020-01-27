@@ -99,4 +99,9 @@ BOOST_AUTO_TEST_CASE(ParseRegisterReplyTest) {
     BOOST_TEST(dut.size() == 1);
     BOOST_TEST((dut.at(0x01) == ReadResult(static_cast<uint32_t>(5))));
   }
+  {
+    base::FastIStringStream data("\x50");
+    const auto dut = ParseRegisterReply(data);
+    BOOST_TEST(dut.size() == 0);
+  }
 }

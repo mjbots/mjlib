@@ -90,6 +90,7 @@
 ///   0x31 - read error
 ///     - varuint => register #
 ///     - varuint => error #
+///   0x50 - nop
 ///
 /// Any frame that contains a "read" command will have a response
 /// frame where each requested register is named exactly once.  It is
@@ -167,6 +168,8 @@ struct Format {
     kClientToServer = 0x40,
     kServerToClient = 0x41,
     kClientPollServer = 0x42,
+
+    kNop = 0x50,
   };
 
   using Register = uint32_t;

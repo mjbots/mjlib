@@ -65,6 +65,26 @@ BOOST_FIXTURE_TEST_CASE(FdcanusbFrameStreamWriteTest, Fixture) {
              "can send 102 61\n");
 }
 
+BOOST_FIXTURE_TEST_CASE(WriteDlcRoundupTest, Fixture) {
+  Frame to_send;
+  to_send.source_id = 1;
+  to_send.dest_id = 2;
+  to_send.request_reply = true;
+  to_send.payload = "abcdefghi";
+
+  int write_done = 0;
+  dut.AsyncWrite(&to_send, [&](const mjlib::base::error_code& ec) {
+      mjlib::base::FailIf(ec);
+      write_done++;
+    });
+
+  Poll();
+
+  BOOST_TEST(write_done == 1);
+  BOOST_TEST(server_reader.data() ==
+             "can send 8102 616263646566676869505050\n");
+}
+
 BOOST_FIXTURE_TEST_CASE(FdcanusbFrameStreamReadTest, Fixture) {
   Frame to_receive;
   int read_done = 0;

@@ -256,6 +256,10 @@ class MicroServer::Impl {
         continue;
       }
 
+      if (subframe_type == u8(Subframe::kNop)) {
+        continue;
+      }
+
       if (subframe_type >= u8(Subframe::kWriteBase) &&
           subframe_type < u8(Subframe::kWriteBase) + 16) {
         if (ProcessSubframeWrite(subframe_type - u8(Subframe::kWriteBase),

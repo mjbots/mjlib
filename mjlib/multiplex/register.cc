@@ -151,6 +151,8 @@ std::optional<RegisterReply> ParseSubframe(BaseReadStream& stream) {
       return {};
     }
     this_result[*maybe_this_reg] = *maybe_this_err;
+  } else if (subframe_id == u32(Format::Subframe::kNop)) {
+    return {};
   } else {
     // We could report an error someday.  For now, we'll just call
     // ourselves done.
