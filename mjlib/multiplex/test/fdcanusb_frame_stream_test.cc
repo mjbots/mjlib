@@ -119,3 +119,82 @@ BOOST_FIXTURE_TEST_CASE(FdcanusbFrameStreamReadTest, Fixture) {
   BOOST_TEST(to_receive.dest_id == 5);
   BOOST_TEST(to_receive.payload == " ");
 }
+
+BOOST_FIXTURE_TEST_CASE(FdcanusbStaleReadTest, Fixture) {
+  // Make sure we keep reporting that data is available if we happen
+  // to get a read from a previous poll that timed out.
+
+  BOOST_TEST(!dut.read_data_queued());
+
+  Frame poll_frame;
+  poll_frame.source_id = 1;
+  poll_frame.dest_id = 2;
+  poll_frame.request_reply = true;
+  poll_frame.payload = "";
+
+  int write_done = 0;
+  dut.AsyncWrite(&poll_frame, [&](const mjlib::base::error_code& ec) {
+      mjlib::base::FailIf(ec);
+      write_done++;
+    });
+
+  BOOST_TEST(write_done == 0);
+  BOOST_TEST(server_reader.data().empty());
+
+  Poll();
+
+  BOOST_TEST(write_done == 1);
+  BOOST_TEST(server_reader.data() == "can send 8102 \n");
+  server_reader.clear();
+
+  // Start reading.
+  Frame to_receive;
+  int read_done = 0;
+  dut.AsyncRead(&to_receive, {}, [&](auto&& ec) {
+      mjlib::base::FailIf(ec);
+      read_done++;
+    });
+
+  Poll();
+
+  BOOST_TEST(read_done == 0);
+  BOOST_TEST(dut.read_data_queued());
+
+  // Send a received CAN frame before the OK response from our poll.
+  boost::asio::async_write(
+      *server_side,
+      boost::asio::buffer("rcv 201 20\r\n", 12),
+      [&](auto&& ec, size_t) {
+        mjlib::base::FailIf(ec);
+      });
+
+  Poll();
+
+  BOOST_TEST(read_done == 1);
+  // We haven't seen all our OKs yet, so we believe more to be
+  // outstanding.
+  BOOST_TEST(dut.read_data_queued());
+
+  // Read again.
+  dut.AsyncRead(&to_receive, {}, [&](auto&& ec) {
+      mjlib::base::FailIf(ec);
+      read_done++;
+    });
+
+  Poll();
+
+  BOOST_TEST(read_done == 1);
+
+  // Now send our OK, followed by another CAN frame.
+  boost::asio::async_write(
+      *server_side,
+      boost::asio::buffer("OK\r\nrcv 201 20\r\n", 16),
+      [&](auto&& ec, size_t) {
+        mjlib::base::FailIf(ec);
+      });
+
+  Poll();
+
+  BOOST_TEST(read_done == 2);
+  BOOST_TEST(!dut.read_data_queued());
+}

@@ -102,6 +102,7 @@ class FdcanusbFrameStream::Impl {
     write_buffer_.data()->clear();
 
     EncodeFdcanusb(frame, &write_buffer_);
+    outstanding_oks_++;
 
     boost::asio::async_write(
         *stream_,
@@ -116,6 +117,7 @@ class FdcanusbFrameStream::Impl {
 
     for (auto& frame : frames) {
       EncodeFdcanusb(frame, &write_buffer_);
+      outstanding_oks_++;
     }
     boost::asio::async_write(
         *stream_,
@@ -157,6 +159,8 @@ class FdcanusbFrameStream::Impl {
   }
 
   bool read_data_queued() const {
+    if (outstanding_oks_ != 0) { return true; }
+
     // We need to see if there is a full "rcv" line in our buffer.
     if (streambuf_.size() == 0) { return false; }
 
@@ -230,7 +234,10 @@ class FdcanusbFrameStream::Impl {
     if (line.size() == 0) { return; }
 
     // We just ignore OKs for now.
-    if (line == "OK") { return; }
+    if (line == "OK") {
+      outstanding_oks_ = std::max(outstanding_oks_ - 1, 0);
+      return;
+    }
 
     if (boost::starts_with(line, "rcv ")) {
       BOOST_ASSERT(current_frame_);
@@ -280,6 +287,9 @@ class FdcanusbFrameStream::Impl {
 
     base::FailIf(ec);
 
+    // If we hit the timeout, assume no OKs are outstanding.
+    outstanding_oks_ = 0;
+
     if (current_callback_) {
       BOOST_ASSERT(current_frame_);
       current_frame_ = nullptr;
@@ -293,6 +303,7 @@ class FdcanusbFrameStream::Impl {
   base::FastOStringStream write_buffer_;
 
   bool read_outstanding_ = false;
+  int outstanding_oks_ = 0;
   boost::asio::streambuf streambuf_;
   using const_buffers_type = boost::asio::streambuf::const_buffers_type;
   using iterator = boost::asio::buffers_iterator<const_buffers_type>;
