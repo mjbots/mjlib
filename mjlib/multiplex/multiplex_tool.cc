@@ -287,7 +287,7 @@ class CommandRunner {
     base::FailIf(ec);
 
     if (reply.size() != 0) {
-      std::cout << id << ": ";
+      std::cout << static_cast<int>(id) << ": ";
 
       std::cout << "{";
       bool first = true;
@@ -297,7 +297,9 @@ class CommandRunner {
         } else {
           first = false;
         }
-        std::cout << fmt::format("{}:{}", pair.first, FormatValue(pair.second));
+        std::cout << fmt::format(
+            "{}:{}",
+            static_cast<int>(pair.first), FormatValue(pair.second));
       }
       std::cout << "}\n";
     }
