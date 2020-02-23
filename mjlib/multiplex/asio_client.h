@@ -29,24 +29,31 @@ class AsioClient {
  public:
   virtual ~AsioClient() {};
 
-  using RegisterHandler = fu2::unique_function<
-    void (const base::error_code&, const RegisterReply&)>;
-
   struct IdRequest {
     uint8_t id = 0;
     RegisterRequest request;
+  };
+
+  struct SingleReply {
+    uint8_t id = 0;
+    RegisterReply reply;
+  };
+
+  struct Reply {
+    std::vector<SingleReply> replies;
   };
 
   /// Make a single register request.  The handler will always be
   /// invoked.  If a reply was requested, it will only be invoked on
   /// error or the reply.  If no reply was requested, it will be
   /// invoked once the write has been completed.
-  virtual void AsyncRegister(uint8_t id, const RegisterRequest&,
-                             RegisterHandler) = 0;
+  virtual void AsyncRegister(const IdRequest&,
+                             SingleReply*,
+                             io::ErrorCallback) = 0;
 
-  /// If only commands (and no queries are sent), multiple devices may
-  /// be addressed in a single operation.
+  /// Operate on multiple devices simultaneously.
   virtual void AsyncRegisterMultiple(const std::vector<IdRequest>&,
+                                     Reply*,
                                      io::ErrorCallback) = 0;
 
   struct TunnelOptions {

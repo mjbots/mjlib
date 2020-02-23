@@ -67,14 +67,16 @@ class StreamAsioClientBuilder : public AsioClient {
         });
   }
 
-  void AsyncRegister(uint8_t id, const RegisterRequest& request,
-                     RegisterHandler handler) override {
-    client_->AsyncRegister(id, request, std::move(handler));
+  void AsyncRegister(const IdRequest& id_request,
+                     SingleReply* reply,
+                     io::ErrorCallback handler) override {
+    client_->AsyncRegister(id_request, reply, std::move(handler));
   }
 
   void AsyncRegisterMultiple(const std::vector<IdRequest>& requests,
+                             Reply* reply,
                              io::ErrorCallback callback) override {
-    client_->AsyncRegisterMultiple(requests, std::move(callback));
+    client_->AsyncRegisterMultiple(requests, reply, std::move(callback));
   }
 
   io::SharedStream MakeTunnel(

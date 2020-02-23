@@ -214,6 +214,7 @@ class CommandRunner {
     std::vector<std::string> operators = Split(command.substr(istr.tellg()), ",");
 
     request_ = {};
+    request_.id = std::stoi(id_str);
 
     for (const auto& op : operators) {
       std::istringstream op_str(op);
@@ -234,7 +235,7 @@ class CommandRunner {
           value_strs.push_back(value_str);
         }
 
-        AddWriteRequest(&request_, op_name, reg_str, value_strs);
+        AddWriteRequest(&request_.request, op_name, reg_str, value_strs);
       } else if (op_name == "rb" ||
                  op_name == "rs" ||
                  op_name == "ri" ||
@@ -246,17 +247,17 @@ class CommandRunner {
         std::string maybe_reg_count;
         op_str >> maybe_reg_count;
 
-        AddReadRequest(&request_, op_name, reg_str, maybe_reg_count);
+        AddReadRequest(&request_.request, op_name, reg_str, maybe_reg_count);
       } else {
         std::cerr << "Unknown op name: " << op_name << "\n";
       }
     }
 
     // Now we make our request.
-    const int id = std::stoi(id_str);
-    client_->AsyncRegister(id, request_,
-                           std::bind(&CommandRunner::HandleRequest, this,
-                                     pl::_1, pl::_2, id));
+    client_->AsyncRegister(
+        request_,
+        &reply_,
+        std::bind(&CommandRunner::HandleRequest, this, pl::_1));
   }
 
   void HandleDelayTimer(const base::error_code& ec) {
@@ -276,13 +277,15 @@ class CommandRunner {
     }
   }
 
-  void HandleRequest(const base::error_code& ec, const mp::RegisterReply& reply,
-                     int id) {
+  void HandleRequest(const base::error_code& ec) {
     if (ec == boost::asio::error::operation_aborted) {
       std::cout << "timeout\n";
       HandleLine({}, 0u);
       return;
     }
+
+    auto id = reply_.id;
+    auto& reply = reply_.reply;
 
     base::FailIf(ec);
 
@@ -391,7 +394,8 @@ class CommandRunner {
   std::optional<io::BidirectionalStreamCopy> copy_;
 
   boost::asio::streambuf streambuf_;
-  mp::RegisterRequest request_;
+  mp::AsioClient::IdRequest request_;
+  mp::AsioClient::SingleReply reply_;
 
   io::DeadlineTimer delay_timer_{executor_};
 };

@@ -49,61 +49,102 @@ class StreamAsioClient::Impl {
       : options_(options),
         frame_stream_(*frame_stream) {}
 
-  void AsyncRegister(uint8_t id,
-                     const RegisterRequest& request,
-                     RegisterHandler handler) {
-    lock_.Invoke([this, id, request](RegisterHandler handler_in) mutable {
+  void AsyncRegister(const IdRequest& id_request,
+                     SingleReply* reply,
+                     io::ErrorCallback handler) {
+    reply->id = id_request.id;
+
+    lock_.Invoke([this, id_request, reply](io::ErrorCallback handler_in) mutable {
         tx_frame_.source_id = this->options_.source_id;
-        tx_frame_.dest_id = id;
-        tx_frame_.request_reply = request.request_reply();
-        tx_frame_.payload = request.buffer();
+        tx_frame_.dest_id = id_request.id;
+        tx_frame_.request_reply = id_request.request.request_reply();
+        tx_frame_.payload = id_request.request.buffer();
 
         frame_stream_.AsyncWrite(
-            &tx_frame_, [this, handler_in = std::move(handler_in),
-                         reply=request.request_reply()](const auto& ec) mutable {
-              this->HandleWrite(ec, std::move(handler_in), reply);
+            &tx_frame_, [this, handler_in = std::move(handler_in), reply,
+                         request_reply=id_request.request.request_reply()](
+                             const auto& ec) mutable {
+              this->HandleSingleWrite(
+                  ec, std::move(handler_in), reply, request_reply);
             });
       },
       std::move(handler));
   }
 
   void AsyncRegisterMultiple(const std::vector<IdRequest>& requests,
+                             Reply* reply,
                              io::ErrorCallback handler) {
-    lock_.Invoke([this, requests](io::ErrorCallback handler) mutable {
-        tx_frames_.resize(requests.size());
-        tx_frame_ptrs_.clear();
+    // If any of the requests need a response, then execute them one
+    // after the other sequentially.
+    const bool any_replies = [&]() {
+      for (const auto& id_request : requests) {
+        if (id_request.request.request_reply()) { return true; }
+      }
+      return false;
+    }();
 
-        for (size_t i = 0; i < requests.size(); i++) {
-          tx_frames_[i].source_id = this->options_.source_id;
-          tx_frames_[i].dest_id = requests[i].id;
-          BOOST_ASSERT(!requests[i].request.request_reply());
-          tx_frames_[i].request_reply = false;
-          tx_frames_[i].payload = requests[i].request.buffer();
-          tx_frame_ptrs_.push_back(&tx_frames_[i]);
-        }
+    if (any_replies) {
+      reply->replies.clear();
+      SequenceRegister(requests, reply, std::move(handler));
+    } else {
+      reply->replies.clear();
+      // No replies, we can just send this out as one big block with
+      // no reads whatsoever.
+      lock_.Invoke([this, requests](io::ErrorCallback handler_in) mutable {
+          tx_frames_.resize(requests.size());
+          tx_frame_ptrs_.clear();
 
-        RegisterHandler reg_handler{[handler = std::move(handler)](
-              const base::error_code& ec,
-              const RegisterReply&) mutable {
-            handler(ec);
-          }};
+          for (size_t i = 0; i < requests.size(); i++) {
+            tx_frames_[i].source_id = this->options_.source_id;
+            tx_frames_[i].dest_id = requests[i].id;
+            BOOST_ASSERT(!requests[i].request.request_reply());
+            tx_frames_[i].request_reply = false;
+            tx_frames_[i].payload = requests[i].request.buffer();
+            tx_frame_ptrs_.push_back(&tx_frames_[i]);
+          }
 
-        frame_stream_.AsyncWriteMultiple(
-            tx_frame_ptrs_, [this, reg_handler = std::move(reg_handler)](
-                auto ec) mutable {
-              this->HandleWrite(ec, std::move(reg_handler), false);
-            });
+          frame_stream_.AsyncWriteMultiple(tx_frame_ptrs_, std::move(handler_in));
       },
       std::move(handler));
+    }
   }
 
-  void HandleWrite(const base::error_code& ec,
-                   RegisterHandler handler,
-                   bool request_reply) {
+  void SequenceRegister(const std::vector<IdRequest>& requests, Reply* reply,
+                        io::ErrorCallback callback) {
+    if (requests.empty()) {
+      boost::asio::post(
+          executor_,
+          std::bind(std::move(callback), base::error_code()));
+    }
+
+    auto this_request = requests.front();
+    auto remainder = std::vector<IdRequest>{requests.begin() + 1, requests.end()};
+
+    auto next = [this, handler=std::move(callback), reply, remainder](
+        const base::error_code& ec) mutable {
+      if (ec) {
+        boost::asio::post(
+            executor_,
+            std::bind(std::move(handler), ec));
+      } else {
+        this->SequenceRegister(remainder, reply, std::move(handler));
+      }
+    };
+
+    // Do the first one in the list.
+    reply->replies.push_back({});
+    reply->replies.back().id = this_request.id;
+    AsyncRegister(this_request, &reply->replies.back(), std::move(next));
+  }
+
+  void HandleSingleWrite(const base::error_code& ec,
+                         io::ErrorCallback handler,
+                         SingleReply* reply,
+                         bool request_reply) {
     if (!request_reply) {
       boost::asio::post(
           executor_,
-          std::bind(std::move(handler), ec, RegisterReply()));
+          std::bind(std::move(handler), ec));
       return;
     }
 
@@ -111,17 +152,18 @@ class StreamAsioClient::Impl {
 
     frame_stream_.AsyncRead(
         &rx_frame_, kDefaultTimeout,
-        [this, handler=std::move(handler)](const auto& ec) mutable {
-          this->HandleRead(ec, std::move(handler));
+        [this, reply, handler=std::move(handler)](const auto& ec) mutable {
+          this->HandleRead(ec, reply, std::move(handler));
         });
   }
 
-  void HandleRead(const base::error_code& ec, RegisterHandler handler) {
+  void HandleRead(const base::error_code& ec, SingleReply* reply,
+                  io::ErrorCallback handler) {
     // If we got a timeout, report that upstream.
     if (ec == boost::asio::error::operation_aborted) {
       boost::asio::post(
           executor_,
-          std::bind(std::move(handler), ec, RegisterReply()));
+          std::bind(std::move(handler), ec));
       return;
     }
 
@@ -132,17 +174,17 @@ class StreamAsioClient::Impl {
         rx_frame_.dest_id != tx_frame_.source_id) {
       frame_stream_.AsyncRead(
           &rx_frame_, kDefaultTimeout,
-          [this, handler=std::move(handler)](const auto& ec) mutable {
-            this->HandleRead(ec, std::move(handler));
+          [this, reply, handler=std::move(handler)](const auto& ec) mutable {
+            this->HandleRead(ec, reply, std::move(handler));
           });
       return;
     }
 
     base::FastIStringStream stream(rx_frame_.payload);
-    auto reply = ParseRegisterReply(stream);
+    reply->reply = ParseRegisterReply(stream);
     boost::asio::post(
         executor_,
-        std::bind(std::move(handler), ec, reply));
+        std::bind(std::move(handler), ec));
   }
 
   io::SharedStream MakeTunnel(uint8_t id, uint32_t channel,
@@ -477,16 +519,17 @@ StreamAsioClient::StreamAsioClient(FrameStream* stream, const Options& options)
 StreamAsioClient::~StreamAsioClient() {}
 
 void StreamAsioClient::AsyncRegister(
-    uint8_t id,
-    const RegisterRequest& request,
-    RegisterHandler handler) {
-  impl_->AsyncRegister(id, request, std::move(handler));
+    const IdRequest& request,
+    SingleReply* reply,
+    io::ErrorCallback handler) {
+  impl_->AsyncRegister(request, reply, std::move(handler));
 }
 
 void StreamAsioClient::AsyncRegisterMultiple(
     const std::vector<IdRequest>& requests,
+    Reply* reply,
     io::ErrorCallback handler) {
-  impl_->AsyncRegisterMultiple(requests, std::move(handler));
+  impl_->AsyncRegisterMultiple(requests, reply, std::move(handler));
 }
 
 io::SharedStream StreamAsioClient::MakeTunnel(

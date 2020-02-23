@@ -45,12 +45,12 @@ class StreamAsioClient : public AsioClient {
   StreamAsioClient(FrameStream*, const Options& = Options());
   ~StreamAsioClient();
 
-  void AsyncRegister(uint8_t id, const RegisterRequest&,
-                     RegisterHandler) override;
+  void AsyncRegister(const IdRequest&,
+                     SingleReply*,
+                     io::ErrorCallback) override;
 
-  /// If only commands (and no queries are sent), multiple devices may
-  /// be addressed in a single operation.
   void AsyncRegisterMultiple(const std::vector<IdRequest>&,
+                             Reply*,
                              io::ErrorCallback) override;
 
   /// Allocate a tunnel which can be used to send and receive serial
