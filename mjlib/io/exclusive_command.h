@@ -49,7 +49,7 @@ class ExclusiveCommand : boost::noncopyable {
   template <typename Command, typename Handler>
   Nonce Invoke(Command command, Handler handler) {
     auto ptr = std::make_shared<Concrete<Command, Handler>>(
-        this, command, std::move(handler));
+        this, std::move(command), std::move(handler));
     queued_.push_back(ptr);
     MaybeStart();
     return ptr;

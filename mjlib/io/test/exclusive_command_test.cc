@@ -139,3 +139,24 @@ BOOST_AUTO_TEST_CASE(CancelTest) {
   BOOST_TEST(item1_done == 1);
   BOOST_TEST(item2_started == 0);
 }
+
+BOOST_AUTO_TEST_CASE(ExclusiveCommandMoveOnly) {
+  boost::asio::io_context context;
+  ExclusiveCommand dut{context.get_executor()};
+  using Callback = io::VoidCallback;
+
+  int item1_started = 0;
+  int item1_done = 0;
+  Callback item1_callback;
+
+  fu2::function<void (Callback)> cmd1 = [&](Callback done_callback) {
+    item1_started++;
+    item1_callback = std::move(done_callback);
+  };
+
+  fu2::function<void ()> hnd1 = [&]() {
+    item1_done++;
+  };
+
+  dut.Invoke(std::move(cmd1), std::move(hnd1));
+}
