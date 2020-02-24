@@ -52,7 +52,9 @@ class StreamAsioClient::Impl {
   void AsyncRegister(const IdRequest& id_request,
                      SingleReply* reply,
                      io::ErrorCallback handler) {
-    reply->id = id_request.id;
+    if (reply) {
+      reply->id = id_request.id;
+    }
 
     lock_.Invoke([this, id_request, reply](io::ErrorCallback handler_in) mutable {
         tx_frame_.source_id = this->options_.source_id;
@@ -84,10 +86,14 @@ class StreamAsioClient::Impl {
     }();
 
     if (any_replies) {
-      reply->replies.clear();
+      if (reply) {
+        reply->replies.clear();
+      }
       SequenceRegister(requests, reply, std::move(handler));
     } else {
-      reply->replies.clear();
+      if (reply) {
+        reply->replies.clear();
+      }
       // No replies, we can just send this out as one big block with
       // no reads whatsoever.
       lock_.Invoke([this, requests](io::ErrorCallback handler_in) mutable {
@@ -132,9 +138,13 @@ class StreamAsioClient::Impl {
     };
 
     // Do the first one in the list.
-    reply->replies.push_back({});
-    reply->replies.back().id = this_request.id;
-    AsyncRegister(this_request, &reply->replies.back(), std::move(next));
+    if (reply) {
+      reply->replies.push_back({});
+      reply->replies.back().id = this_request.id;
+    }
+    AsyncRegister(this_request,
+                  reply ? &reply->replies.back() : nullptr,
+                  std::move(next));
   }
 
   void HandleSingleWrite(const base::error_code& ec,
@@ -181,7 +191,9 @@ class StreamAsioClient::Impl {
     }
 
     base::FastIStringStream stream(rx_frame_.payload);
-    reply->reply = ParseRegisterReply(stream);
+    if (reply) {
+      reply->reply = ParseRegisterReply(stream);
+    }
     boost::asio::post(
         executor_,
         std::bind(std::move(handler), ec));
