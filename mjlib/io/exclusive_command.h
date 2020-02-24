@@ -87,9 +87,11 @@ class ExclusiveCommand : boost::noncopyable {
   class Concrete : public Base {
    public:
     Concrete(ExclusiveCommand* parent,
-             const Command& command,
+             Command command,
              Handler handler)
-        : parent_(parent), command_(command), handler_(std::move(handler)) {
+        : parent_(parent),
+          command_(std::move(command)),
+          handler_(std::move(handler)) {
     }
 
     ~Concrete() override {}
