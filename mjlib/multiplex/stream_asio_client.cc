@@ -121,6 +121,7 @@ class StreamAsioClient::Impl {
       boost::asio::post(
           executor_,
           std::bind(std::move(callback), base::error_code()));
+      return;
     }
 
     auto this_request = requests.front();
