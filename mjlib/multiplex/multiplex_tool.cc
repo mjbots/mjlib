@@ -178,8 +178,8 @@ class CommandRunner {
   }
 
   void ProcessRegisterCommand() {
-    auto command = GetCommand();
-    if (command.empty()) {
+    auto command_line = GetCommand();
+    if (command_line.empty()) {
       HandleLine({}, 0);
       return;
     }
@@ -199,63 +199,71 @@ class CommandRunner {
     //
     // :123
     //   - a delay in milliseconds
-    std::istringstream istr(command);
-    std::string id_str;
-    istr >> id_str;
+    requests_.clear();
+    reply_ = {};
+    std::vector<std::string> devices = Split(command_line, "|");
 
-    if (id_str.at(0) == ':') {
-      delay_timer_.expires_from_now(
-          boost::posix_time::milliseconds(std::stoi(id_str.substr(1))));
-      delay_timer_.async_wait(
-          std::bind(&CommandRunner::HandleDelayTimer, this, pl::_1));
-      return;
-    }
+    for (const auto& command : devices) {
+      requests_.push_back({});
+      auto& request = requests_.back();
 
-    std::vector<std::string> operators = Split(command.substr(istr.tellg()), ",");
+      std::istringstream istr(command);
+      std::string id_str;
+      istr >> id_str;
 
-    request_ = {};
-    request_.id = std::stoi(id_str);
+      if (id_str.at(0) == ':') {
+        delay_timer_.expires_from_now(
+            boost::posix_time::milliseconds(std::stoi(id_str.substr(1))));
+        delay_timer_.async_wait(
+            std::bind(&CommandRunner::HandleDelayTimer, this, pl::_1));
+        return;
+      }
 
-    for (const auto& op : operators) {
-      std::istringstream op_str(op);
-      std::string op_name;
-      op_str >> op_name;
-      if (op_name == "wb" ||
-          op_name == "ws" ||
-          op_name == "wi" ||
-          op_name == "wf") {
-        // We are going to write things.
-        std::string reg_str;
-        op_str >> reg_str;
-        std::vector<std::string> value_strs;
-        while (true) {
-          std::string value_str;
-          op_str >> value_str;
-          if (!op_str) { break; }
-          value_strs.push_back(value_str);
+      std::vector<std::string> operators = Split(command.substr(istr.tellg()), ",");
+
+      request.id = std::stoi(id_str);
+
+      for (const auto& op : operators) {
+        std::istringstream op_str(op);
+        std::string op_name;
+        op_str >> op_name;
+        if (op_name == "wb" ||
+            op_name == "ws" ||
+            op_name == "wi" ||
+            op_name == "wf") {
+          // We are going to write things.
+          std::string reg_str;
+          op_str >> reg_str;
+          std::vector<std::string> value_strs;
+          while (true) {
+            std::string value_str;
+            op_str >> value_str;
+            if (!op_str) { break; }
+            value_strs.push_back(value_str);
+          }
+
+          AddWriteRequest(&request.request, op_name, reg_str, value_strs);
+        } else if (op_name == "rb" ||
+                   op_name == "rs" ||
+                   op_name == "ri" ||
+                   op_name == "rf") {
+          // We are going to read things.
+          std::string reg_str;
+          op_str >> reg_str;
+
+          std::string maybe_reg_count;
+          op_str >> maybe_reg_count;
+
+          AddReadRequest(&request.request, op_name, reg_str, maybe_reg_count);
+        } else {
+          std::cerr << "Unknown op name: " << op_name << "\n";
         }
-
-        AddWriteRequest(&request_.request, op_name, reg_str, value_strs);
-      } else if (op_name == "rb" ||
-                 op_name == "rs" ||
-                 op_name == "ri" ||
-                 op_name == "rf") {
-        // We are going to read things.
-        std::string reg_str;
-        op_str >> reg_str;
-
-        std::string maybe_reg_count;
-        op_str >> maybe_reg_count;
-
-        AddReadRequest(&request_.request, op_name, reg_str, maybe_reg_count);
-      } else {
-        std::cerr << "Unknown op name: " << op_name << "\n";
       }
     }
 
     // Now we make our request.
-    client_->AsyncRegister(
-        request_,
+    client_->AsyncRegisterMultiple(
+        requests_,
         &reply_,
         std::bind(&CommandRunner::HandleRequest, this, pl::_1));
   }
@@ -284,28 +292,37 @@ class CommandRunner {
       return;
     }
 
-    auto id = reply_.id;
-    auto& reply = reply_.reply;
-
     base::FailIf(ec);
 
-    if (reply.size() != 0) {
-      std::cout << static_cast<int>(id) << ": ";
+    bool first = true;
 
-      std::cout << "{";
-      bool first = true;
-      for (auto& pair : reply) {
-        if (!first) {
-          std::cout << ", ";
-        } else {
-          first = false;
-        }
-        std::cout << fmt::format(
-            "{}:{}",
-            static_cast<int>(pair.first), FormatValue(pair.second));
+    for (const auto& id_reply : reply_.replies) {
+      if (!first) {
+        std::cout << " | ";
       }
-      std::cout << "}\n";
+      first = false;
+      const auto id = id_reply.id;
+      const auto& reply = id_reply.reply;
+
+      if (reply.size() != 0) {
+        std::cout << static_cast<int>(id) << ": ";
+
+        std::cout << "{";
+        bool first = true;
+        for (auto& pair : reply) {
+          if (!first) {
+            std::cout << ", ";
+          } else {
+            first = false;
+          }
+          std::cout << fmt::format(
+              "{}:{}",
+              static_cast<int>(pair.first), FormatValue(pair.second));
+        }
+        std::cout << "}";
+      }
     }
+    std::cout << "\n";
 
     // Look for more commands, or possibly read more.
     HandleLine({}, 0u);
@@ -394,8 +411,8 @@ class CommandRunner {
   std::optional<io::BidirectionalStreamCopy> copy_;
 
   boost::asio::streambuf streambuf_;
-  mp::AsioClient::IdRequest request_;
-  mp::AsioClient::SingleReply reply_;
+  std::vector<mp::AsioClient::IdRequest> requests_;
+  mp::AsioClient::Reply reply_;
 
   io::DeadlineTimer delay_timer_{executor_};
 };
