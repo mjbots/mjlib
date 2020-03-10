@@ -342,7 +342,7 @@ class RegisterRequest:
         write_varuint(self.data, length)
 
     def write_single(self, register, reg_value):
-        write_varuint(self.data, _REGISTER_WRITE_SINGLE_I8 + reg_value.reg_type)
+        write_varuint(self.data, _REGISTER_WRITE_SINGLE_I8 + int(reg_value.reg_type))
         write_varuint(self.data, register)
         self.data.write(_TYPE_FORMAT[reg_value.reg_type].pack(reg_value.value))
 
