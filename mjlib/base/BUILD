@@ -272,6 +272,27 @@ cc_library(
 )
 
 cc_library(
+    name = "system_fd",
+    hdrs = ["system_fd.h"],
+    srcs = ["system_fd.cc"],
+)
+
+cc_library(
+    name = "system_file",
+    hdrs = ["system_file.h"],
+)
+
+cc_library(
+    name = "thread_writer",
+    hdrs = ["thread_writer.h"],
+    deps = [
+        "system_file",
+        "@boost",
+        "@boost//:filesystem",
+    ],
+)
+
+cc_library(
     name = "all_types_struct",
     hdrs = ["test/all_types_struct.h"],
     deps = [
@@ -328,6 +349,7 @@ cc_test(
         "test/pid_test.cc",
         "test/program_options_archive_test.cc",
         "test/string_span_test.cc",
+        "test/thread_writer_test.cc",
         "test/time_conversions_test.cc",
         "test/tokenizer_test.cc",
         "test/test_main.cc",
@@ -351,6 +373,8 @@ cc_test(
         ":program_options_archive",
         ":string_span",
         ":system_error",
+        ":system_fd",
+        ":thread_writer",
         ":time_conversions",
         ":tokenizer",
         ":windowed_average",
