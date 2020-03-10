@@ -24,6 +24,7 @@ namespace base {
 
 class WriteStream {
  public:
+  virtual ~WriteStream() {}
   virtual void write(const std::string_view&) = 0;
 
   struct Iterator {
@@ -61,6 +62,7 @@ class WriteStream {
 
 class ReadStream {
  public:
+  virtual ~ReadStream() {}
   virtual void ignore(std::streamsize) = 0;
   virtual void read(const string_span&) = 0;
   virtual std::streamsize gcount() const = 0;
