@@ -88,28 +88,28 @@ struct Format {
     ///   * varuint
     kPreviousOffset = 1 << 0,
 
-    /// The CRC32 of the binary schema associated with this data
-    /// record.  * uint32_t
-    kSchemaCRC = 1 << 1,
-
-    /// The DataObject is compressed with the "ZStandard" compression
-    /// algorithm.  If the optional *varuint* is non-zero, it uses the
-    /// compression dictionary with that number.
-    ///
-    ///  * varuint
-    kZStandard = 1 << 2,
-
     /// This object was written at a specific time.
     ///
     ///  * fixedint64
-    kTimestamp = 1 << 3,
+    kTimestamp = 1 << 1,
 
 
     // The following flags do not require that additional data be stored.
 
-    /// The DataObject is compressed with the "snappy" compression algorithm.
-    kSnappy = 1 << 8,
+    /// The DataObject is compressed with the "ZStandard" compression
+    /// algorithm.
+    kZStandard = 1 << 4,
   };
+
+  static uint64_t GetVaruintSize(uint64_t value) {
+    uint64_t result = 0;
+    do {
+      result++;
+      if (value <= 0x7f) { break; }
+      value >>= 7;
+    } while (value);
+    return result;
+  }
 };
 
 /// This provides C++ APIs for writing primitive types.

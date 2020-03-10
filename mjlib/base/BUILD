@@ -283,10 +283,17 @@ cc_library(
 )
 
 cc_library(
+    name = "temporary_file",
+    hdrs = ["temporary_file.h"],
+    deps = ["@boost//:filesystem"],
+)
+
+cc_library(
     name = "thread_writer",
     hdrs = ["thread_writer.h"],
     deps = [
-        "system_file",
+        ":system_fd",
+        ":system_file",
         "@boost",
         "@boost//:filesystem",
     ],
@@ -374,6 +381,7 @@ cc_test(
         ":string_span",
         ":system_error",
         ":system_fd",
+        ":temporary_file",
         ":thread_writer",
         ":time_conversions",
         ":tokenizer",

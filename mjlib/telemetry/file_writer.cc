@@ -1,0 +1,455 @@
+// Copyright 2015-2020 Josh Pieper, jjp@pobox.com.  All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+#include "mjlib/telemetry/file_writer.h"
+
+#include <cstdio>
+#include <list>
+#include <map>
+#include <mutex>
+#include <thread>
+
+#include <boost/assert.hpp>
+
+#include <fmt/format.h>
+
+#include "mjlib/base/buffer_stream.h"
+#include "mjlib/base/fail.h"
+#include "mjlib/base/thread_writer.h"
+
+namespace mjlib {
+namespace telemetry {
+
+namespace {
+template <typename T>
+uint64_t u64(T value) {
+  return static_cast<uint64_t>(value);
+}
+
+const size_t kBufferStartPadding = 32;
+
+using FilePosition = int64_t;
+using Identifier = FileWriter::Identifier;
+using base::ThreadWriter;
+
+struct SchemaRecord {
+  std::string name;
+  Identifier identifier = 0;
+  uint64_t block_schema_flags = 0;
+  std::string schema;
+  FilePosition schema_position;
+  FilePosition last_position = -1;
+
+  SchemaRecord(std::string_view name,
+               Identifier identifier,
+               uint64_t block_schema_flags,
+               std::string_view schema,
+               FilePosition schema_position)
+      : name(name),
+        identifier(identifier),
+        block_schema_flags(block_schema_flags),
+        schema(schema),
+        schema_position(schema_position) {}
+  SchemaRecord() {}
+};
+}
+
+class FileWriter::Impl : public ThreadWriter::Reclaimer {
+ public:
+  Impl(const Options& options)
+      : options_(options) {}
+
+  virtual ~Impl() {}
+
+  ThreadWriter::Options GetWriterOptions() {
+    ThreadWriter::Options options;
+    options.blocking_mode = (
+        options_.blocking ? ThreadWriter::kBlocking :
+        ThreadWriter::kAsynchronous);
+    options.reclaimer = this;
+    return options;
+  }
+
+  void Open(std::string_view filename) {
+    BOOST_ASSERT(!writer_);
+    writer_ = std::make_unique<ThreadWriter>(filename, GetWriterOptions());
+
+    PostOpen();
+  }
+
+  void Open(int fd) {
+    BOOST_ASSERT(!writer_);
+    writer_ = std::make_unique<ThreadWriter>(fd, GetWriterOptions());
+    PostOpen();
+  }
+
+  void Close() {
+    if (!writer_) { return; }
+
+    WriteIndex();
+    writer_.reset();
+  }
+
+  void Flush() {
+    if (!writer_) { return; }
+
+    writer_->Flush();
+  }
+
+  Identifier AllocateIdentifier(std::string_view record_name) {
+    auto it = identifier_map_.find(std::string(record_name));
+    if (it != identifier_map_.end()) { return it->second; }
+
+    // Find one that isn't used yet.
+    while (reverse_identifier_map_.count(next_id_)) {
+      next_id_++;
+    }
+
+    Identifier result = next_id_;
+    next_id_ ++;
+
+    identifier_map_[std::string(record_name)] = result;
+    reverse_identifier_map_[result] = std::string(record_name);
+
+    return result;
+  }
+
+  void Write(Buffer buffer) {
+    if (writer_) {
+      writer_->Write(std::move(buffer));
+    } else {
+      std::lock_guard<std::mutex> lock(buffers_mutex_);
+      buffers_.push_back(std::move(buffer));
+    }
+  }
+
+  void WriteData(boost::posix_time::ptime timestamp,
+                 Identifier identifier,
+                 std::string_view serialized_data,
+                 const WriteFlags& write_flags) {
+    auto buffer = GetBuffer();
+
+    // If you're using this API, we'll assume you don't care about
+    // performance or the number of copies too much.
+    buffer->write(serialized_data);
+
+    WriteData(timestamp, identifier, std::move(buffer), write_flags);
+  }
+
+  void WriteBlock(Format::BlockType block_type,
+                  std::string_view data) {
+    auto buffer = GetBuffer();
+
+    WriteStream stream(*buffer);
+    stream.WriteVaruint(u64(block_type));
+    stream.WriteVaruint(u64(data.size()));
+    stream.RawWrite(data);
+
+    Write(std::move(buffer));
+  }
+
+  void PostOpen() {
+    // Write the header.
+    {
+      auto buffer = GetBuffer();
+      WriteStream stream(*buffer);
+      buffer->write({"TLOG0003", 8});
+      stream.WriteVaruint(0);
+
+      writer_->Write(std::move(buffer));
+    }
+
+    for (const auto& pair: schema_) {
+      WriteSchema(pair.second.identifier,
+                  pair.second.name,
+                  pair.second.schema);
+    }
+  }
+
+  FilePosition GetPreviousOffset(Identifier identifier) const {
+    if (!writer_) { return 0; }
+
+    const auto it = schema_.find(identifier);
+    if (it == schema_.end() || it->second.last_position < 0) { return 0; }
+
+    const auto position = writer_->position();
+    return position - it->second.last_position;
+  }
+
+  FilePosition position() const {
+    if (!writer_) { return 0; }
+    return writer_->position();
+  }
+
+  void Reclaim(Buffer buffer) override {
+    std::lock_guard<std::mutex> guard(buffers_mutex_);
+    buffers_.push_back(std::move(buffer));
+  }
+
+  void WriteIndex() {
+    auto buffer = GetBuffer();
+    WriteStream stream(*buffer);
+
+    const uint64_t flags = 0;
+    stream.WriteVaruint(flags);
+    uint64_t num_elements = schema_.size();
+    stream.WriteVaruint(num_elements);
+
+    for (const auto& pair: schema_) {
+      // Write out the BlockIndexRecord for each.
+      const auto identifier = pair.first;
+      stream.WriteVaruint(identifier);
+
+      const auto& record = pair.second;
+
+      const auto schema_position = record.schema_position;
+      stream.Write(u64(schema_position));
+
+      const auto last_data_position = record.last_position;
+      stream.Write(u64(last_data_position));
+    }
+
+    const uint32_t trailing_size = buffer->size() +
+        1 + // block type
+        Format::GetVaruintSize(buffer->size() + 4 + 8) +
+        4 + // this element itself
+        8; // the final 8 byte constant
+
+    stream.Write(trailing_size);
+    stream.RawWrite({"TLOGIDEX", 8});
+
+    WriteBlock(Format::BlockType::kIndex, std::move(buffer));
+  }
+
+  void WriteSchema(Identifier identifier, std::string_view record_name,
+                   std::string_view schema) {
+    auto it = identifier_map_.find(std::string(record_name));
+    if (it != identifier_map_.end()) {
+      if (identifier != it->second) {
+        mjlib::base::Fail(fmt::format(
+                              "Attempt to write schema for '{}' with identifier {} "
+                              "but already allocated as {}",
+                              record_name, identifier, it->second));
+      }
+    } else {
+      auto rit = reverse_identifier_map_.find(identifier);
+      if (rit != reverse_identifier_map_.end()) {
+        mjlib::base::Fail(fmt::format(
+                              "Attempt to write schema for '{}' but identifier {} "
+                              "already used for '{}'",
+                              record_name, identifier, it->second));
+      } else {
+        // Guess we might as well mark this identifier as being used.
+        identifier_map_[std::string(record_name)] = identifier;
+        reverse_identifier_map_[identifier] = record_name;
+      }
+    }
+
+    schema_[identifier] = SchemaRecord(
+        record_name, identifier, 0, schema, position());
+
+    base::FastOStringStream ostr_schema;
+    WriteStream stream_schema(ostr_schema);
+    stream_schema.WriteVaruint(identifier);
+    stream_schema.WriteVaruint(0);
+    stream_schema.WriteString(record_name);
+    stream_schema.RawWrite(schema);
+
+    auto buffer = GetBuffer();
+
+    WriteStream stream(*buffer);
+    stream.WriteVaruint(Format::BlockType::kSchema);
+    stream.WriteVaruint(ostr_schema.str().size());
+    stream.RawWrite(ostr_schema.str());
+
+    Write(std::move(buffer));
+  }
+
+  Buffer GetBuffer() {
+    std::lock_guard<std::mutex> guard(buffers_mutex_);
+
+    Buffer result;
+    if (buffers_.empty()) {
+      result = std::make_unique<ThreadWriter::OStream>();
+    } else {
+      result = std::move(buffers_.back());
+      buffers_.pop_back();
+    }
+    result->data()->resize(kBufferStartPadding);
+    result->set_start(kBufferStartPadding);
+    return result;
+  }
+
+  void WriteData(boost::posix_time::ptime timestamp,
+                 Identifier identifier,
+                 Buffer buffer,
+                 const WriteFlags&) {
+    uint64_t block_data_flags = 0;
+
+    uint64_t flag_header_size = 0;
+
+    std::optional<FilePosition> previous_offset;
+    if (options_.write_previous_offsets) {
+      block_data_flags |= u64(Format::BlockDataFlags::kPreviousOffset);
+      previous_offset = GetPreviousOffset(identifier);
+      flag_header_size += Format::GetVaruintSize(*previous_offset);
+    }
+
+    std::optional<boost::posix_time::ptime> timestamp_to_write;
+    if (timestamp.is_not_a_date_time() || options_.timestamps_system) {
+      block_data_flags |= u64(Format::BlockDataFlags::kTimestamp);
+      flag_header_size += 8;
+      if (timestamp.is_not_a_date_time()) {
+        timestamp_to_write = timestamp;
+      } else {
+        timestamp_to_write =
+            boost::posix_time::microsec_clock::universal_time();
+      }
+    }
+
+    const auto identifier_size = Format::GetVaruintSize(identifier);
+    const auto flag_size = Format::GetVaruintSize(block_data_flags);
+    const auto body_size =
+        identifier_size + flag_size + flag_header_size + buffer->size();
+    const auto header_size =
+        identifier_size +
+        flag_size +
+        flag_header_size +
+        Format::GetVaruintSize(body_size) +
+        1;  // the block data type
+
+    BOOST_ASSERT(buffer->start() >= header_size);
+
+    base::BufferWriteStream stream(
+        {&(*buffer->data())[0] + buffer->start() - header_size,
+              static_cast<ssize_t>(header_size)});
+    WriteStream writer(stream);
+    writer.WriteVaruint(u64(Format::BlockType::kData));
+    writer.WriteVaruint(body_size);
+    writer.WriteVaruint(identifier);
+    writer.WriteVaruint(block_data_flags);
+
+    if (block_data_flags & u64(Format::BlockDataFlags::kPreviousOffset)) {
+      writer.WriteVarint(*previous_offset);
+    }
+
+    if (block_data_flags & u64(Format::BlockDataFlags::kTimestamp)) {
+      writer.Write(*timestamp_to_write);
+    }
+
+    buffer->set_start(buffer->start() - header_size);
+
+    schema_[identifier].last_position = writer_->position();
+
+    Write(std::move(buffer));
+  }
+
+  void WriteBlock(Format::BlockType block_type,
+                  Buffer buffer) {
+    size_t data_size = buffer->size();
+
+    const auto block_size = 1 + Format::GetVaruintSize(buffer->size());
+
+    base::BufferWriteStream stream(
+        {&(*buffer->data())[0] + buffer->start() - block_size,
+              static_cast<ssize_t>(block_size)});
+    BOOST_ASSERT(buffer->start() >= block_size);
+
+    WriteStream writer(stream);
+    writer.WriteVaruint(u64(block_type));
+    writer.WriteVaruint(u64(data_size));
+    buffer->set_start(buffer->start() - block_size);
+
+    Write(std::move(buffer));
+  }
+
+  const Options options_;
+  std::unique_ptr<ThreadWriter> writer_;
+
+  std::map<std::string, Identifier> identifier_map_;
+  std::map<Identifier, std::string> reverse_identifier_map_;
+
+  Identifier next_id_ = 1;
+
+  std::mutex buffers_mutex_;
+  std::vector<Buffer> buffers_;
+
+  std::map<Identifier, SchemaRecord> schema_;
+};
+
+FileWriter::FileWriter(const Options& options)
+    : impl_(std::make_unique<Impl>(options)) {}
+
+FileWriter::~FileWriter() {}
+
+void FileWriter::Open(std::string_view filename) {
+  impl_->Open(filename);
+}
+
+void FileWriter::Open(int fd) {
+  impl_->Open(fd);
+}
+
+bool FileWriter::IsOpen() const {
+  return !!impl_->writer_;
+}
+
+void FileWriter::Close() {
+  impl_->Close();
+}
+
+void FileWriter::Flush() {
+  impl_->Flush();
+}
+
+FileWriter::Identifier FileWriter::AllocateIdentifier(std::string_view record_name) {
+  return impl_->AllocateIdentifier(record_name);
+}
+
+void FileWriter::WriteSchema(Identifier identifier,
+                               std::string_view record_name,
+                               std::string_view schema) {
+  impl_->WriteSchema(identifier, record_name, schema);
+}
+
+void FileWriter::WriteData(boost::posix_time::ptime timestamp,
+                           Identifier identifier,
+                           std::string_view serialized_data,
+                           const WriteFlags& write_flags) {
+  impl_->WriteData(timestamp, identifier, serialized_data, write_flags);
+}
+
+void FileWriter::WriteBlock(Format::BlockType block_type,
+                            std::string_view data) {
+  impl_->WriteBlock(block_type, data);
+}
+
+FileWriter::Buffer FileWriter::GetBuffer() {
+  return impl_->GetBuffer();
+}
+
+void FileWriter::WriteData(boost::posix_time::ptime timestamp,
+                           Identifier identifier,
+                           Buffer buffer,
+                           const WriteFlags& write_flags) {
+  impl_->WriteData(timestamp, identifier, std::move(buffer), write_flags);
+}
+
+void FileWriter::WriteBlock(Format::BlockType block_type,
+                            Buffer buffer) {
+  impl_->WriteBlock(block_type, std::move(buffer));
+}
+
+}
+}

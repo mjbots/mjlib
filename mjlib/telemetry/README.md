@@ -299,7 +299,7 @@ Each of the fields is serialized as follows for binary purposes.
  - `union`
    - `index` : `varuint`  The zero based offset describing which type is selected
    - The serialization of the appropriate type
- - `timestamp` / `duration` : fixedi64
+ - `timestamp` / `duration` : fixedint64
 
 # Data JSON Serialization #
 
@@ -383,9 +383,33 @@ Where BlockType can take one of the following values:
  - optional flag specific information
  - A binary data serialization
 
+The following flags result in additional data being appended to the
+end of the record, which will be present in the order the flags are
+defined here:
+ * `previous_offset` - 1 << 0
+   * The additional data is a `varuint` giving the distance from the
+     most recent data block for this identifier to the current block.
+ * `timestamp` - 1 << 1
+   * The additional data is a `fixedint64` timestamp
+
+The following flags do not result in additional data being appended.
+ * `zstandard` - 1 << 4
+   * The following binary serialization has been compressed with the
+     "std" compression algorithm.
+
 ### Index ###
 
-TODO
+ * `flags` - varuint
+ * `nelements` - varuint
+ * `nelements` copies of
+   * `identifier` - `varuint`
+   * `schemalocation` - fixeduint64
+     * The location in this file where the schema record can be found
+   * `finalrecord` - fixeduint64
+     * The location in this file where the final record can be found
+ * `size` - fixeduint32
+   * The size of the index record
+ * "TLOGIDEX" - a constant 8 byte string
 
 ### CompressionDictionary ###
 
@@ -393,7 +417,23 @@ TODO
 
 ### SeekMarker ###
 
-TODO
+ * `marker` - uint64_t
+   * A fixed `0xfdcab9a897867564`
+ * `crc32` - uint32_t
+   * The CRC32 of this entire block, assuming the CRC field is all 0s
+ * `timestamp` - fixedint64
+ * `nelements`
+ * `nelements` copies of
+   * `identifier` - varuint
+   * `previous_offset` - varuint
+ * `flags` - varuint
+ * optional data
+
+Possible flags:
+
+* `compression_dictionary` - A `uint64` will be included in the
+  optional data which provides the location of the most recent
+  `CompressionDictionary` block.
 
 # Websocket #
 

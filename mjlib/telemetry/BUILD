@@ -59,6 +59,22 @@ cc_library(
 )
 
 cc_library(
+    name = "file_writer",
+    hdrs = ["file_writer.h"],
+    srcs = ["file_writer.cc"],
+    deps = [
+        ":format",
+        "//mjlib/base:buffer_stream",
+        "//mjlib/base:fail",
+        "//mjlib/base:fast_stream",
+        "//mjlib/base:system_error",
+        "//mjlib/base:thread_writer",
+        "@fmt",
+        "@boost",
+    ],
+)
+
+cc_library(
     name = "telemetry_format",
     hdrs = ["telemetry_format.h"],
     deps = [
@@ -98,6 +114,7 @@ cc_test(
     srcs = [
         "test/binary_read_archive_test.cc",
         "test/binary_write_archive_test.cc",
+        "test/file_writer_test.cc",
         "test/format_test.cc",
         "test/telemetry_archive_test.cc",
         "test/test_main.cc",
@@ -108,9 +125,11 @@ cc_test(
         ":format",
         ":binary_read_archive",
         ":binary_write_archive",
+        ":file_writer",
         ":telemetry_archive",
         ":telemetry_util",
         "//mjlib/base:all_types_struct",
+        "//mjlib/base:temporary_file",
         "@boost//:test",
         "@fmt",
     ],

@@ -12,37 +12,34 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "mjlib/base/thread_writer.h"
+#include "mjlib/telemetry/file_writer.h"
 
 #include <sstream>
+#include <string>
 
-#include <boost/filesystem.hpp>
 #include <boost/test/auto_unit_test.hpp>
 
 #include "mjlib/base/temporary_file.h"
 
-namespace fs = boost::filesystem;
+using mjlib::telemetry::FileWriter;
 
-using mjlib::base::ThreadWriter;
-
-BOOST_AUTO_TEST_CASE(BasicThreadWriterTest) {
-  mjlib::base::TemporaryFile temp;
-  {
-    ThreadWriter dut{temp.native()};
-    {
-      auto buf = std::make_unique<ThreadWriter::OStream>();
-      buf->write("test");
-      dut.Write(std::move(buf));
-    }
-    {
-      auto buf = std::make_unique<ThreadWriter::OStream>();
-      buf->write("more");
-      dut.Write(std::move(buf));
-    }
-  }
-
-  std::ifstream inf(temp.native());
+namespace {
+std::string Contents(const std::string& filename) {
+  std::ifstream inf(filename);
   std::ostringstream ostr;
   ostr << inf.rdbuf();
-  BOOST_TEST(ostr.str() == "testmore");
+  return ostr.str();
+}
+}
+
+BOOST_AUTO_TEST_CASE(FileWriterHeaderTest) {
+  mjlib::base::TemporaryFile temp;
+
+  {
+    FileWriter dut;
+    dut.Open(temp.native());
+  }
+
+  const auto contents = Contents(temp.native());
+  BOOST_TEST(contents == std::string("TLOG0003\x00", 9));
 }
