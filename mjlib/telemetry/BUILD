@@ -131,6 +131,7 @@ cc_test(
         "//mjlib/base:all_types_struct",
         "//mjlib/base:temporary_file",
         "@boost//:test",
+        "@boost//:date_time",
         "@fmt",
     ],
     data = [

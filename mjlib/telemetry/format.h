@@ -149,7 +149,7 @@ class WriteStream {
   void WriteVaruintReal(uint64_t value) {
     do {
       uint8_t word = value & 0x7f;
-      bool more = value > 0x7f;
+      const bool more = value > 0x7f;
       if (more) { word |= 0x80; }
       Write(word);
       value >>= 7;

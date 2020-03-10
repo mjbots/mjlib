@@ -70,7 +70,9 @@ class FileWriter::Impl : public ThreadWriter::Reclaimer {
   Impl(const Options& options)
       : options_(options) {}
 
-  virtual ~Impl() {}
+  virtual ~Impl() {
+    Close();
+  }
 
   ThreadWriter::Options GetWriterOptions() {
     ThreadWriter::Options options;
@@ -117,12 +119,40 @@ class FileWriter::Impl : public ThreadWriter::Reclaimer {
     }
 
     Identifier result = next_id_;
-    next_id_ ++;
+    next_id_++;
 
     identifier_map_[std::string(record_name)] = result;
     reverse_identifier_map_[result] = std::string(record_name);
 
     return result;
+  }
+
+  bool ReserveIdentifier(std::string_view record_name, Identifier identifier) {
+    {
+      const auto it = identifier_map_.find(std::string(record_name));
+      if (it != identifier_map_.end()) {
+        if (it->second == identifier) { return true; }
+
+        // We've already registered this with a different ID.  That is
+        // an error.
+        mjlib::base::Fail(
+            fmt::format(
+                "record name '{}' registered with different ids", record_name));
+      }
+    }
+
+    {
+      const auto it = reverse_identifier_map_.find(identifier);
+      if (it != reverse_identifier_map_.end()) {
+        // This identifier is already in use.
+        return false;
+      }
+    }
+
+    identifier_map_[std::string(record_name)] = identifier;
+    reverse_identifier_map_[identifier] = std::string(record_name);
+
+    return true;
   }
 
   void Write(Buffer buffer) {
@@ -172,7 +202,6 @@ class FileWriter::Impl : public ThreadWriter::Reclaimer {
 
     for (const auto& pair: schema_) {
       WriteSchema(pair.second.identifier,
-                  pair.second.name,
                   pair.second.schema);
     }
   }
@@ -232,38 +261,20 @@ class FileWriter::Impl : public ThreadWriter::Reclaimer {
     WriteBlock(Format::BlockType::kIndex, std::move(buffer));
   }
 
-  void WriteSchema(Identifier identifier, std::string_view record_name,
-                   std::string_view schema) {
-    auto it = identifier_map_.find(std::string(record_name));
-    if (it != identifier_map_.end()) {
-      if (identifier != it->second) {
-        mjlib::base::Fail(fmt::format(
-                              "Attempt to write schema for '{}' with identifier {} "
-                              "but already allocated as {}",
-                              record_name, identifier, it->second));
-      }
-    } else {
-      auto rit = reverse_identifier_map_.find(identifier);
-      if (rit != reverse_identifier_map_.end()) {
-        mjlib::base::Fail(fmt::format(
-                              "Attempt to write schema for '{}' but identifier {} "
-                              "already used for '{}'",
-                              record_name, identifier, it->second));
-      } else {
-        // Guess we might as well mark this identifier as being used.
-        identifier_map_[std::string(record_name)] = identifier;
-        reverse_identifier_map_[identifier] = record_name;
-      }
+  void WriteSchema(Identifier identifier, std::string_view schema) {
+    const auto rit = reverse_identifier_map_.find(identifier);
+    if (rit == reverse_identifier_map_.end()) {
+      mjlib::base::Fail(fmt::format("unknown id {}", identifier));
     }
 
     schema_[identifier] = SchemaRecord(
-        record_name, identifier, 0, schema, position());
+        rit->second, identifier, 0, schema, position());
 
     base::FastOStringStream ostr_schema;
     WriteStream stream_schema(ostr_schema);
     stream_schema.WriteVaruint(identifier);
     stream_schema.WriteVaruint(0);
-    stream_schema.WriteString(record_name);
+    stream_schema.WriteString(rit->second);
     stream_schema.RawWrite(schema);
 
     auto buffer = GetBuffer();
@@ -307,10 +318,10 @@ class FileWriter::Impl : public ThreadWriter::Reclaimer {
     }
 
     std::optional<boost::posix_time::ptime> timestamp_to_write;
-    if (timestamp.is_not_a_date_time() || options_.timestamps_system) {
+    if (!timestamp.is_not_a_date_time() || options_.timestamps_system) {
       block_data_flags |= u64(Format::BlockDataFlags::kTimestamp);
       flag_header_size += 8;
-      if (timestamp.is_not_a_date_time()) {
+      if (!timestamp.is_not_a_date_time()) {
         timestamp_to_write = timestamp;
       } else {
         timestamp_to_write =
@@ -391,6 +402,11 @@ class FileWriter::Impl : public ThreadWriter::Reclaimer {
 FileWriter::FileWriter(const Options& options)
     : impl_(std::make_unique<Impl>(options)) {}
 
+FileWriter::FileWriter(std::string_view filename, const Options& options)
+    : impl_(std::make_unique<Impl>(options)) {
+  Open(filename);
+}
+
 FileWriter::~FileWriter() {}
 
 void FileWriter::Open(std::string_view filename) {
@@ -413,14 +429,18 @@ void FileWriter::Flush() {
   impl_->Flush();
 }
 
-FileWriter::Identifier FileWriter::AllocateIdentifier(std::string_view record_name) {
+FileWriter::Identifier FileWriter::AllocateIdentifier(
+    std::string_view record_name) {
   return impl_->AllocateIdentifier(record_name);
 }
 
-void FileWriter::WriteSchema(Identifier identifier,
-                               std::string_view record_name,
-                               std::string_view schema) {
-  impl_->WriteSchema(identifier, record_name, schema);
+bool FileWriter::ReserveIdentifier(std::string_view record_name,
+                                   Identifier identifier) {
+  return impl_->ReserveIdentifier(record_name, identifier);
+}
+
+void FileWriter::WriteSchema(Identifier identifier, std::string_view schema) {
+  impl_->WriteSchema(identifier, schema);
 }
 
 void FileWriter::WriteData(boost::posix_time::ptime timestamp,

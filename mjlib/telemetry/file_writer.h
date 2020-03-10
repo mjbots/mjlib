@@ -41,7 +41,9 @@ class FileWriter : boost::noncopyable {
     /// Write a trailing index block.
     bool index_block = true;
 
-    /// If
+    /// Emit seek blocks at this interval.  Note, for this to have an
+    /// effect, timestamps must be provided either through the API or
+    /// from the system.
     double seek_block_period_s = 1.0;
 
     /// If true, then writes may block.
@@ -54,6 +56,7 @@ class FileWriter : boost::noncopyable {
   };
 
   FileWriter(const Options& options = {});
+  FileWriter(std::string_view filename, const Options& options = {});
   ~FileWriter();
 
   /// Open the given file for writing.  It will write any queued
@@ -80,10 +83,11 @@ class FileWriter : boost::noncopyable {
   /// Allocate a unique identifier for the given name.
   Identifier AllocateIdentifier(std::string_view record_name);
 
+  /// @return fale if the identifier could not be reserved.
+  bool ReserveIdentifier(std::string_view name, Identifier id);
+
   /// Write a schema block to the log file.
-  void WriteSchema(Identifier,
-                   std::string_view record_name,
-                   std::string_view schema);
+  void WriteSchema(Identifier, std::string_view schema);
 
 
   struct Override {
