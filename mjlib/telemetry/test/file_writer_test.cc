@@ -148,6 +148,16 @@ BOOST_AUTO_TEST_CASE(FileWriterWriteSchema) {
         "TLOGIDEX";
   const auto contents = Contents(temp.native());
   BOOST_TEST(contents == MakeString(expected));
+
+  mjlib::base::TemporaryFile temp2;
+  {
+    FileWriter dut;
+    const auto id = dut.AllocateIdentifier("test");
+    dut.WriteSchema(id, "testschema");
+    dut.Open(temp2.native());
+  }
+
+  BOOST_TEST(Contents(temp2.native()) == MakeString(expected));
 }
 
 namespace {

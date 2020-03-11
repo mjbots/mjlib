@@ -156,18 +156,17 @@ class FileWriter::Impl : public ThreadWriter::Reclaimer {
   }
 
   void Write(Buffer buffer) {
-    if (writer_) {
-      writer_->Write(std::move(buffer));
-    } else {
-      std::lock_guard<std::mutex> lock(buffers_mutex_);
-      buffers_.push_back(std::move(buffer));
-    }
+    if (!writer_) { return; }
+
+    writer_->Write(std::move(buffer));
   }
 
   void WriteData(boost::posix_time::ptime timestamp,
                  Identifier identifier,
                  std::string_view serialized_data,
                  const WriteFlags& write_flags) {
+    if (!writer_) { return; }
+
     auto buffer = GetBuffer();
 
     // If you're using this API, we'll assume you don't care about
@@ -179,6 +178,8 @@ class FileWriter::Impl : public ThreadWriter::Reclaimer {
 
   void WriteBlock(Format::BlockType block_type,
                   std::string_view data) {
+    if (!writer_) { return; }
+
     auto buffer = GetBuffer();
 
     WriteStream stream(*buffer);
@@ -202,7 +203,9 @@ class FileWriter::Impl : public ThreadWriter::Reclaimer {
 
     for (const auto& pair: schema_) {
       WriteSchema(pair.second.identifier,
-                  pair.second.schema);
+                  // Our schemas will be changed from under us, so we
+                  // need a temporary copy of this string.
+                  std::string(pair.second.schema));
     }
   }
 
@@ -306,6 +309,8 @@ class FileWriter::Impl : public ThreadWriter::Reclaimer {
                  Identifier identifier,
                  Buffer buffer,
                  const WriteFlags&) {
+    if (!writer_) { return; }
+
     uint64_t block_data_flags = 0;
 
     uint64_t flag_header_size = 0;
@@ -368,6 +373,8 @@ class FileWriter::Impl : public ThreadWriter::Reclaimer {
 
   void WriteBlock(Format::BlockType block_type,
                   Buffer buffer) {
+    if (!writer_) { return; }
+
     size_t data_size = buffer->size();
 
     const auto block_size = 1 + Format::GetVaruintSize(buffer->size());
