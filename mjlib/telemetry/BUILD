@@ -75,41 +75,6 @@ cc_library(
     ],
 )
 
-cc_library(
-    name = "telemetry_format",
-    hdrs = ["telemetry_format.h"],
-    deps = [
-        "//mjlib/base:assert",
-        "//mjlib/base:time_conversions",
-    ],
-)
-
-cc_library(
-    name = "telemetry_archive",
-    hdrs = [
-        "telemetry_archive.h",
-        "telemetry_archive_detail.h",
-    ],
-    deps = [
-        ":telemetry_format",
-        "//mjlib/base:fast_stream",
-        "//mjlib/base:stream",
-        "//mjlib/base:visit_archive",
-        "//mjlib/base:visitor",
-    ],
-)
-
-cc_library(
-    name = "telemetry_util",
-    hdrs = ["telemetry_util.h"],
-    deps = [
-        "//mjlib/base:assert",
-        "//mjlib/base:recording_stream",
-        "//mjlib/base:stringify",
-        "@fmt",
-    ],
-)
-
 cc_test(
     name = "test",
     srcs = [
@@ -117,7 +82,6 @@ cc_test(
         "test/binary_write_archive_test.cc",
         "test/file_writer_test.cc",
         "test/format_test.cc",
-        "test/telemetry_archive_test.cc",
         "test/test_main.cc",
 
         "test/test_util.h",
@@ -127,8 +91,6 @@ cc_test(
         ":binary_read_archive",
         ":binary_write_archive",
         ":file_writer",
-        ":telemetry_archive",
-        ":telemetry_util",
         "//mjlib/base:all_types_struct",
         "//mjlib/base:temporary_file",
         "@boost//:test",
