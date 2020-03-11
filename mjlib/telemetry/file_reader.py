@@ -154,7 +154,7 @@ class FileReader:
             _ = stream.read_varuint()
         if flags & DataFlags.timestamp:
             flags &= ~(DataFlags.timestamp)
-            result.timestamp = stream.read_i64()
+            result.timestamp = stream.read_i64() / 1000000.0
             # TODO: turn this into a more usable type.
         if flags & DataFlags.zstandard:
             flags &= ~(DataFlags.zstandard)
@@ -187,7 +187,6 @@ class FileReader:
                 if item is None:
                     continue
                 yield item
-
 
     def get(self, records=[]):
         # A convenience interface which reads the entirety of a log

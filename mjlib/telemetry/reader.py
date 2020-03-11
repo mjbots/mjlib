@@ -387,7 +387,7 @@ class TimestampType:
 
     def read(self, data_stream):
         us_since_epoch = data_stream.read_i64()
-        raise RuntimeError("not implemented")
+        return us_since_epoch / 1000000.0
 
 
 class DurationType:
