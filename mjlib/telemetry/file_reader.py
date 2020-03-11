@@ -202,3 +202,16 @@ class FileReader:
             result[name].append(item)
 
         return result
+
+
+    def records(self):
+        result = {}
+
+        for block in self._read_blocks():
+            if block.btype != BlockType.Schema:
+                continue
+
+            schema = self._parse_schema(block.data)
+            result[schema.name] = schema.reader
+
+        return result
