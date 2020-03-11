@@ -21,6 +21,7 @@
 #include <boost/date_time/posix_time/posix_time_types.hpp>
 
 #include "mjlib/base/bytes.h"
+#include "mjlib/base/fast_stream.h"
 #include "mjlib/base/priority_tag.h"
 #include "mjlib/base/visitor.h"
 #include "mjlib/base/visit_archive.h"
@@ -34,6 +35,20 @@ namespace telemetry {
 class BinaryWriteArchive : public base::VisitArchive<BinaryWriteArchive> {
  public:
   BinaryWriteArchive(base::WriteStream& stream) : stream_(stream) {}
+
+  template <typename Serializable>
+  static std::string Write(const Serializable* serializable) {
+    base::FastOStringStream ostr;
+    BinaryWriteArchive(ostr).Accept(serializable);
+    return ostr.str();
+  }
+
+  template <typename Serializable>
+  BinaryWriteArchive& Accept(const Serializable* serializable) {
+    base::VisitArchive<BinaryWriteArchive>::Accept(
+        const_cast<Serializable*>(serializable));
+    return *this;
+  }
 
   template <typename NameValuePair>
   void VisitScalar(const NameValuePair& nvp) {
@@ -139,8 +154,18 @@ class BinarySchemaArchive : public base::VisitArchive<BinarySchemaArchive> {
   }
 
   template <typename Serializable>
-  BinarySchemaArchive& Accept(Serializable* serializable) {
-    base::VisitArchive<BinarySchemaArchive>::Accept(serializable);
+  static std::string schema() {
+    base::FastOStringStream ostr;
+    BinarySchemaArchive archive(ostr);
+    Serializable serializable;
+    archive.Accept(&serializable);
+    return ostr.str();
+  }
+
+  template <typename Serializable>
+  BinarySchemaArchive& Accept(const Serializable* serializable) {
+    base::VisitArchive<BinarySchemaArchive>::Accept(
+        const_cast<Serializable*>(serializable));
     Finish();
     return *this;
   }

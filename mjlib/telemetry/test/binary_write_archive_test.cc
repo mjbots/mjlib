@@ -27,7 +27,7 @@ using namespace mjlib;
 BOOST_AUTO_TEST_CASE(BinaryWriteArchive) {
   base::FastOStringStream ostr;
   telemetry::BinaryWriteArchive dut(ostr);
-  base::test::AllTypesTest all_types;
+  const base::test::AllTypesTest all_types;
   dut.Accept(&all_types);
 
   const std::vector<uint8_t> expected = {
@@ -232,4 +232,7 @@ BOOST_AUTO_TEST_CASE(BinarySchemaArchive) {
   };
 
   telemetry::test::Compare(expected, ostr.str());
+  telemetry::test::Compare(
+      expected, telemetry::BinarySchemaArchive::schema<
+      base::test::AllTypesTest>());
 }

@@ -37,6 +37,7 @@ cc_library(
     ],
     deps = [
         ":format",
+        "//mjlib/base:fast_stream",
         "//mjlib/base:priority_tag",
         "//mjlib/base:stream",
         "//mjlib/base:visitor",
