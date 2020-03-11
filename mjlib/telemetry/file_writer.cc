@@ -357,7 +357,7 @@ class FileWriter::Impl : public ThreadWriter::Reclaimer {
     writer.WriteVaruint(block_data_flags);
 
     if (block_data_flags & u64(Format::BlockDataFlags::kPreviousOffset)) {
-      writer.WriteVarint(*previous_offset);
+      writer.WriteVaruint(*previous_offset);
     }
 
     if (block_data_flags & u64(Format::BlockDataFlags::kTimestamp)) {
