@@ -176,12 +176,12 @@ BOOST_AUTO_TEST_CASE(FileWriterWriteDataUncompressed) {
 
   const char suffix[] =
       "\x02\x13"  // BlockType = Data, size=19
-      "\x01\x03"  // id=1, flags= (timestamp)
+      "\x01\x03"  // id=1, flags= (previous_offset|timestamp)
         "\x00"  // previous offset
         "\x00\x20\x07\xcd\x74\xa0\x05\x00"  // timestamp
         "testdata"
 
-      "\x03\x1f"  // block type kIndex, size=31
+      "\x03\x1f"  // BlockType = Index, size=31
       "\x00\x01"  // flags=0 nelements=1
         "\x01" // id
           "\x09\x00\x00\x00\x00\x00\x00\x00"  // schema location

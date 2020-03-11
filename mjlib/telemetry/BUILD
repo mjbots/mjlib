@@ -144,15 +144,28 @@ py_library(
     srcs = ["reader.py"],
 )
 
+py_library(
+    name = "py_file_reader",
+    srcs = ["file_reader.py"],
+    deps = [":py_reader"],
+)
+
 py_test(
     name = "py_reader_test",
     srcs = ["test/py_reader_test.py"],
     deps = [":py_reader"],
 )
 
+py_test(
+    name = "py_file_reader_test",
+    srcs = ["test/py_file_reader_test.py"],
+    deps = [":py_file_reader"],
+)
+
 test_suite(
     name = "py_test",
     tests = [
         "py_reader_test",
+        "py_file_reader_test",
     ],
 )

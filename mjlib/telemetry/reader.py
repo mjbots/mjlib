@@ -77,7 +77,10 @@ class Stream:
         value = 0
 
         while True:
-            value = self._base.read(1)[0]
+            data = self._base.read(1)
+            if len(data) != 1:
+                raise EOFError()
+            value = data[0]
             result = result + fk * (value & 0x7f)
             fk = fk * 128
 
