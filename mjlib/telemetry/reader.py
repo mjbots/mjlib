@@ -438,5 +438,8 @@ class Type:
             schema_stream = Stream(schema_stream)
 
         type_index = schema_stream.read_varuint()
-        this_type = _TYPES_FROM_BINARY[type_index]
+        try:
+            this_type = _TYPES_FROM_BINARY[type_index]
+        except IndexError:
+            raise RuntimeError("Unknown type: {}".format(type_index))
         return this_type(schema_stream, **kwargs)
