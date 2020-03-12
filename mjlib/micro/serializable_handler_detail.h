@@ -1,4 +1,4 @@
-// Copyright 2015-2019 Josh Pieper, jjp@pobox.com.
+// Copyright 2015-2020 Josh Pieper, jjp@pobox.com.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,6 +13,8 @@
 // limitations under the License.
 
 #pragma once
+
+#include <inttypes.h>
 
 #include <algorithm>
 #include <cstdio>
@@ -31,6 +33,23 @@ namespace mjlib {
 namespace micro {
 
 namespace detail {
+struct FormatSpecifier {
+  static const char* GetFormat(bool) { return "%" PRIu8; }
+
+  static const char* GetFormat(int8_t) { return "%" PRIi8; }
+  static const char* GetFormat(int16_t) { return "%" PRIi16; }
+  static const char* GetFormat(int32_t) { return "%" PRIi32; }
+  static const char* GetFormat(int64_t) { return "%" PRIi64; }
+
+  static const char* GetFormat(uint8_t) { return "%" PRIu8; }
+  static const char* GetFormat(uint16_t) { return "%" PRIu16; }
+  static const char* GetFormat(uint32_t) { return "%" PRIu32; }
+  static const char* GetFormat(uint64_t) { return "%" PRIu64; }
+
+  static const char* GetFormat(float) { return "%f"; }
+  static const char* GetFormat(double) { return "%f"; }
+};
+
 struct EnumerateArchive : public mjlib::base::VisitArchive<EnumerateArchive> {
   struct Context {
     std::string_view root_prefix;
@@ -163,14 +182,9 @@ struct EnumerateArchive : public mjlib::base::VisitArchive<EnumerateArchive> {
   template <typename Iterator, typename T>
   void FormatValue(Iterator* current, Iterator* end, T value) {
     int result = ::snprintf(&(**current), std::distance(*current, *end),
-                            GetFormatSpecifier(value), value);
+                            FormatSpecifier::GetFormat(value), value);
     (*current) += result;
   }
-
-  template <typename T>
-  const char* GetFormatSpecifier(T) const { return "%d"; }
-
-  const char* GetFormatSpecifier(float) const { return "%f"; }
 
  private:
   Context* const context_;
@@ -254,20 +268,31 @@ struct SetArchive : public ItemArchive<SetArchive> {
 
  private:
   template <typename T>
-  T ParseValue(const std::string_view& value) const {
-    return std::strtol(&*value.begin(), nullptr, 0);
+  T ParseValue(const std::string_view& value,
+               std::enable_if_t<std::is_signed_v<T>, int> = 0) const {
+    return std::strtoll(&*value.begin(), nullptr, 0);
+  }
+
+  template <typename T>
+  T ParseValue(const std::string_view& value,
+               std::enable_if_t<!std::is_signed_v<T>, int> = 0) const {
+    return std::strtoul(&*value.begin(), nullptr, 0);
   }
 
   const std::string_view value_;
 };
 
 template <>
-inline float SetArchive::ParseValue<float>(const std::string_view& value) const {
+inline float SetArchive::ParseValue<float>(
+    const std::string_view& value,
+    std::enable_if_t<std::is_signed_v<float>, int>) const {
   return std::strtof(&*value.begin(), nullptr);
 }
 
 template <>
-inline double SetArchive::ParseValue<double>(const std::string_view& value) const {
+inline double SetArchive::ParseValue<double>(
+    const std::string_view& value,
+    std::enable_if_t<std::is_signed_v<double>, int>) const {
   return std::strtod(&*value.begin(), nullptr);
 }
 
@@ -296,14 +321,10 @@ struct ReadArchive : public ItemArchive<ReadArchive> {
   template <typename T>
   std::string_view EmitValue(T value) {
     const int out_size = ::snprintf(
-        &*buffer_.begin(), buffer_.size(), GetFormat(value), value);
+        &*buffer_.begin(), buffer_.size(),
+        FormatSpecifier::GetFormat(value), value);
     return std::string_view(buffer_.begin(), out_size);
   }
-
-  template <typename T>
-  static const char* GetFormat(T) { return "%d"; }
-
-  static const char* GetFormat(uint32_t) { return "%u"; }
 
   const base::string_span buffer_;
   AsyncWriteStream& stream_;
@@ -316,6 +337,7 @@ inline std::string_view ReadArchive::EmitValue<float>(float value) {
       &*buffer_.begin(), buffer_.size(), "%f", value);
   return std::string_view(buffer_.begin(), out_size);
 }
+
 }
 
 }
