@@ -115,6 +115,7 @@ cc_library(
     deps = [
         ":frame_stream",
         ":stream_asio_client",
+        "//mjlib/io:selector",
     ],
 )
 
