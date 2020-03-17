@@ -276,7 +276,7 @@ struct SetArchive : public ItemArchive<SetArchive> {
   template <typename T>
   T ParseValue(const std::string_view& value,
                std::enable_if_t<!std::is_signed_v<T>, int> = 0) const {
-    return std::strtoul(&*value.begin(), nullptr, 0);
+    return std::strtoull(&*value.begin(), nullptr, 0);
   }
 
   const std::string_view value_;
