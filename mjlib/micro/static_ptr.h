@@ -101,7 +101,7 @@ class StaticPtr {
 
   const T* get() const {
     return reinterpret_cast<const T*>(data_);
-    void* ptr = data_;
+    void* ptr = const_cast<char*>(data_);
     std::size_t space = sizeof(data_);
     return reinterpret_cast<const T*>(
         std::align(alignof(T), sizeof(T), ptr, space));
