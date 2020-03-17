@@ -132,14 +132,31 @@ cc_library(
 )
 
 cc_library(
-    name = "stream_pipe",
-    hdrs = ["stream_pipe.h"],
-    srcs = ["stream_pipe.cc"],
+    name = "persistent_config",
+    hdrs = [
+        "flash.h",
+        "persistent_config.h",
+    ],
+    srcs = ["persistent_config.cc"],
     deps = [
         ":async_stream",
-        ":event",
+        ":command_manager",
+        ":pool_map",
+        ":pool_ptr",
+        ":serializable_handler",
         "//mjlib/base:assert",
+        "//mjlib/base:buffer_stream",
+        "//mjlib/base:crc",
+        "//mjlib/base:inplace_function",
+        "//mjlib/base:noncopyable",
+        "//mjlib/base:tokenizer",
     ],
+)
+
+cc_library(
+    name = "required_success",
+    hdrs = ["required_success.h"],
+    deps = [":async_types"],
 )
 
 cc_library(
@@ -162,6 +179,31 @@ cc_library(
 )
 
 cc_library(
+    name = "static_ptr",
+    hdrs = ["static_ptr.h"],
+)
+
+cc_library(
+    name = "static_vector",
+    hdrs = ["static_vector.h"],
+    deps = [
+        "//mjlib/base:copy_const",
+        "@boost",
+    ],
+)
+
+cc_library(
+    name = "stream_pipe",
+    hdrs = ["stream_pipe.h"],
+    srcs = ["stream_pipe.cc"],
+    deps = [
+        ":async_stream",
+        ":event",
+        "//mjlib/base:assert",
+    ],
+)
+
+cc_library(
     name = "telemetry_manager",
     hdrs = ["telemetry_manager.h"],
     srcs = ["telemetry_manager.cc"],
@@ -179,33 +221,6 @@ cc_library(
     ],
 )
 
-cc_library(
-    name = "required_success",
-    hdrs = ["required_success.h"],
-    deps = [":async_types"],
-)
-
-cc_library(
-    name = "persistent_config",
-    hdrs = [
-        "flash.h",
-        "persistent_config.h",
-    ],
-    srcs = ["persistent_config.cc"],
-    deps = [
-        ":async_stream",
-        ":command_manager",
-        ":pool_map",
-        ":pool_ptr",
-        ":serializable_handler",
-        "//mjlib/base:assert",
-        "//mjlib/base:buffer_stream",
-        "//mjlib/base:crc",
-        "//mjlib/base:inplace_function",
-        "//mjlib/base:noncopyable",
-        "//mjlib/base:tokenizer",
-    ],
-)
 
 cc_library(
     name = "test_fixtures",
@@ -256,6 +271,8 @@ cc_test(
         "test/pool_map_test.cc",
         "test/pool_ptr_test.cc",
         "test/serializable_handler_test.cc",
+        "test/static_ptr_test.cc",
+        "test/static_vector_test.cc",
         "test/stream_pipe_test.cc",
         "test/telemetry_manager_test.cc",
     ],
@@ -272,6 +289,8 @@ cc_test(
         ":pool_ptr",
         ":required_success",
         ":serializable_handler",
+        ":static_ptr",
+        ":static_vector",
         ":stream_pipe",
         ":telemetry_manager",
         ":test_fixtures",

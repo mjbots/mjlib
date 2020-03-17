@@ -40,6 +40,11 @@ cc_library(
 )
 
 cc_library(
+    name = "copy_const",
+    hdrs = ["copy_const.h"],
+)
+
+cc_library(
     name = "fail",
     hdrs = ["fail.h"],
     srcs = ["fail.cc"],
