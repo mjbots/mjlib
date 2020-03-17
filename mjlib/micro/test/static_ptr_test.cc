@@ -73,6 +73,11 @@ BOOST_AUTO_TEST_CASE(BasicStaticPtr) {
     BOOST_TEST(dut->a == 5);
     BOOST_TEST(dut->b == true);
     BOOST_TEST(dut->c == 1.0);
+
+    micro::StaticPtr<Simple, 64> empty;
+    dut = std::move(empty);
+    BOOST_TEST(!dut);
+    BOOST_TEST(!empty);
   }
 
   {

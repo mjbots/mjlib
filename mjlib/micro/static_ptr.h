@@ -15,6 +15,7 @@
 #pragma once
 
 #include <cstdlib>
+#include <memory>
 
 namespace mjlib {
 namespace micro {
@@ -27,7 +28,6 @@ namespace micro {
 template <typename T, std::size_t Capacity>
 class StaticPtr {
  public:
-  static_assert(sizeof(T) <= Capacity);
 
   StaticPtr() : present_(false) {}
 
@@ -61,12 +61,17 @@ class StaticPtr {
   StaticPtr& operator=(StaticPtr&& rhs) {
     reset();
     present_ = !!rhs;
-    new (get()) T(std::move(*rhs.get()));
+    if (present_) {
+      new (get()) T(std::move(*rhs.get()));
+    }
     rhs.reset();
     return *this;
   }
 
   ~StaticPtr() {
+    // We put this here, so that it is only evaluated when the full
+    // type is known.
+    static_assert(sizeof(T) <= Capacity);
     reset();
   }
 
@@ -87,15 +92,23 @@ class StaticPtr {
 
  private:
   T* get() {
-    return reinterpret_cast<T*>(data_);
+    if (!present_) { return nullptr; }
+    void* ptr = data_;
+    std::size_t space = sizeof(data_);
+    return reinterpret_cast<T*>(
+        std::align(alignof(T), sizeof(T), ptr, space));
   }
 
   const T* get() const {
     return reinterpret_cast<const T*>(data_);
+    void* ptr = data_;
+    std::size_t space = sizeof(data_);
+    return reinterpret_cast<const T*>(
+        std::align(alignof(T), sizeof(T), ptr, space));
   }
 
   bool present_ = false;
-  alignas(alignof(T)) char data_[Capacity] = {};
+  char data_[Capacity] = {};
 };
 
 }
