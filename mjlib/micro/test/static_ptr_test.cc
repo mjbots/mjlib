@@ -74,6 +74,13 @@ BOOST_AUTO_TEST_CASE(BasicStaticPtr) {
     BOOST_TEST(dut->b == true);
     BOOST_TEST(dut->c == 1.0);
 
+    [](const auto& foo) {
+      // And it still works when accessed as const.
+      BOOST_TEST(foo->a == 5);
+      BOOST_TEST(foo->b == true);
+      BOOST_TEST(foo->c == 1.0);
+    }(dut);
+
     micro::StaticPtr<Simple, 64> empty;
     dut = std::move(empty);
     BOOST_TEST(!dut);
