@@ -43,6 +43,7 @@ BOOST_AUTO_TEST_CASE(BasicStaticVector) {
     BOOST_TEST(*(dut.end() - 1) == 13);
     BOOST_TEST(*dut.data() == 13);
     BOOST_TEST(dut[0] == 13);
+    BOOST_TEST((dut.end() - dut.begin()) == 1);
 
     int count = 0;
     for (auto value : dut) {

@@ -59,7 +59,7 @@ class StaticVector {
 
     template <typename OtherValue>
     std::ptrdiff_t distance_to(const OtherValue& other) const {
-      return index_ - other.index_;
+      return other.index_ - index_;
     }
 
     typename base::CopyConst<Value, StaticVector>::type* parent_;
