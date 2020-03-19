@@ -1,6 +1,6 @@
 # -*- python -*-
 
-# Copyright 2018-2019 Josh Pieper, jjp@pobox.com.
+# Copyright 2018-2020 Josh Pieper, jjp@pobox.com.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -358,6 +358,7 @@ cc_test(
         "test/inplace_function_test.cc",
         "test/json5_read_archive_test.cc",
         "test/json5_write_archive_test.cc",
+        "test/limit_test.cc",
         "test/pid_test.cc",
         "test/program_options_archive_test.cc",
         "test/string_span_test.cc",
@@ -381,6 +382,7 @@ cc_test(
         ":inplace_function",
         ":json5_read_archive",
         ":json5_write_archive",
+        ":limit",
         ":pid",
         ":program_options_archive",
         ":string_span",

@@ -1,4 +1,4 @@
-// Copyright 2018-2019 Josh Pieper, jjp@pobox.com.
+// Copyright 2018-2020 Josh Pieper, jjp@pobox.com.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,13 +14,15 @@
 
 #pragma once
 
+#include <cmath>
+
 namespace mjlib {
 namespace base {
 
 template <typename T>
 T Limit(T a, T min, T max) {
-  if (a < min) { return min; }
-  if (a > max) { return max; }
+  if (!std::isnan(min) && a < min) { return min; }
+  if (!std::isnan(max) && a > max) { return max; }
   return a;
 }
 
