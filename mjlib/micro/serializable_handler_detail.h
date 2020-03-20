@@ -33,6 +33,8 @@ namespace mjlib {
 namespace micro {
 
 namespace detail {
+struct Empty {};
+
 struct FormatSpecifier {
   static const char* GetFormat(bool) { return "%" PRIu8; }
 
@@ -48,6 +50,8 @@ struct FormatSpecifier {
 
   static const char* GetFormat(float) { return "%f"; }
   static const char* GetFormat(double) { return "%f"; }
+
+  static const char* GetFormat(Empty) { return ""; }
 };
 
 struct EnumerateArchive : public mjlib::base::VisitArchive<EnumerateArchive> {
@@ -107,6 +111,21 @@ struct EnumerateArchive : public mjlib::base::VisitArchive<EnumerateArchive> {
             // callback, we are done.
           }
         });
+    }
+  }
+
+  template <typename NameValuePair, typename T>
+  void VisitHelper(const NameValuePair& pair,
+                   std::optional<T>*,
+                   int) {
+    // We only support optional scalar types.
+    auto maybe_value = pair.get_value();
+    if (!maybe_value) {
+      Empty empty;
+      Visit(base::ReferenceNameValuePair<Empty>(&empty, pair.name()));
+    } else {
+      auto value = *maybe_value;
+      Visit(base::ReferenceNameValuePair<decltype(value)>(&value, pair.name()));
     }
   }
 
@@ -309,6 +328,29 @@ struct ReadArchive : public ItemArchive<ReadArchive> {
 
   template <typename NameValuePair>
   void VisitScalar(const NameValuePair& pair) {
+    this->VisitHelper(pair, pair.value(), 0);
+  }
+
+  template <typename NameValuePair, typename T>
+  void VisitHelper(const NameValuePair& pair,
+                   std::optional<T>*,
+                   int) {
+    auto maybe_value = pair.get_value();
+    if (!maybe_value) {
+      Empty empty;
+      mjlib::base::VisitArchive<ReadArchive>::Visit(
+          base::ReferenceNameValuePair<Empty>(&empty, pair.name()));
+    } else {
+      auto value = *maybe_value;
+      mjlib::base::VisitArchive<ReadArchive>::Visit(
+          base::ReferenceNameValuePair<decltype(value)>(&value, pair.name()));
+    }
+  }
+
+  template <typename NameValuePair, typename T>
+  void VisitHelper(const NameValuePair& pair,
+                   T*,
+                   long) {
     auto out_buffer = EmitValue(pair.get_value());
 
     AsyncWrite(stream_, out_buffer, callback_);

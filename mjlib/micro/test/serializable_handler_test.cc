@@ -47,6 +47,8 @@ struct MyStruct {
   uint32_t u32_value = 10;
   int64_t i64_value = std::numeric_limits<int64_t>::min();
   uint64_t u64_value = std::numeric_limits<uint64_t>::max();
+  std::optional<int32_t> optional_unset_int;
+  std::optional<int32_t> optional_set_int = 4;
 
   template <typename Archive>
   void Serialize(Archive* a) {
@@ -59,6 +61,8 @@ struct MyStruct {
     a->Visit(MJ_NVP(u32_value));
     a->Visit(MJ_NVP(i64_value));
     a->Visit(MJ_NVP(u64_value));
+    a->Visit(MJ_NVP(optional_unset_int));
+    a->Visit(MJ_NVP(optional_set_int));
   }
 };
 }
@@ -72,7 +76,7 @@ BOOST_AUTO_TEST_CASE(BasicSerializableHandler) {
     char buffer[100] = {};
     base::BufferWriteStream write_stream{buffer};
     dut.WriteBinary(write_stream);
-    BOOST_TEST(write_stream.offset() == 55);
+    BOOST_TEST(write_stream.offset() == 61);
 
     my_struct.int_value = 20;
     BOOST_TEST(my_struct.int_value == 20);
@@ -86,7 +90,7 @@ BOOST_AUTO_TEST_CASE(BasicSerializableHandler) {
     char buffer[1000] = {};
     base::BufferWriteStream write_stream{buffer};
     dut.WriteSchema(write_stream);
-    BOOST_TEST(write_stream.offset() == 250);
+    BOOST_TEST(write_stream.offset() == 308);
   }
 
   {
@@ -97,6 +101,11 @@ BOOST_AUTO_TEST_CASE(BasicSerializableHandler) {
     BOOST_TEST(my_struct.array_value[2] == 8.0);
     dut.Set("array_value.2", "2.0");
     BOOST_TEST(my_struct.array_value[2] == 2.0);
+
+    BOOST_TEST(!my_struct.optional_unset_int);
+    dut.Set("optional_unset_int", "9");
+    BOOST_TEST(!!my_struct.optional_unset_int);
+    BOOST_TEST(*my_struct.optional_unset_int == 9);
   }
 
   {
@@ -170,7 +179,7 @@ BOOST_AUTO_TEST_CASE(BasicSerializableHandler) {
     BOOST_TEST(result != 0);
   }
 
-  {
+  auto test_read = [&](std::string_view key, std::string_view expected) {
     char buffer[100] = {};
     EventQueue event_queue;
     StreamPipe stream_pipe{event_queue.MakePoster()};
@@ -179,19 +188,22 @@ BOOST_AUTO_TEST_CASE(BasicSerializableHandler) {
     int complete_count = 0;
     {
       const int result =
-          dut.Read("u32_value", buffer, *stream_pipe.side_a(),
+          dut.Read(key, buffer, *stream_pipe.side_a(),
                    [&](error_code ec) {
                      BOOST_TEST(!ec);
                      complete_count++;
                  });
       BOOST_TEST(result == 0);
     }
-    BOOST_TEST(complete_count == 0);
 
     event_queue.Poll();
     BOOST_TEST(complete_count == 1);
-    BOOST_TEST(reader.data_.str() == "10");
-  }
+    BOOST_TEST(reader.data_.str() == expected);
+  };
+
+  test_read("u32_value", "10");
+  test_read("optional_unset_int", "");
+  test_read("optional_set_int", "4");
 }
 
 BOOST_AUTO_TEST_CASE(EnumerateTest) {
@@ -235,6 +247,8 @@ BOOST_AUTO_TEST_CASE(EnumerateTest) {
       "prefix.u32_value 10\r\n"
       "prefix.i64_value -9223372036854775808\r\n"
       "prefix.u64_value 18446744073709551615\r\n"
+      "prefix.optional_unset_int \r\n"
+      "prefix.optional_set_int 4\r\n"
       ;
 
   BOOST_TEST(reader.data_.str() == expected);
