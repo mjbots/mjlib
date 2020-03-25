@@ -1,4 +1,4 @@
-// Copyright 2019 Josh Pieper, jjp@pobox.com.  All rights reserved.
+// Copyright 2019-2020 Josh Pieper, jjp@pobox.com.  All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,6 +22,8 @@
 #include <iostream>
 
 #include <clipp/clipp.h>
+
+#include "mjlib/base/inifile.h"
 
 namespace mjlib {
 namespace base {
@@ -54,6 +56,12 @@ void ClippParse(int argc, char** argv, const Token& token) {
     std::cerr << "Invalid options, try --help\n";
     std::exit(1);
   }
+}
+
+template <typename Token>
+void ClippParseIni(std::istream& istr, const Token& token) {
+  std::vector<std::string> tokenize = ReadIniOptionStream(istr);
+  clipp::parse(tokenize.begin(), tokenize.end(), token);
 }
 
 }

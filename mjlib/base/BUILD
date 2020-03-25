@@ -52,6 +52,17 @@ cc_library(
 )
 
 cc_library(
+    name = "inifile",
+    hdrs = ["inifile.h"],
+    srcs = ["inifile.cc"],
+    deps = [
+        ":system_error",
+        "@boost",
+        "@fmt",
+    ],
+)
+
+cc_library(
     name = "inplace_function",
     hdrs = ["inplace_function.h"],
     deps = [":assert"],
@@ -200,7 +211,10 @@ cc_library(
 cc_library(
     name = "clipp",
     hdrs = ["clipp.h"],
-    deps = ["@com_github_muellan_clipp//:clipp"],
+    deps = [
+        ":inifile",
+        "@com_github_muellan_clipp//:clipp"
+    ],
 )
 
 cc_library(
@@ -355,6 +369,7 @@ cc_test(
         "test/eigen_test.cc",
         "test/error_code_test.cc",
         "test/external_serialize_test.cc",
+        "test/inifile_test.cc",
         "test/inplace_function_test.cc",
         "test/json5_read_archive_test.cc",
         "test/json5_write_archive_test.cc",
@@ -379,6 +394,7 @@ cc_test(
         ":error_code",
         ":fail",
         ":fast_stream",
+        ":inifile",
         ":inplace_function",
         ":json5_read_archive",
         ":json5_write_archive",
