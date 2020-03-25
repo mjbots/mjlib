@@ -34,6 +34,14 @@ class ClippArchive : public VisitArchive<ClippArchive> {
   ClippArchive(std::string prefix = "")
       : prefix_(prefix) {}
 
+  template <typename ValueType>
+  clipp::group Value(ValueType* value, const char* name) {
+    ClippArchive sub;
+    base::ReferenceNameValuePair nvp(value, name);
+    sub.VisitArchive<ClippArchive>::Visit(nvp);
+    return sub.release();
+  }
+
   template <typename NameValuePair>
   void VisitScalar(const NameValuePair& pair) {
     VisitHelper(pair, pair.value(), PriorityTag<1>());
@@ -45,6 +53,16 @@ class ClippArchive : public VisitArchive<ClippArchive> {
         clipp::with_prefix(std::string(pair.name()) + ".", ClippArchive()
                            .Accept(pair.value()).release()));
   }
+
+  template <typename NameValuePair>
+  void VisitArray(const NameValuePair& pair) {
+    for (size_t i = 0; i < pair.value()->size(); i++) {
+      const auto name = fmt::format("{}.{}", pair.name(), i);
+      group_.push_back(
+          ClippArchive::Value(&(*pair.value())[i], name.c_str()));
+    }
+  }
+
 
   template <typename NameValuePair>
   void VisitEnumeration(const NameValuePair& nvp) {

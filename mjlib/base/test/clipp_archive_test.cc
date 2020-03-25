@@ -48,9 +48,8 @@ struct MyStruct {
   std::string string_value = "2";
   MyEnum enum_value = kValue1;
   SubStruct sub_struct;
-
-  // TODO
-  //  array_value
+  std::array<SubStruct, 2> array_subs = {};
+  std::array<int, 3> array_scalars = {};
 
   template <typename Archive>
   void Serialize(Archive* a) {
@@ -58,6 +57,8 @@ struct MyStruct {
     a->Visit(MJ_NVPT(string_value).label("STR"));
     a->Visit(MJ_ENUMT(enum_value, MyEnumMapper).help("stuff"));
     a->Visit(MJ_NVP(sub_struct));
+    a->Visit(MJ_NVP(array_subs));
+    a->Visit(MJ_NVP(array_scalars));
   }
 };
 }
@@ -69,12 +70,19 @@ BOOST_AUTO_TEST_CASE(ClippArchiveTest) {
   const auto actual_usage = mjlib::base::CollapseWhitespace(
       boost::lexical_cast<std::string>(clipp::usage_lines(group)) +
       boost::lexical_cast<std::string>(clipp::documentation(group)));
-  const std::string expected = R"XX([int_value <arg>] [string_value <STR>] [enum_value <arg>] [sub_struct.bool_switch <arg>] int_value <arg>
+  const std::string expected = R"XX([int_value <arg>] [string_value <STR>] [enum_value <arg>] [sub_struct.bool_switch <arg>]
+[array_subs.0.bool_switch <arg>] [array_subs.1.bool_switch <arg>] [array_scalars.0 <arg>]
+[array_scalars.1 <arg>] [array_scalars.2 <arg>] int_value <arg>
 special text
 string_value <STR>
 enum_value <arg>
 stuff (kValue1/kValue2)
 sub_struct.bool_switch <arg>
+array_subs.0.bool_switch <arg>
+array_subs.1.bool_switch <arg>
+array_scalars.0 <arg>
+array_scalars.1 <arg>
+array_scalars.2 <arg>
 )XX";
   BOOST_TEST(actual_usage == expected);
 
