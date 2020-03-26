@@ -1,4 +1,4 @@
-// Copyright 2015-2019 Josh Pieper, jjp@pobox.com.  All rights reserved.
+// Copyright 2015-2020 Josh Pieper, jjp@pobox.com.  All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -49,7 +49,7 @@ class ClippArchive : public VisitArchive<ClippArchive> {
 
   template <typename NameValuePair>
   void VisitSerializable(const NameValuePair& pair) {
-    group_.push_back(
+    group_.merge(
         clipp::with_prefix(std::string(pair.name()) + ".", ClippArchive()
                            .Accept(pair.value()).release()));
   }
@@ -58,7 +58,7 @@ class ClippArchive : public VisitArchive<ClippArchive> {
   void VisitArray(const NameValuePair& pair) {
     for (size_t i = 0; i < pair.value()->size(); i++) {
       const auto name = fmt::format("{}.{}", pair.name(), i);
-      group_.push_back(
+      group_.merge(
           ClippArchive::Value(&(*pair.value())[i], name.c_str()));
     }
   }

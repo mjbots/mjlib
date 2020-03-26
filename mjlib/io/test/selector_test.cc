@@ -129,3 +129,44 @@ BOOST_AUTO_TEST_CASE(BasicSelectorTest) {
   BOOST_TEST(class2->started_ == true);
   BOOST_TEST(class2->value() == 97);
 }
+
+namespace {
+class EmptyOptions : public Base {
+ public:
+  struct Options {
+    template <typename Archive>
+    void Serialize(Archive*) {}
+  };
+
+  EmptyOptions(const boost::asio::executor&, const Options&, Resource*) {}
+  ~EmptyOptions() override {}
+  int type() override { return 3; }
+  int value() override { return 10; }
+
+  void AsyncStart(mjlib::io::ErrorCallback cbk) {
+    cbk(mjlib::base::error_code());
+  }
+};
+}
+
+BOOST_AUTO_TEST_CASE(SelectorEmptyOptions) {
+  // This test doesn't catch any particular failure, but it is a use
+  // case I want to support.
+  boost::asio::io_context context;
+  Selector<Base, Resource*> dut{context.get_executor(), "mode"};
+  dut.Register<Class1>("class1");
+  dut.Register<EmptyOptions>("empty");
+  dut.Register<Class2>("fclass2");
+  std::ostringstream actual;
+  clipp::group g;
+  g.push_back(clipp::with_prefix("--prefix.", dut.program_options()));
+  mjlib::base::EmitUsage(actual, g);
+  std::string expected = R"XX(Usage:
+  --prefix.mode <arg>                   class1/empty/fclass2
+  --prefix.class1.value1 <arg>
+  --prefix.fclass2.value2 <arg>
+)XX";
+  BOOST_TEST(actual.str() == expected);
+
+  clipp::parse({"--prefix.class1.value1", "2"}, g);
+}

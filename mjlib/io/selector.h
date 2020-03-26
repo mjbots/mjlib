@@ -73,13 +73,14 @@ class Selector {
     }
 
     result.push_back(
-        (clipp::option(selector_name_) & clipp::value("arg", name_)) % help_text.str()
+        (clipp::option(selector_name_) & clipp::value("arg", name_)) %
+        help_text.str()
     );
 
     for (auto& item_pair : items_) {
-      result.push_back(clipp::with_prefix(
-                           (item_pair.first + "."),
-                           item_pair.second->program_options()));
+      result.merge(clipp::with_prefix(
+                       (item_pair.first + "."),
+                       item_pair.second->program_options()));
     }
 
     return result;
