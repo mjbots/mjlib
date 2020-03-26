@@ -31,10 +31,10 @@ yo_there = foo # trailing comment
   const auto result = mjlib::base::ReadIniOptionStream(input);
 
   std::vector<std::string> expected = {
-    "--nocontext=2",
-    "--context1.stuff=true",
-    "--context1.nested.stuff=hello_there",
-    "--context2.deep.yo_there=foo",
+    "--nocontext", "2",
+    "--context1.stuff", "true",
+    "--context1.nested.stuff", "hello_there",
+    "--context2.deep.yo_there", "foo",
   };
 
   BOOST_TEST(result == expected, boost::test_tools::per_element());

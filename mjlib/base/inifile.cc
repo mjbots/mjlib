@@ -63,7 +63,8 @@ std::vector<std::string> ReadIniOptionStream(std::istream& istr) {
 
     const auto key = boost::trim_copy(line.substr(0, equal_char));
     const auto value = boost::trim_copy(line.substr(equal_char + 1));
-    result.push_back(fmt::format("--{}={}", add_context(key), value));
+    result.push_back(fmt::format("--{}", add_context(key)));
+    result.push_back(value);
   }
 
   return result;

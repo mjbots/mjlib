@@ -61,7 +61,8 @@ void ClippParse(int argc, char** argv, const Token& token) {
 template <typename Token>
 void ClippParseIni(std::istream& istr, const Token& token) {
   std::vector<std::string> tokenize = ReadIniOptionStream(istr);
-  clipp::parse(tokenize.begin(), tokenize.end(), token);
+  clipp::parse(tokenize.begin(), tokenize.end(),
+               clipp::with_prefixes_short_long("-", "--", token));
 }
 
 }

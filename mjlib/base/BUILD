@@ -364,6 +364,7 @@ cc_test(
     name = "test",
     srcs = [
         "test/buffer_stream_test.cc",
+        "test/clipp_test.cc",
         "test/clipp_archive_test.cc",
         "test/crc_stream_test.cc",
         "test/eigen_test.cc",
@@ -387,6 +388,7 @@ cc_test(
         ":all_types_struct",
         ":args",
         ":buffer_stream",
+        ":clipp",
         ":clipp_archive",
         ":collapse_whitespace",
         ":crc_stream",
