@@ -33,7 +33,7 @@ class PID {
     float ilimit = 0.0f;
     float kpkd_limit = -1.0f;
     float max_desired_rate = 0.0f;  // 0 is unlimited
-    int8_t sign = 1;
+    float sign = 1;
 
     template <typename Archive>
     void Serialize(Archive* a) {
