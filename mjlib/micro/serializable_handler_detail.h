@@ -35,6 +35,16 @@ namespace micro {
 namespace detail {
 struct Empty {};
 
+template <typename T>
+struct MaybeToDouble {
+  T operator()(T value) const { return value; }
+};
+
+template <>
+struct MaybeToDouble<float> {
+  double operator()(float value) const { return static_cast<double>(value); }
+};
+
 struct FormatSpecifier {
   static const char* GetFormat(bool) { return "%" PRIu8; }
 
@@ -200,8 +210,10 @@ struct EnumerateArchive : public mjlib::base::VisitArchive<EnumerateArchive> {
 
   template <typename Iterator, typename T>
   void FormatValue(Iterator* current, Iterator* end, T value) {
-    int result = ::snprintf(&(**current), std::distance(*current, *end),
-                            FormatSpecifier::GetFormat(value), value);
+    int result = ::snprintf(
+        &(**current), std::distance(*current, *end),
+        FormatSpecifier::GetFormat(value),
+        MaybeToDouble<typename std::remove_reference<T>::type>()(value));
     (*current) += result;
   }
 
@@ -376,7 +388,8 @@ struct ReadArchive : public ItemArchive<ReadArchive> {
 template <>
 inline std::string_view ReadArchive::EmitValue<float>(float value) {
   const int out_size = ::snprintf(
-      &*buffer_.begin(), buffer_.size(), "%f", value);
+      &*buffer_.begin(), buffer_.size(), "%f",
+      static_cast<double>(value));
   return std::string_view(buffer_.begin(), out_size);
 }
 

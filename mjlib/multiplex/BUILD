@@ -152,6 +152,9 @@ cc_library(
         "//mjlib/micro:pool_ptr",
         "@boost",
     ],
+    copts = [
+        "-Wno-unknown-attributes",
+    ],
 )
 
 cc_library(
@@ -169,6 +172,9 @@ cc_library(
         "//mjlib/micro:persistent_config",
         "//mjlib/micro:pool_ptr",
         "@boost",
+    ],
+    copts = [
+        "-Wno-unknown-attributes",
     ],
 )
 
