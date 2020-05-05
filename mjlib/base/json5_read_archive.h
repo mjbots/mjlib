@@ -139,12 +139,13 @@ class Json5ReadArchive : public VisitArchive<Json5ReadArchive> {
                    std::array<T, N>* value,
                    base::PriorityTag<1>) {
     size_t pos = 0;
-    ReadArray<T>([&](T v) {
-        (*value)[pos] = std::move(v);
+    ReadArray<T>([&]() -> T& {
+        auto& result = (*value)[pos];
         pos++;
         if (pos > N) {
           Error("Too many elements in array");
         }
+        return result;
       });
     if (pos < N) {
       Error("Too few elements in array");
@@ -155,11 +156,14 @@ class Json5ReadArchive : public VisitArchive<Json5ReadArchive> {
   void VisitHelper(const NameValuePair& nvp,
                    std::vector<T>*,
                    base::PriorityTag<1>) {
-    std::vector<T> result;
-    ReadArray<T>([&](T value) {
-        result.push_back(std::move(value));
+    auto* result = nvp.value();
+    size_t pos = 0;
+    ReadArray<T>([&]() -> T& {
+        const auto index = pos;
+        if (index >= result->size()) { result->push_back(T()); }
+        pos++;
+        return (*result)[index];
       });
-    nvp.set_value(std::move(result));
   }
 
   template <typename T, typename Callback>
@@ -176,9 +180,8 @@ class Json5ReadArchive : public VisitArchive<Json5ReadArchive> {
         }
       }
 
-      T value;
+      T& value = callback();
       Value(&value);
-      callback(std::move(value));
 
       IgnoreWhitespace();
       const auto maybe_comma = Peek();
@@ -204,9 +207,13 @@ class Json5ReadArchive : public VisitArchive<Json5ReadArchive> {
       ReadLiteral("null");
       nvp.set_value(std::optional<T>{});
     } else {
-      T value = {};
-      Value(&value);
-      nvp.set_value(value);
+      if (nvp.value()->has_value()) {
+        Value(&nvp.value()->value());
+      } else {
+        T value = {};
+        Value(&value);
+        nvp.set_value(value);
+      }
     }
   }
 

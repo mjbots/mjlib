@@ -233,3 +233,67 @@ BOOST_AUTO_TEST_CASE(Json5ErrorMessage) {
       mjlib::base::system_error,
       make_predicate("Integer out of range"));
 }
+
+BOOST_AUTO_TEST_CASE(Json5ReadIntoExisting) {
+  // When deserializing into an existing structure, only the minimal
+  // set of things are changed.
+  AllTypesTest all_types;
+  all_types.value_i32 = 1234;
+  all_types.value_array.clear();
+  all_types.value_array.push_back({6});
+  all_types.value_array.push_back({10});
+
+  std::istringstream istr("{\"value_u16\":8, \"value_array\":[{},{\"value_u32\":12},{\"value_u32\":15}]}");
+  DUT(istr).Accept(&all_types);
+  BOOST_TEST(all_types.value_array.size() == 3);
+  BOOST_TEST(all_types.value_array[0].value_u32 == 6); // unchanged
+  BOOST_TEST(all_types.value_array[1].value_u32 == 12);
+  BOOST_TEST(all_types.value_array[2].value_u32 == 15);
+  BOOST_TEST(all_types.value_i32 == 1234);  // unchanged
+  BOOST_TEST(all_types.value_u16 == 8);
+}
+
+namespace {
+struct SubStruct {
+  int32_t value1 = 0;
+  int32_t value2 = 0;
+
+  template <typename Archive>
+  void Serialize(Archive* a) {
+    a->Visit(MJ_NVP(value1));
+    a->Visit(MJ_NVP(value2));
+  }
+};
+
+struct Struct {
+  std::vector<SubStruct> array;
+  std::optional<SubStruct> optional;
+
+  template <typename Archive>
+  void Serialize(Archive* a) {
+    a->Visit(MJ_NVP(array));
+    a->Visit(MJ_NVP(optional));
+  }
+};
+}
+
+BOOST_AUTO_TEST_CASE(Json5ReadIntoExistingStruct) {
+  Struct test{{
+    { 3, 4 },
+    { 6, 7 },
+        },
+    SubStruct{8, 9}};
+
+  // We can update some elements of a structure in a list but not
+  // others.
+
+  std::istringstream istr("{\"array\":[{\"value2\":10},{\"value1\":15}],\"optional\":{\"value2\":20}}");
+  DUT(istr).Accept(&test);
+
+  BOOST_TEST(test.array[0].value1 == 3);  // unchanged
+  BOOST_TEST(test.array[0].value2 == 10);
+  BOOST_TEST(test.array[1].value1 == 15);
+  BOOST_TEST(test.array[1].value2 == 7);  // unchanged
+  BOOST_TEST(test.optional->value1 == 8);  // unchanged
+  BOOST_TEST(test.optional->value2 == 20);
+}
