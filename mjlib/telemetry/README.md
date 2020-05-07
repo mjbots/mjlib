@@ -191,7 +191,7 @@ The following additional attributes follow these given types:
    - `type` : A complete "type" encoding.
    - `nvalues` : `varuint`
    - `nvalues` copies of:
-     - `value` : `varuint`
+     - `value` : corresponding to `type`
      - `name` : `string`
  - `array`
    - `items` : A complete "type" encoding
