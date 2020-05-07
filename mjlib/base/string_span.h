@@ -16,6 +16,7 @@
 
 #include <cstddef>
 #include <cstring>
+#include <string>
 
 namespace mjlib {
 namespace base {
@@ -37,6 +38,7 @@ class string_span {
   constexpr string_span& operator=(const string_span& other) noexcept = default;
   constexpr string_span(pointer ptr, index_type size) : ptr_(ptr), size_(size) {}
   constexpr string_span(iterator begin, iterator end) : ptr_(begin), size_(end - begin) {}
+  constexpr string_span(std::string& data) : ptr_(&data[0]), size_(static_cast<index_type>(data.size())) {}
 
   template <std::size_t Size>
   constexpr string_span(char (&array)[Size]) : ptr_(array), size_(Size) {}
