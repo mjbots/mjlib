@@ -17,6 +17,7 @@
 #include <string>
 #include <vector>
 
+#include "mjlib/base/buffer_stream.h"
 #include "mjlib/base/stream.h"
 #include "mjlib/telemetry/format.h"
 
@@ -28,6 +29,8 @@ namespace telemetry {
 /// from data records formatted with this schema dynamically at
 /// runtime.
 class BinarySchemaParser {
+ private:
+  class Impl;
  public:
   BinarySchemaParser(std::string_view schema, std::string_view record_name = "");
   ~BinarySchemaParser();
@@ -81,11 +84,33 @@ class BinarySchemaParser {
   /// element.
   void SkipTo(const Element*, base::ReadStream&) const;
 
-  /// TODO: Some mechanism for iterating over all elements in depth
-  /// first order, along with a ReadStream for each.
+  struct Pair {
+    const Element* element = nullptr;
+    base::BufferReadStream stream;
+  };
+
+  struct ElementIterator {
+    Pair operator*();
+    Pair operator->();
+    ElementIterator& operator++();
+
+    Impl* impl_ = nullptr;
+    const Element* element_ = nullptr;
+    int64_t offset_ = {};
+  };
+
+  struct ElementRange {
+    ElementIterator begin();
+    ElementIterator end();
+
+    Impl* impl_ = nullptr;
+    std::string_view data_;
+  };
+
+  /// Iterate over all data within a single instance.
+  ElementRange range(std::string_view data) const;
 
  private:
-  class Impl;
   std::unique_ptr<Impl> impl_;
 };
 

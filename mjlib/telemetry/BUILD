@@ -70,6 +70,7 @@ cc_library(
     ],
     deps = [
         ":format",
+        "//mjlib/base:buffer_stream",
         "//mjlib/base:stream",
     ],
 )
@@ -103,6 +104,7 @@ cc_test(
     name = "test",
     srcs = [
         "test/binary_read_archive_test.cc",
+        "test/binary_schema_parser_test.cc",
         "test/binary_write_archive_test.cc",
         "test/file_writer_test.cc",
         "test/format_test.cc",
