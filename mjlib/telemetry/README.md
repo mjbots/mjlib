@@ -84,7 +84,7 @@ This represents a list of items.  It has the following attributes:
 
 This represents a map of strings to a value.  It has the following attributes:
 
- - `values`: A full scheme declaration that describes that type of
+ - `values`: A full schema declaration that describes that type of
    each items value.
 
 ### Union ###
