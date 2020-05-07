@@ -25,6 +25,7 @@ cc_library(
         "//mjlib/base:assert",
         "//mjlib/base:bytes",
         "//mjlib/base:time_conversions",
+        "//mjlib/base:stream",
         "//mjlib/base:system_error",
         "@boost",
     ],
@@ -75,6 +76,15 @@ cc_library(
     ],
 )
 
+cc_library(
+    name = "file_reader",
+    hdrs = ["file_reader.h"],
+    srcs = ["file_reader.cc"],
+    deps = [
+        ":format",
+    ],
+)
+
 cc_test(
     name = "test",
     srcs = [
@@ -90,6 +100,7 @@ cc_test(
         ":format",
         ":binary_read_archive",
         ":binary_write_archive",
+        ":file_reader",
         ":file_writer",
         "//mjlib/base:all_types_struct",
         "//mjlib/base:temporary_file",
