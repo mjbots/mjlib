@@ -53,6 +53,8 @@ struct Format {
     kUnion,
     kTimestamp,
     kDuration,
+
+    kLastType = kDuration,
   };
 
   enum class FieldFlags {

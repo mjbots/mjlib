@@ -17,7 +17,6 @@
 #include <string>
 #include <vector>
 
-#include "mjlib/base/buffer_stream.h"
 #include "mjlib/base/stream.h"
 #include "mjlib/telemetry/format.h"
 
@@ -38,6 +37,7 @@ class BinarySchemaParser {
   struct Element;
 
   struct Field {
+    uint64_t field_flags = 0;
     std::string name;
     std::vector<std::string> aliases;
     const Element* element = nullptr;
@@ -60,6 +60,10 @@ class BinarySchemaParser {
     /// element.
     int64_t maybe_fixed_offset = -1;
 
+    /// If known, the fixed size of this data element and all
+    /// children.
+    int64_t maybe_fixed_size = -1;
+
     /////////
     /// Available for some types
     std::vector<std::string> aliases;
@@ -75,40 +79,60 @@ class BinarySchemaParser {
 
     /// For kObject
     std::vector<Field> fields;
+    uint64_t object_flags = 0;
+
+    /////////
+    /// All read methods require the stream be properly positioned.
+    /// It is a programmatic error to call a read method for an
+    /// incorrect type.
+
+    /// Ignore the entire data contents of this element.
+    void Ignore(base::ReadStream&) const;
+
+    /// Read the entire data contents of this element.
+    std::string Read(base::ReadStream&) const;
+
+    uint64_t ReadArraySize(base::ReadStream&) const;
+    uint64_t ReadUnionIndex(base::ReadStream&) const;
+    bool ReadBoolean(base::ReadStream&) const;
+    uint64_t ReadUIntLike(base::ReadStream&) const;
+    int64_t ReadIntLike(base::ReadStream&) const;
+    double ReadFloatLike(base::ReadStream&) const;
+    std::string ReadString(base::ReadStream&) const;
   };
 
   const Element* root() const;
 
-  /// Given a particular element, and a read stream pointing to the
-  /// beginning of a data record, skip to the beginning of that
-  /// element.
-  void SkipTo(const Element*, base::ReadStream&) const;
-
-  struct Pair {
-    const Element* element = nullptr;
-    base::BufferReadStream stream;
-  };
-
   struct ElementIterator {
-    Pair operator*();
-    Pair operator->();
+    ElementIterator(const Impl* impl, const Element* element)
+        : impl_(impl), element_(element) {}
+
+    const Element& operator*() const { return *element_; }
+    const Element* operator->() const { return element_; }
+
     ElementIterator& operator++();
 
-    Impl* impl_ = nullptr;
-    const Element* element_ = nullptr;
-    int64_t offset_ = {};
+    bool operator!=(const ElementIterator&) const;
+
+   private:
+    const Impl* impl_ = nullptr;
+    const Element* element_;
   };
 
   struct ElementRange {
-    ElementIterator begin();
-    ElementIterator end();
+    ElementRange(const Impl* impl) : impl_(impl) {}
 
-    Impl* impl_ = nullptr;
-    std::string_view data_;
+    ElementIterator begin() const;
+    ElementIterator end() const;
+
+   private:
+    const Impl* impl_ = nullptr;
   };
 
-  /// Iterate over all data within a single instance.
-  ElementRange range(std::string_view data) const;
+  /// Iterate over all schema elements.  Each container is visited
+  /// before its children.  Children of containers are visited exactly
+  /// once, as there is no data yet to determine a number of elements.
+  ElementRange elements() const;
 
  private:
   std::unique_ptr<Impl> impl_;

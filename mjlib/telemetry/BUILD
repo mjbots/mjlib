@@ -17,10 +17,18 @@
 package(default_visibility = ["//visibility:public"])
 
 cc_library(
-    name = "format",
-    hdrs = [
-        "format.h",
+    name = "error",
+    hdrs = ["error.h"],
+    srcs = ["error.cc"],
+    deps = [
+        "//mjlib/base:error_code",
+        "@boost",
     ],
+)
+
+cc_library(
+    name = "format",
+    hdrs = ["format.h"],
     deps = [
         "//mjlib/base:assert",
         "//mjlib/base:bytes",
@@ -33,9 +41,7 @@ cc_library(
 
 cc_library(
     name = "binary_write_archive",
-    hdrs = [
-        "binary_write_archive.h",
-    ],
+    hdrs = ["binary_write_archive.h"],
     deps = [
         ":format",
         "//mjlib/base:fast_stream",
@@ -48,9 +54,7 @@ cc_library(
 
 cc_library(
     name = "binary_read_archive",
-    hdrs = [
-        "binary_read_archive.h",
-    ],
+    hdrs = ["binary_read_archive.h"],
     deps = [
         ":format",
         "//mjlib/base:priority_tag",
@@ -62,16 +66,18 @@ cc_library(
 
 cc_library(
     name = "binary_schema_parser",
-    hdrs = [
-        "binary_schema_parser.h",
-    ],
-    srcs = [
-        "binary_schema_parser.cc",
-    ],
+    hdrs = ["binary_schema_parser.h"],
+    srcs = ["binary_schema_parser.cc"],
     deps = [
+        ":error",
         ":format",
         "//mjlib/base:buffer_stream",
+        "//mjlib/base:fail",
+        "//mjlib/base:recording_stream",
         "//mjlib/base:stream",
+        "//mjlib/base:system_error",
+        "@boost",
+        "@fmt",
     ],
 )
 
@@ -113,6 +119,7 @@ cc_test(
         "test/test_util.h",
     ],
     deps = [
+        ":error",
         ":format",
         ":binary_read_archive",
         ":binary_schema_parser",
