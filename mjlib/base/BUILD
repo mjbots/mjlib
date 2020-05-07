@@ -128,6 +128,12 @@ cc_library(
 )
 
 cc_library(
+    name = "file_stream",
+    hdrs = ["file_stream.h"],
+    deps = [":stream"],
+)
+
+cc_library(
     name = "string_span",
     hdrs = ["string_span.h"],
 )
@@ -397,6 +403,7 @@ cc_test(
         ":error_code",
         ":fail",
         ":fast_stream",
+        ":file_stream",
         ":inifile",
         ":inplace_function",
         ":json5_read_archive",
