@@ -102,7 +102,9 @@ cc_library(
     hdrs = ["file_reader.h"],
     srcs = ["file_reader.cc"],
     deps = [
+        ":binary_schema_parser",
         ":format",
+        "//mjlib/base:file_stream",
     ],
 )
 
@@ -112,6 +114,7 @@ cc_test(
         "test/binary_read_archive_test.cc",
         "test/binary_schema_parser_test.cc",
         "test/binary_write_archive_test.cc",
+        "test/file_reader_test.cc",
         "test/file_writer_test.cc",
         "test/format_test.cc",
         "test/test_main.cc",

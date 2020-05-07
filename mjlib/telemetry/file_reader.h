@@ -17,6 +17,9 @@
 #include <memory>
 #include <string>
 
+#include <boost/date_time/posix_time/posix_time_types.hpp>
+
+#include "mjlib/telemetry/binary_schema_parser.h"
 #include "mjlib/telemetry/format.h"
 
 namespace mjlib {
@@ -45,17 +48,20 @@ class FileReader {
     Identifier identifier = {};
 
     std::string name;
-    std::string schema;
+    std::string raw_schema;
+    std::unique_ptr<BinarySchemaParser> schema;
 
     /// The flags as set in the log, corresponding to
     /// Format::BlockSchemaFlags
     uint64_t flags = {};
   };
 
-  Record record(std::string_view);
-  std::vector<Record> records();
+  const Record* record(std::string_view);
+  std::vector<const Record*> records();
 
-  Index Seek(boost::posix_time::ptime);
+  /// @return an Index of a record that is equal to or before @p
+  /// timestamp
+  Index Seek(boost::posix_time::ptime timestamp);
 
   struct ItemsOptions {
     std::vector<std::string> records;
@@ -76,24 +82,32 @@ class FileReader {
     const Record* record = nullptr;
   };
 
+  struct ItemRangeContext;
+
   struct ItemIterator {
+    ItemIterator(std::shared_ptr<ItemRangeContext> context,
+                 Index index)
+        : context_(context),
+          index_(index) {}
+
     Item operator*();
     ItemIterator& operator++();
+    bool operator!=(const ItemIterator&) const;
 
    private:
-    Impl* impl_ = nullptr;
-    Index next_index_ = -1;
-    Identifier identifier_ = {};
+    std::shared_ptr<ItemRangeContext> context_ = nullptr;
+    Index index_ = -1;
   };
 
   struct ItemRange {
+    ItemRange(std::shared_ptr<ItemRangeContext> context)
+        : context_(context) {}
+
     ItemIterator begin();
     ItemIterator end();
 
    private:
-    Impl* impl_ = nullptr;
-    Index first_index_ = -1;
-    Identifier identifier_ = {};
+    std::shared_ptr<ItemRangeContext> context_;
   };
 
   ItemRange items(const ItemsOptions& = {});

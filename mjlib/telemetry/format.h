@@ -72,6 +72,7 @@ struct Format {
     kIndex = 3,
     kCompressionDictionary = 4,
     kSeekMarker = 5,
+    kNumTypes = kSeekMarker,
   };
 
   enum class BlockSchemaFlags {

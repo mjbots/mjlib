@@ -24,6 +24,10 @@ namespace telemetry {
 enum class errc {
   kInvalidType = 1,
   kInvalidUnionIndex,
+  kInvalidHeader,
+  kInvalidBlockType,
+  kUnknownBlockDataFlag,
+  kUnknownBlockSchemaFlag,
 };
 
 boost::system::error_code make_error_code(errc);
