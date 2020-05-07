@@ -24,6 +24,7 @@
 
 #include "mjlib/base/bytes.h"
 #include "mjlib/base/time_conversions.h"
+#include "mjlib/base/visitor.h"
 
 namespace mjlib {
 namespace base {

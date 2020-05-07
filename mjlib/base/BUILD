@@ -324,6 +324,7 @@ cc_library(
     deps = [
         ":bytes",
         ":time_conversions",
+        ":visitor",
     ],
 )
 
