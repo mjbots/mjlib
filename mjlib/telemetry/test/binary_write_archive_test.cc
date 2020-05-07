@@ -134,7 +134,6 @@ BOOST_AUTO_TEST_CASE(BinarySchemaArchive) {
        0x0b, 'v', 'a', 'l', 'u', 'e', '_', 'b', 'y', 't', 'e', 's',
        0x00,  // naliases
        0x09,  // bytes
-       0x04, 0x01,  // fixeduint8
        0x01, 0x03, 0x0b, 0x0c, 0x0d,
 
       0x00,  // FieldFlags

@@ -227,12 +227,9 @@ class BinarySchemaArchive : public base::VisitArchive<BinarySchemaArchive> {
 
   template <typename NameValuePair>
   void VisitHelper(const NameValuePair&,
-                   base::Bytes* bytes,
+                   base::Bytes*,
                    base::PriorityTag<2>) {
     stream_.WriteVaruint(TF::Type::kBytes);
-
-    base::ReferenceNameValuePair sub_nvp(&(*bytes)[0], "");
-    base::VisitArchive<BinarySchemaArchive>::Visit(sub_nvp);
   }
 
   template <typename NameValuePair, typename T, std::size_t N>
