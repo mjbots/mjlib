@@ -50,7 +50,7 @@ boost::posix_time::time_duration ConvertMicrosecondsToDuration(int64_t time_us) 
   const int64_t int_time = time_us / 1000000;
   const int64_t counts =
       (time_us - (int_time * 1000000)) *
-      boost::posix_time::time_duration::ticks_per_second() / 1000000;
+      (boost::posix_time::time_duration::ticks_per_second() / 1000000);
   return boost::posix_time::seconds(int_time) +
       boost::posix_time::time_duration(0, 0, 0, counts);
 }
@@ -104,7 +104,7 @@ boost::posix_time::ptime ConvertEpochMicrosecondsToPtime(int64_t value) {
   return kEpoch + boost::posix_time::time_duration(
       0, 0, 0,
       value *
-      boost::posix_time::time_duration::ticks_per_second() / 1000000);
+      (boost::posix_time::time_duration::ticks_per_second() / 1000000));
 }
 
 double ConvertPtimeToEpochSeconds(boost::posix_time::ptime time) {
