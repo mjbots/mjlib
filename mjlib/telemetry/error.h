@@ -31,6 +31,7 @@ enum class errc {
   kUnknownBlockSchemaFlag,
   kUnknownIndexFlag,
   kDataChecksumMismatch,
+  kDecompressionError,
 };
 
 boost::system::error_code make_error_code(errc);

@@ -35,6 +35,7 @@ class ErrorCategory : public boost::system::error_category {
       case errc::kUnknownBlockSchemaFlag: return "Unknown block schema flag";
       case errc::kUnknownIndexFlag: return "Unkown index flag";
       case errc::kDataChecksumMismatch: return "Data checksum mismatch";
+      case errc::kDecompressionError: return "Decompression error";
     }
     return "unknown";
   }

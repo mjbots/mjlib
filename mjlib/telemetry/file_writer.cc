@@ -25,6 +25,8 @@
 
 #include <fmt/format.h>
 
+#include <zstd.h>
+
 #include "mjlib/base/buffer_stream.h"
 #include "mjlib/base/fail.h"
 #include "mjlib/base/thread_writer.h"
@@ -342,6 +344,27 @@ class FileWriter::Impl : public ThreadWriter::Reclaimer {
       write_checksum = true;
     }
 
+    if (write_flags.compression.evaluate(options_.default_compression)) {
+      // We should try to compress this data.
+      const auto original_size = buffer->size();
+
+      auto new_buffer = GetBuffer();
+      const auto compress_bound = ZSTD_compressBound(original_size);
+      new_buffer->data()->reserve(new_buffer->start() + compress_bound);
+      const auto new_size = ZSTD_compressCCtx(
+          zstd_ctx_,
+          new_buffer->data()->data() + new_buffer->start(), compress_bound,
+          buffer->data()->data() + buffer->start(), original_size,
+          options_.compression_level);
+      if (!ZSTD_isError(new_size) && new_size < original_size) {
+        new_buffer->data()->resize(new_buffer->start() + new_size);
+        // We got something better.  Add our flag and swap the buffers.
+        block_data_flags |= u64(Format::BlockDataFlags::kZStandard);
+        std::swap(buffer, new_buffer);
+        Reclaim(std::move(new_buffer));
+      }
+    }
+
     const auto identifier_size = Format::GetVaruintSize(identifier);
     const auto flag_size = Format::GetVaruintSize(block_data_flags);
     const auto body_size =
@@ -425,6 +448,8 @@ class FileWriter::Impl : public ThreadWriter::Reclaimer {
   std::vector<Buffer> buffers_;
 
   std::map<Identifier, SchemaRecord> schema_;
+
+  ZSTD_CCtx* zstd_ctx_ = ZSTD_createCCtx();
 };
 
 FileWriter::FileWriter(const Options& options)

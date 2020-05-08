@@ -92,8 +92,9 @@ cc_library(
         "//mjlib/base:fast_stream",
         "//mjlib/base:system_error",
         "//mjlib/base:thread_writer",
-        "@fmt",
         "@boost",
+        "@fmt",
+        "@zstd",
     ],
 )
 
@@ -106,6 +107,7 @@ cc_library(
         ":format",
         "//mjlib/base:crc_stream",
         "//mjlib/base:file_stream",
+        "@zstd",
     ],
 )
 

@@ -38,6 +38,8 @@ class FileWriter : boost::noncopyable {
     /// Use compression for all data records by default.
     bool default_compression = true;
 
+    int compression_level = 3;
+
     /// Enable checksums for all data blocks by default.
     bool default_checksum_data = true;
 

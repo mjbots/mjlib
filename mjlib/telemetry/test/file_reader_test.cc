@@ -283,3 +283,37 @@ BOOST_AUTO_TEST_CASE(ChecksumMatch) {
     BOOST_TEST(items[0].data == "\x07""estdat\x01");
   }
 }
+
+BOOST_AUTO_TEST_CASE(DecompressionTest) {
+  std::string log_file = MakeString(
+    "TLOG0003\x00"  // file header
+    "\x01\x08"  // BlockType - Schema, size=17
+    "\x01\x00"  // id=1, flags = 0
+        "\x04test"  // name
+          "\x0a"  // schema
+      "\x02\x22"  // BlockType = Data, size=19
+      "\x01\x17"  // id=1, flags= (previous_offset|timestamp|checksum|zstd)
+        "\x00"  // previous offset
+        "\x00\x20\x07\xcd\x74\xa0\x05\x00"  // timestamp
+        "\x04\x72\xb3\x6c"  // crc32
+        "\x28\xb5\x2f\xfd\x60\x00\x03\x4d\x00\x00\x10"
+        "\x61\x61\x01\x00\xfb\x2b\x80\x05"
+
+      "\x03\x1f"  // BlockType = Index, size=31
+      "\x00\x01"  // flags=0 nelements=1
+        "\x01" // id
+          "\x09\x00\x00\x00\x00\x00\x00\x00"  // schema location
+          "\x1c\x00\x00\x00\x00\x00\x00\x00"  // final record
+        "\x21\x00\x00\x00"
+    "TLOGIDEX");
+
+  {
+    TemporaryContents contents(log_file);
+
+    DUT dut{contents.native()};
+    std::vector<DUT::Item> items;
+    for (const auto& item : dut.items()) { items.push_back(item); }
+    BOOST_TEST(items.size() == 1);
+    BOOST_TEST(items[0].data == std::string(1024, 'a'));
+  }
+}
