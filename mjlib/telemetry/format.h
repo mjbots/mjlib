@@ -14,6 +14,8 @@
 
 #pragma once
 
+#include <optional>
+
 #include "mjlib/base/assert.h"
 #include "mjlib/base/bytes.h"
 #include "mjlib/base/stream.h"
