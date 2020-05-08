@@ -102,8 +102,9 @@ class FileWriter::Impl : public ThreadWriter::Reclaimer {
   void Close() {
     if (!writer_) { return; }
 
-    WriteIndex();
+    if (options_.index_block) { WriteIndex(); }
     writer_.reset();
+    last_seek_block_ = {};
   }
 
   void Flush() {
@@ -230,6 +231,53 @@ class FileWriter::Impl : public ThreadWriter::Reclaimer {
   void Reclaim(Buffer buffer) override {
     std::lock_guard<std::mutex> guard(buffers_mutex_);
     buffers_.push_back(std::move(buffer));
+  }
+
+  void WriteSeekBlock(boost::posix_time::ptime timestamp) {
+    auto buffer = GetBuffer();
+    WriteStream stream(*buffer);
+
+    const int orig_start = buffer->start();
+
+    stream.Write(static_cast<uint64_t>(0xfdcab9a897867564));
+    const int crc_pos = orig_start + 8;
+
+    stream.Write(static_cast<uint32_t>(0));  // placeholder crc
+
+    stream.WriteVaruint(0);  // flags
+    stream.Write(timestamp);
+    const uint64_t num_elements = schema_.size();
+    stream.WriteVaruint(num_elements);
+    for (const auto& pair : schema_) {
+      stream.WriteVaruint(pair.first);
+      stream.WriteVaruint(writer_->position() - pair.second.last_position);
+    }
+
+    const auto body_size = buffer->size();
+    const auto header_size = 1 + Format::GetVaruintSize(body_size);
+    buffer->set_start(buffer->start() - header_size);
+    {
+      base::BufferWriteStream buffer_stream{
+        base::string_span(buffer->data()->data() + buffer->start(),
+                          header_size)};
+      WriteStream header_stream{buffer_stream};
+      header_stream.WriteVaruint(u64(Format::BlockType::kSeekMarker));
+      header_stream.WriteVaruint(body_size);
+    }
+
+    boost::crc_32_type crc;
+    crc.process_bytes(buffer->data()->data() + buffer->start(),
+                      header_size + body_size);
+
+    // Now update the CRC.
+    {
+      base::BufferWriteStream buffer_stream{
+        base::string_span(buffer->data()->data() + crc_pos, 4)};
+      WriteStream crc_stream{buffer_stream};
+      crc_stream.Write(static_cast<uint32_t>(crc.checksum()));
+    }
+
+    Write(std::move(buffer));
   }
 
   void WriteIndex() {
@@ -411,6 +459,16 @@ class FileWriter::Impl : public ThreadWriter::Reclaimer {
     schema_[identifier].last_position = writer_->position();
 
     Write(std::move(buffer));
+
+    if (options_.seek_block_period_s != 0.0) {
+      if (last_seek_block_.is_not_a_date_time()) {
+        last_seek_block_ = timestamp;
+      } else if (!timestamp.is_not_a_date_time() &&
+                 (timestamp - last_seek_block_) >= seek_block_period_) {
+        WriteSeekBlock(timestamp);
+        last_seek_block_ = timestamp;
+      }
+    }
   }
 
   void WriteBlock(Format::BlockType block_type,
@@ -435,6 +493,8 @@ class FileWriter::Impl : public ThreadWriter::Reclaimer {
   }
 
   const Options options_;
+  const boost::posix_time::time_duration seek_block_period_{
+    mjlib::base::ConvertSecondsToDuration(options_.seek_block_period_s)};
   std::unique_ptr<ThreadWriter> writer_;
 
   std::map<std::string, Identifier> identifier_map_;
@@ -446,6 +506,7 @@ class FileWriter::Impl : public ThreadWriter::Reclaimer {
   std::vector<Buffer> buffers_;
 
   std::map<Identifier, SchemaRecord> schema_;
+  boost::posix_time::ptime last_seek_block_;
 };
 
 FileWriter::FileWriter(const Options& options)

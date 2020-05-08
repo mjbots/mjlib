@@ -424,12 +424,12 @@ TODO
    * A fixed `0xfdcab9a897867564`
  * `crc32` - uint32_t
    * The CRC32 of this entire block, assuming the CRC field is all 0s
+ * `flags` - varuint
  * `timestamp` - fixedint64
  * `nelements`
  * `nelements` copies of
    * `identifier` - varuint
    * `previous_offset` - varuint
- * `flags` - varuint
  * optional data
 
 Possible flags:

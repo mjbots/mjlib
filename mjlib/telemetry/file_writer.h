@@ -48,7 +48,7 @@ class FileWriter : boost::noncopyable {
 
     /// Emit seek blocks at this interval.  Note, for this to have an
     /// effect, timestamps must be provided either through the API or
-    /// from the system.
+    /// from the system.  A zero value disables seek blocks.
     double seek_block_period_s = 1.0;
 
     /// If true, then writes may block.

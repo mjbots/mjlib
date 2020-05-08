@@ -262,7 +262,7 @@ BOOST_AUTO_TEST_CASE(FileWriterCompression) {
 
   const char suffix[] =
       "\x02\x43"  // BlockType = Data, size
-      "\x01\x17"  // id=1, flags= (previous_offset|timestamp|checksum|zstd)
+      "\x01\x17"  // id=1, flags= (previous_offset|timestamp|checksum|snappy)
         "\x00"  // previous offset
         "\x00\x20\x07\xcd\x74\xa0\x05\x00"  // timestamp
         "\x1a\x6e\x76\x9e"  // crc32
@@ -282,6 +282,70 @@ BOOST_AUTO_TEST_CASE(FileWriterCompression) {
           "\x1c\x00\x00\x00\x00\x00\x00\x00"  // final record
         "\x21\x00\x00\x00"
         "TLOGIDEX";
+      ;
+
+  const std::string expected =
+      MakeString(kTestPrefix) +
+      MakeString(suffix);
+
+  const auto contents = Contents(temp.native());
+  BOOST_TEST(contents == expected);
+}
+
+BOOST_AUTO_TEST_CASE(FileWriterSeek) {
+  mjlib::base::TemporaryFile temp;
+
+  {
+    FileWriter dut{temp.native(), []() {
+        FileWriter::Options options;
+        // Turn off things to make the log easier to reason about.
+        options.default_compression = false;
+        options.default_checksum_data = false;
+        options.index_block = false;
+        return options;
+      }()};
+    const auto id = dut.AllocateIdentifier("test");
+    dut.WriteSchema(id, "testschema");
+    dut.WriteData(MakeTimestamp("2020-03-10 00:00:00"), id, "testdata");
+    dut.WriteData(MakeTimestamp("2020-03-10 00:00:01"), id, "testdata2");
+    dut.WriteData(MakeTimestamp("2020-03-10 00:00:02"), id, "testdata3");
+  }
+
+  const char suffix[] =
+      "\x02\x13"  // BlockType = Data, size
+      "\x01\x03"  // id=1, flags= (previous_offset|timestamp)
+        "\x00"  // previous offset
+        "\x00\x20\x07\xcd\x74\xa0\x05\x00"  // timestamp
+        "testdata"
+      "\x02\x14"  // BlockType = Data
+      "\x01\x03"  // id=1, flags= (previous_offset|timestamp)
+        "\x15"
+        "\x40\x62\x16\xcd\x74\xa0\x05\x00"  // timestamp
+        "testdata2"
+
+      "\x05\x18"  // BlockType = SeekMarker, size
+       "\x64\x75\x86\x97\xa8\xb9\xca\xfd"  // constant
+       "\x16\x71\xf9\x58"  // crc
+       "\x00"  // flags
+       "\x40\x62\x16\xcd\x74\xa0\x05\x00"  // timestamp
+       "\x01"  // nelements
+        "\x01"  // identifier
+        "\x16"  // previous_offset
+
+      "\x02\x14"  // BlockType = Data
+      "\x01\x03"  // id=1, flags= (previous_offset|timestamp)
+        "\x30"
+        "\x80\xa4\x25\xcd\x74\xa0\x05\x00"  // timestamp
+        "testdata3"
+
+      "\x05\x18"  // BlockType = SeekMarker, size
+       "\x64\x75\x86\x97\xa8\xb9\xca\xfd"  // constant
+       "\x97\xdf\x4d\x9b"  // crc
+       "\x00"  // flags
+       "\x80\xa4\x25\xcd\x74\xa0\x05\x00" // timestamp
+       "\x01"  // nelements
+        "\x01"  // identifier
+        "\x16"  // previous_offset
       ;
 
   const std::string expected =
