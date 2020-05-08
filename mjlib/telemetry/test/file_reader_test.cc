@@ -27,12 +27,19 @@ using namespace mjlib;
 namespace {
 class TemporaryContents : public base::TemporaryFile {
  public:
-  template <typename Data>
-  TemporaryContents(const Data& data) {
+  template <size_t N>
+  TemporaryContents(const char (&data)[N])
+      : TemporaryContents(std::string_view{
+          &data[0], sizeof(data) - 1}) {}
+
+  TemporaryContents(const std::vector<uint8_t>& data)
+      : TemporaryContents(std::string_view{
+          reinterpret_cast<const char*>(&data[0]), data.size()}) {}
+
+  TemporaryContents(std::string_view data) {
     std::ofstream of(native());
     base::system_error::throw_if(!of.is_open());
-    of.write(reinterpret_cast<const char*>(&*std::begin(data)),
-             std::end(data) - std::begin(data));
+    of.write(data.data(), data.size());
   }
 };
 
@@ -181,4 +188,34 @@ BOOST_AUTO_TEST_CASE(MultipleRecords) {
   BOOST_TEST(items[1].data == std::string("\x06\x05"));
   BOOST_TEST(base::ConvertPtimeToEpochMicroseconds(items[1].timestamp) ==
              0x0000000011000000);
+}
+
+BOOST_AUTO_TEST_CASE(IndexRecords) {
+  TemporaryContents contents(
+    "TLOG0003\x00"  // file header
+    "\x01\x08"  // BlockType - Schema, size=17
+    "\x01\x00"  // id=1, flags = 0
+        "\x04test"  // name
+          "\x0a"  // schema
+      "\x02\x13"  // BlockType = Data, size=19
+      "\x01\x03"  // id=1, flags= (previous_offset|timestamp)
+        "\x00"  // previous offset
+        "\x00\x20\x07\xcd\x74\xa0\x05\x00"  // timestamp
+        "\x07""estdata"
+
+      "\x03\x1f"  // BlockType = Index, size=31
+      "\x00\x01"  // flags=0 nelements=1
+        "\x01" // id
+          "\x09\x00\x00\x00\x00\x00\x00\x00"  // schema location
+          "\x13\x00\x00\x00\x00\x00\x00\x00"  // final record
+        "\x21\x00\x00\x00"
+        "TLOGIDEX"
+  );
+
+  DUT dut{contents.native()};
+  const auto final_item = dut.final_item();
+  BOOST_TEST(final_item == 19);
+  const auto records = dut.records();
+  BOOST_TEST(records.size() == 1);
+  BOOST_TEST(dut.has_index());
 }

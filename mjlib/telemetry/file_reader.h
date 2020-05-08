@@ -59,6 +59,10 @@ class FileReader {
   const Record* record(std::string_view);
   std::vector<const Record*> records();
 
+  bool has_index() const;
+
+  Index final_item();
+
   /// @return an Index of a record that is equal to or before @p
   /// timestamp
   Index Seek(boost::posix_time::ptime timestamp);

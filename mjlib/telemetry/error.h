@@ -29,6 +29,7 @@ enum class errc {
   kInvalidHeaderFlags,
   kUnknownBlockDataFlag,
   kUnknownBlockSchemaFlag,
+  kUnknownIndexFlag,
 };
 
 boost::system::error_code make_error_code(errc);

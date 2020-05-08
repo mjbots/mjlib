@@ -147,11 +147,13 @@ class FileReader::Impl {
     telemetry::ReadStream stream{file_};
     const auto header_flags = stream.ReadVaruint();
     if (header_flags != 0) {
+      // There are no known header flags yet.
       throw base::system_error(errc::kInvalidHeaderFlags);
     }
 
     start_ = fptr_.Tell();
-    // TODO: Look for an index.
+
+    MaybeProcessIndex();
   }
 
   ~Impl() {
@@ -192,11 +194,14 @@ class FileReader::Impl {
     return Header{static_cast<Format::BlockType>(type), size};
   }
 
-  void ProcessSchema(BlockStream& block_stream, Filter* filter) {
+  const Record* ProcessSchema(BlockStream& block_stream, Filter* filter) {
     telemetry::ReadStream stream{block_stream};
 
     const auto identifier = stream.ReadVaruint().value();
-    if (id_to_record_.count(identifier) != 0) { return; }
+    {
+      auto it = id_to_record_.find(identifier);
+      if (it != id_to_record_.end()) { return it->second; }
+    }
 
     records_.push_back({});
     auto& record = records_.back();
@@ -219,7 +224,10 @@ class FileReader::Impl {
     id_to_record_[identifier] = &record;
     name_to_record_[record.name] = &record;
 
-    filter->new_schema(record.identifier, record.name);
+    if (filter) {
+      filter->new_schema(record.identifier, record.name);
+    }
+    return &record;
   }
 
   std::pair<Index, Index> ReadUntil(Index start, Filter* filter) {
@@ -240,6 +248,7 @@ class FileReader::Impl {
 
       switch (header.type) {
         case Format::BlockType::kData: {
+          if (start > final_item_) { final_item_ = start; }
           const auto identifier = stream.ReadVaruint().value();
           if (!filter->check(identifier)) { break; }
 
@@ -314,7 +323,7 @@ class FileReader::Impl {
     if (name_to_record_.count(name)) {
       return name_to_record_.at(name);
     }
-    if (read_everything_) { return nullptr; }
+    if (all_records_found_) { return nullptr; }
 
     // We haven't read everything, just do a full scan for now to
     // ensure we've processed everything.
@@ -326,12 +335,17 @@ class FileReader::Impl {
   }
 
   std::vector<const Record*> records() {
-    if (!read_everything_) { FullScan(); }
+    if (!all_records_found_) { FullScan(); }
     std::vector<const Record*> result;
     for (const auto& record : records_) {
       result.push_back(&record);
     }
     return result;
+  }
+
+  Index final_item() {
+    if (!all_records_found_) { FullScan(); }
+    return final_item_;
   }
 
   void FullScan() {
@@ -343,6 +357,84 @@ class FileReader::Impl {
 
     NoFilter no_filter;
     ReadUntil(start_, &no_filter);
+    all_records_found_ = true;
+  }
+
+  void MaybeProcessIndex() {
+    // Seek to 8 bytes from the end.
+    fptr_.Seek(fptr_.size() - 8);
+    char trailer[8] = {};
+    file_.read(trailer);
+
+    if (std::memcmp(trailer, "TLOGIDEX", 8) != 0) {
+      // Nope, definitely not an index.
+      return;
+    }
+
+    // We have something that looks plausibly like an index.  Lets see
+    // if it validates as an entire block.
+    fptr_.Seek(fptr_.size() - 12);
+    telemetry::ReadStream stream{file_};
+    const uint32_t trailer_size = stream.Read<uint32_t>().value();
+    if (trailer_size >= (fptr_.size() - start_)) {
+      // This purported record would be bigger than the entire log.
+      return;
+    }
+
+    fptr_.Seek(fptr_.size() - trailer_size);
+    const auto maybe_header = ReadHeader();
+    if (!maybe_header) {
+      // Nope.  Some other corruption.
+      return;
+    }
+    const auto header = *maybe_header;
+    if (header.type != Format::BlockType::kIndex) {
+      // Hmmmph.  Wrong type.
+      return;
+    }
+
+    // From here on out we'll assume the index was supposed to be
+    // here, and thus we'll let other parse errors trickle up as
+    // exceptions rather than silently ignoring the index block.
+    const auto flags = stream.ReadVaruint().value();
+    if (flags != 0) {
+      throw base::system_error(errc::kUnknownIndexFlag);
+    }
+
+    struct LocalRecord {
+      uint64_t identifier = {};
+      int64_t schema_location = {};
+      int64_t final_record = {};
+    };
+
+    std::vector<LocalRecord> local_records;
+
+    const auto nelements = stream.ReadVaruint().value();
+    for (uint64_t i = 0; i < nelements; i++) {
+      LocalRecord record;
+      record.identifier = stream.ReadVaruint().value();
+      record.schema_location = static_cast<int64_t>(stream.Read<uint64_t>().value());
+      record.final_record = static_cast<int64_t>(stream.Read<uint64_t>().value());
+      local_records.push_back(record);
+    }
+
+    // Now go and find all the schemas so that we can fill in our
+    // records structures.
+    MJ_ASSERT(records_.empty());
+    final_item_ = 0;
+    for (const auto& local_record : local_records) {
+      fptr_.Seek(local_record.schema_location);
+      const auto header = ReadHeader().value();
+      BlockStream block_stream{file_, static_cast<std::streamsize>(header.size)};
+      const auto* record = ProcessSchema(block_stream, nullptr);
+      MJ_ASSERT(record->identifier == local_record.identifier);
+      if (local_record.final_record > final_item_) {
+        final_item_ = local_record.final_record;
+      }
+    }
+
+    has_index_ = true;
+    all_records_found_ = true;
   }
 
   const Options options_;
@@ -353,7 +445,9 @@ class FileReader::Impl {
   std::map<Identifier, const Record*> id_to_record_;
   std::map<std::string, const Record*> name_to_record_;
 
-  bool read_everything_ = false;
+  Index final_item_ = -1;
+  bool has_index_ = false;
+  bool all_records_found_ = false;
   int64_t start_ = 0;
 };
 
@@ -368,6 +462,14 @@ const FileReader::Record* FileReader::record(std::string_view name) {
 
 std::vector<const FileReader::Record*> FileReader::records() {
   return impl_->records();
+}
+
+bool FileReader::has_index() const {
+  return impl_->has_index_;
+}
+
+FileReader::Index FileReader::final_item() {
+  return impl_->final_item();
 }
 
 FileReader::Index FileReader::Seek(boost::posix_time::ptime) {

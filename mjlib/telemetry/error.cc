@@ -33,6 +33,7 @@ class ErrorCategory : public boost::system::error_category {
       case errc::kInvalidHeaderFlags: return "Invalid header flags";
       case errc::kUnknownBlockDataFlag: return "Unknown block data flag";
       case errc::kUnknownBlockSchemaFlag: return "Unknown block schema flag";
+      case errc::kUnknownIndexFlag: return "Unkown index flag";
     }
     return "unknown";
   }
