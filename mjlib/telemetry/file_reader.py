@@ -14,6 +14,7 @@
 
 import enum
 import io
+import snappy
 
 import mjlib.telemetry.reader as reader
 
@@ -24,7 +25,8 @@ _HEADER = b'TLOG0003'
 class DataFlags(enum.IntEnum):
     previous_offset = 1 << 0
     timestamp = 1 << 1
-    zstandard = 1 << 2
+    checksum = 1 << 2
+    snappy = 1 << 4
 
 
 class BlockType(enum.IntEnum):
@@ -156,15 +158,21 @@ class FileReader:
             flags &= ~(DataFlags.timestamp)
             result.timestamp = stream.read_i64() / 1000000.0
             # TODO: turn this into a more usable type.
-        if flags & DataFlags.zstandard:
-            flags &= ~(DataFlags.zstandard)
-            raise RuntimeError("not implemented")
+        if flags & DataFlags.checksum:
+            flags &= ~(DataFlags.checksum)
+            checksum = stream.read_u32()  # ignore for now
+
+        result.serialized_data = raw_stream.read()
+
+        if flags & DataFlags.snappy:
+            flags &= ~(DataFlags.snappy)
+            result.serialized_data = snappy.uncompress(result.serialized_data)
+
+        result.data = result.schema.reader.read(
+            reader.Stream(io.BytesIO(result.serialized_data)))
 
         assert flags == 0  # no unknown flags
 
-        result.serialized_data = raw_stream.read()
-        result.data = result.schema.reader.read(
-            reader.Stream(io.BytesIO(result.serialized_data)))
         return result
 
 

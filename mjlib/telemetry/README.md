@@ -396,9 +396,9 @@ defined here:
      assuming the CRC field is all 00s.
 
 The following flags do not result in additional data being appended.
- * `zstandard` - 1 << 4
+ * `snappy` - 1 << 4
    * The following binary serialization has been compressed with the
-     "std" compression algorithm.
+     "snappy" compression algorithm.
 
 ### Index ###
 

@@ -94,7 +94,7 @@ cc_library(
         "//mjlib/base:thread_writer",
         "@boost",
         "@fmt",
-        "@zstd",
+        "@snappy",
     ],
 )
 
@@ -107,7 +107,7 @@ cc_library(
         ":format",
         "//mjlib/base:crc_stream",
         "//mjlib/base:file_stream",
-        "@zstd",
+        "@snappy",
     ],
 )
 

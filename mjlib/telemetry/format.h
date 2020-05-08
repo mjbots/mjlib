@@ -107,9 +107,9 @@ struct Format {
 
     // The following flags do not require that additional data be stored.
 
-    /// The DataObject is compressed with the "ZStandard" compression
+    /// The DataObject is compressed with the "snappy" compression
     /// algorithm.
-    kZStandard = 1 << 4,
+    kSnappy = 1 << 4,
   };
 
   static uint64_t GetVaruintSize(uint64_t value) {

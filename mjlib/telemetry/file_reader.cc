@@ -23,7 +23,7 @@
 
 #include <fmt/format.h>
 
-#include <zstd.h>
+#include <snappy.h>
 
 #include "mjlib/base/crc_stream.h"
 #include "mjlib/base/file_stream.h"
@@ -326,8 +326,8 @@ class FileReader::Impl {
       block_stream.shrink(sizeof(all_zeros));
     }
 
-    const bool zstandard =
-        check_flags(Format::BlockDataFlags::kZStandard);
+    const bool snappy =
+        check_flags(Format::BlockDataFlags::kSnappy);
 
     if (flags != 0) {
       throw base::system_error(errc::kUnknownBlockDataFlag);
@@ -336,24 +336,26 @@ class FileReader::Impl {
     result.data.resize(block_stream.remaining());
     block_stream.read(result.data);
 
-    if (zstandard) {
-      const auto decompressed_size =
-          ZSTD_getFrameContentSize(result.data.data(), result.data.size());
-      if (decompressed_size == ZSTD_CONTENTSIZE_UNKNOWN ||
-          decompressed_size == ZSTD_CONTENTSIZE_ERROR) {
-        throw base::system_error(errc::kDecompressionError);
+    if (snappy) {
+      size_t decompressed_size = 0;
+      {
+        const bool success = snappy::GetUncompressedLength(
+            result.data.data(), result.data.size(),
+            &decompressed_size);
+        if (!success) {
+          throw base::system_error(errc::kDecompressionError);
+        }
       }
       std::string decompressed;
       decompressed.resize(decompressed_size);
-      const auto decompression_result =
-          ZSTD_decompressDCtx(
-              zstd_ctx_,
-              &decompressed[0], decompressed.size(),
-              result.data.data(), result.data.size());
-      if (ZSTD_isError(decompression_result)) {
-        throw base::system_error(errc::kDecompressionError);
+      {
+        const bool success = snappy::RawUncompress(
+            result.data.data(), result.data.size(),
+            &decompressed[0]);
+        if (!success) {
+          throw base::system_error(errc::kDecompressionError);
+        }
       }
-      MJ_ASSERT(decompression_result == decompressed.size());
       std::swap(decompressed, result.data);
     }
 
@@ -502,8 +504,6 @@ class FileReader::Impl {
   bool has_index_ = false;
   bool all_records_found_ = false;
   int64_t start_ = 0;
-
-  ZSTD_DCtx* zstd_ctx_ = ZSTD_createDCtx();
 };
 
 FileReader::FileReader(std::string_view filename, const Options& options)

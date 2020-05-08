@@ -25,7 +25,7 @@
 
 #include <fmt/format.h>
 
-#include <zstd.h>
+#include <snappy.h>
 
 #include "mjlib/base/buffer_stream.h"
 #include "mjlib/base/fail.h"
@@ -349,17 +349,15 @@ class FileWriter::Impl : public ThreadWriter::Reclaimer {
       const auto original_size = buffer->size();
 
       auto new_buffer = GetBuffer();
-      const auto compress_bound = ZSTD_compressBound(original_size);
-      new_buffer->data()->reserve(new_buffer->start() + compress_bound);
-      const auto new_size = ZSTD_compressCCtx(
-          zstd_ctx_,
-          new_buffer->data()->data() + new_buffer->start(), compress_bound,
+      size_t compressed_length = snappy::MaxCompressedLength(original_size);
+      new_buffer->data()->reserve(new_buffer->start() + compressed_length);
+      snappy::RawCompress(
           buffer->data()->data() + buffer->start(), original_size,
-          options_.compression_level);
-      if (!ZSTD_isError(new_size) && new_size < original_size) {
-        new_buffer->data()->resize(new_buffer->start() + new_size);
+          new_buffer->data()->data() + new_buffer->start(), &compressed_length);
+      if (compressed_length < original_size) {
+        new_buffer->data()->resize(new_buffer->start() + compressed_length);
         // We got something better.  Add our flag and swap the buffers.
-        block_data_flags |= u64(Format::BlockDataFlags::kZStandard);
+        block_data_flags |= u64(Format::BlockDataFlags::kSnappy);
         std::swap(buffer, new_buffer);
         Reclaim(std::move(new_buffer));
       }
@@ -448,8 +446,6 @@ class FileWriter::Impl : public ThreadWriter::Reclaimer {
   std::vector<Buffer> buffers_;
 
   std::map<Identifier, SchemaRecord> schema_;
-
-  ZSTD_CCtx* zstd_ctx_ = ZSTD_createCCtx();
 };
 
 FileWriter::FileWriter(const Options& options)
