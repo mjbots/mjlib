@@ -19,8 +19,11 @@
 #include <deque>
 #include <set>
 
+#include <boost/crc.hpp>
+
 #include <fmt/format.h>
 
+#include "mjlib/base/crc_stream.h"
 #include "mjlib/base/file_stream.h"
 #include "mjlib/base/system_error.h"
 #include "mjlib/telemetry/error.h"
@@ -98,6 +101,8 @@ class BlockStream : public base::ReadStream {
   std::streamsize remaining() const {
     return size_;
   }
+
+  void shrink(std::streamsize size) { size_ -= size; }
 
  private:
   base::ReadStream& base_;
@@ -180,8 +185,8 @@ class FileReader::Impl {
     uint64_t size = {};
   };
 
-  std::optional<Header> ReadHeader() {
-    telemetry::ReadStream stream{file_};
+  std::optional<Header> ReadHeader(base::ReadStream& base_stream) {
+    telemetry::ReadStream stream{base_stream};
     const auto maybe_type = stream.ReadVaruint();
     if (!maybe_type) { return {}; }
     const auto type = *maybe_type;
@@ -236,7 +241,7 @@ class FileReader::Impl {
     while (true) {
       start = fptr_.Tell();
 
-      const auto maybe_header = ReadHeader();
+      const auto maybe_header = ReadHeader(file_);
       if (!maybe_header) {
         // EOF
         return std::make_pair(-1, -1);
@@ -272,12 +277,15 @@ class FileReader::Impl {
   Item Read(Index index) {
     fptr_.Seek(index);
 
-    const auto maybe_header = ReadHeader();
+    base::CrcReadStream<boost::crc_32_type> crc_stream{file_};
+
+    const auto maybe_header = ReadHeader(crc_stream);
     MJ_ASSERT(!!maybe_header);
     const auto& header = *maybe_header;
 
     MJ_ASSERT(header.type == Format::BlockType::kData);
-    BlockStream block_stream{file_, static_cast<std::streamsize>(header.size)};
+    BlockStream block_stream{
+      crc_stream, static_cast<std::streamsize>(header.size)};
     telemetry::ReadStream stream{block_stream};
 
     Item result;
@@ -302,6 +310,20 @@ class FileReader::Impl {
       result.timestamp = stream.ReadTimestamp().value();
     }
 
+    std::optional<uint32_t> checksum;
+    if (check_flags(Format::BlockDataFlags::kChecksum)) {
+      // We need to feed the CRC all 0s.
+      const uint32_t all_zeros = 0;
+      crc_stream.crc().process_bytes(&all_zeros, sizeof(all_zeros));
+
+      // And then we need to read the CRC on the sly.
+      telemetry::ReadStream nocrc_stream{file_};
+      checksum = nocrc_stream.Read<uint32_t>().value();
+
+      // And then fudge our block stream.
+      block_stream.shrink(sizeof(all_zeros));
+    }
+
     const bool zstandard =
         check_flags(Format::BlockDataFlags::kZStandard);
     MJ_ASSERT(!zstandard);  // TODO
@@ -312,6 +334,15 @@ class FileReader::Impl {
 
     result.data.resize(block_stream.remaining());
     block_stream.read(result.data);
+
+    if (checksum && options_.verify_checksums) {
+      if (*checksum != crc_stream.checksum()) {
+        throw base::system_error(
+            {errc::kDataChecksumMismatch,
+                  fmt::format("Expected checksum 0x{:08x} got 0x{:08x}",
+                              crc_stream.checksum(), *checksum)});
+      }
+    }
 
     result.record = id_to_record_.at(identifier);
 
@@ -382,7 +413,7 @@ class FileReader::Impl {
     }
 
     fptr_.Seek(fptr_.size() - trailer_size);
-    const auto maybe_header = ReadHeader();
+    const auto maybe_header = ReadHeader(file_);
     if (!maybe_header) {
       // Nope.  Some other corruption.
       return;
@@ -424,7 +455,7 @@ class FileReader::Impl {
     final_item_ = 0;
     for (const auto& local_record : local_records) {
       fptr_.Seek(local_record.schema_location);
-      const auto header = ReadHeader().value();
+      const auto header = ReadHeader(file_).value();
       BlockStream block_stream{file_, static_cast<std::streamsize>(header.size)};
       const auto* record = ProcessSchema(block_stream, nullptr);
       MJ_ASSERT(record->identifier == local_record.identifier);

@@ -30,6 +30,7 @@ enum class errc {
   kUnknownBlockDataFlag,
   kUnknownBlockSchemaFlag,
   kUnknownIndexFlag,
+  kDataChecksumMismatch,
 };
 
 boost::system::error_code make_error_code(errc);

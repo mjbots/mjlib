@@ -21,6 +21,7 @@
 
 #include "mjlib/base/temporary_file.h"
 #include "mjlib/base/system_error.h"
+#include "mjlib/telemetry/error.h"
 
 using namespace mjlib;
 
@@ -218,4 +219,67 @@ BOOST_AUTO_TEST_CASE(IndexRecords) {
   const auto records = dut.records();
   BOOST_TEST(records.size() == 1);
   BOOST_TEST(dut.has_index());
+}
+
+namespace {
+template <typename Array>
+std::string MakeString(const Array& array) {
+  return std::string(array, sizeof(array) - 1);
+}
+}  // namespace
+
+BOOST_AUTO_TEST_CASE(ChecksumMatch) {
+  std::string good_log_file = MakeString(
+    "TLOG0003\x00"  // file header
+    "\x01\x08"  // BlockType - Schema, size=17
+    "\x01\x00"  // id=1, flags = 0
+        "\x04test"  // name
+          "\x0a"  // schema
+      "\x02\x17"  // BlockType = Data, size=19
+      "\x01\x07"  // id=1, flags= (previous_offset|timestamp|checksum)
+        "\x00"  // previous offset
+        "\x00\x20\x07\xcd\x74\xa0\x05\x00"  // timestamp
+        "\xe0\xe5\x00\x6c"  // checksum
+      "\x07""estdata"
+                                         );
+  {
+    TemporaryContents contents(good_log_file);
+
+    DUT dut{contents.native()};
+    std::vector<DUT::Item> items;
+    for (const auto& item : dut.items()) { items.push_back(item); }
+    BOOST_TEST(items.size() == 1);
+    BOOST_TEST(items[0].data == "\x07""estdata");
+  }
+
+  auto bad_log_file = good_log_file;
+  bad_log_file.back() = 0x01;
+  {
+    TemporaryContents contents(bad_log_file);
+
+    DUT dut{contents.native()};
+    auto consume_all = [&]() {
+      for (const auto& item : dut.items()) { (void) item; }
+    };
+
+    auto is_mismatch = [](const base::system_error& error) {
+      return error.code() == telemetry::errc::kDataChecksumMismatch;
+    };
+    BOOST_CHECK_EXCEPTION(consume_all(), base::system_error, is_mismatch);
+  }
+
+  {
+    // Disable checksum validation.
+    TemporaryContents contents(bad_log_file);
+
+    DUT dut{contents.native(), []() {
+        DUT::Options options;
+        options.verify_checksums = false;
+        return options;
+      }()};
+    std::vector<DUT::Item> items;
+    for (const auto& item : dut.items()) { items.push_back(item); }
+    BOOST_TEST(items.size() == 1);
+    BOOST_TEST(items[0].data == "\x07""estdat\x01");
+  }
 }

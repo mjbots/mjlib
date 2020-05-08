@@ -31,6 +31,8 @@ class FileReader {
   class Impl;
  public:
   struct Options {
+    bool verify_checksums = true;
+
     Options() {}
   };
 

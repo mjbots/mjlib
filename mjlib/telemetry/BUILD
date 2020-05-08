@@ -104,6 +104,7 @@ cc_library(
     deps = [
         ":binary_schema_parser",
         ":format",
+        "//mjlib/base:crc_stream",
         "//mjlib/base:file_stream",
     ],
 )
