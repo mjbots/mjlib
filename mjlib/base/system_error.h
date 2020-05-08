@@ -52,6 +52,7 @@ class system_error : public std::runtime_error {
     return message_.c_str();
   }
   error_code& code() { return ec_; }
+  const error_code& code() const { return ec_; }
 
  private:
   error_code ec_;
