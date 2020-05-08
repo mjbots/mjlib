@@ -30,6 +30,7 @@ enum class errc {
   kUnknownBlockDataFlag,
   kUnknownBlockSchemaFlag,
   kUnknownIndexFlag,
+  kUnknownSeekMarkerFlag,
   kDataChecksumMismatch,
   kDecompressionError,
 };

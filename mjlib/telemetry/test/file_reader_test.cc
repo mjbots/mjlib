@@ -22,6 +22,7 @@
 #include "mjlib/base/temporary_file.h"
 #include "mjlib/base/system_error.h"
 #include "mjlib/telemetry/error.h"
+#include "mjlib/telemetry/file_writer.h"
 
 using namespace mjlib;
 
@@ -323,5 +324,99 @@ BOOST_AUTO_TEST_CASE(ChecksumMatch) {
     for (const auto& item : dut.items()) { items.push_back(item); }
     BOOST_TEST(items.size() == 1);
     BOOST_TEST(items[0].data == std::string(1024, 'a'));
+  }
+}
+
+BOOST_AUTO_TEST_CASE(SeekTest) {
+  base::TemporaryFile tempfile;
+
+  const boost::posix_time::ptime start =
+      boost::posix_time::time_from_string("2020-03-10 00:00:00");
+
+  // For this test, we will programmatically generate a log file with
+  // known properties.
+  {
+    telemetry::FileWriter writer{tempfile.native()};
+
+    const auto id1 = writer.AllocateIdentifier("test1");
+    const auto id2 = writer.AllocateIdentifier("test2");
+    const auto id3 = writer.AllocateIdentifier("test3");
+    writer.WriteSchema(id1, "\x0a");  // string
+    writer.WriteSchema(id2, "\x0a");  // string
+    writer.WriteSchema(id3, "\x0a");  // string
+
+    auto timestamp = start;
+    for (int i = 1; i < 10000; i++) {
+      const auto ts_str =
+          boost::lexical_cast<std::string>(timestamp) +
+          std::string(100, ' ');
+      writer.WriteData(timestamp, id1, "id1: " + ts_str);
+      if ((i % 20) == 0) {
+        writer.WriteData(timestamp, id2, "id2: " + ts_str);
+      }
+      if ((i % 200) == 0) {
+        writer.WriteData(timestamp, id3, "id3: " + ts_str);
+      }
+      timestamp += boost::posix_time::seconds(1);
+    }
+  }
+
+  DUT dut{tempfile.native()};
+  BOOST_TEST(dut.has_index());
+  BOOST_TEST(dut.records().size() == 3);
+
+  {
+    // There is only one record at the very first timestamp.
+    const auto result = dut.Seek(start);
+    BOOST_TEST_REQUIRE(result.size() == 1);
+    BOOST_TEST((*result.begin()).first->name == "test1");
+    // If we read that record, it should match the timestamp in
+    // question.
+    auto items = dut.items(
+        [&]() {
+          DUT::ItemsOptions options;
+          options.start = result.begin()->second;
+          return options;
+        }());
+    BOOST_TEST((items.begin() != items.end()));
+    BOOST_TEST((*items.begin()).timestamp == start);
+  }
+
+  {
+    // And there are none before.
+    const auto result = dut.Seek(start - boost::posix_time::milliseconds(1));
+    BOOST_TEST(result.size() == 0);
+  }
+
+  {
+    // Past the end of the log should return the final record among
+    // its items.
+    const auto result = dut.Seek(start + boost::posix_time::seconds(20000));
+    BOOST_TEST_REQUIRE(result.size() == 3);
+    const auto last = [&]() {
+      DUT::Index running = 0;
+      for (const auto& pair : result) {
+        running = std::max(running, pair.second);
+      }
+      return running;
+    }();
+    BOOST_TEST(last == dut.final_item());
+  }
+
+  {
+    // And do something about a quarter of the way through.
+    const auto query = start + boost::posix_time::seconds(2500);
+    const auto result = dut.Seek(query);
+    BOOST_TEST_REQUIRE(result.size() == 3);
+    auto items = dut.items(
+        [&]() {
+          DUT::ItemsOptions options;
+          options.start = result.begin()->second;
+          return options;
+        }());
+    BOOST_TEST((items.begin() != items.end()));
+    BOOST_TEST(
+        std::abs(base::ConvertDurationToSeconds(
+                     (*items.begin()).timestamp - query)) < 200.0);
   }
 }

@@ -323,9 +323,10 @@ BOOST_AUTO_TEST_CASE(FileWriterSeek) {
         "\x40\x62\x16\xcd\x74\xa0\x05\x00"  // timestamp
         "testdata2"
 
-      "\x05\x18"  // BlockType = SeekMarker, size
+      "\x05\x19"  // BlockType = SeekMarker, size
        "\x64\x75\x86\x97\xa8\xb9\xca\xfd"  // constant
-       "\x16\x71\xf9\x58"  // crc
+       "\xc4\x78\x43\x78"  // crc
+       "\x02"  // header_len
        "\x00"  // flags
        "\x40\x62\x16\xcd\x74\xa0\x05\x00"  // timestamp
        "\x01"  // nelements
@@ -334,13 +335,14 @@ BOOST_AUTO_TEST_CASE(FileWriterSeek) {
 
       "\x02\x14"  // BlockType = Data
       "\x01\x03"  // id=1, flags= (previous_offset|timestamp)
-        "\x30"
+        "\x31"
         "\x80\xa4\x25\xcd\x74\xa0\x05\x00"  // timestamp
         "testdata3"
 
-      "\x05\x18"  // BlockType = SeekMarker, size
+      "\x05\x19"  // BlockType = SeekMarker, size
        "\x64\x75\x86\x97\xa8\xb9\xca\xfd"  // constant
-       "\x97\xdf\x4d\x9b"  // crc
+       "\x45\xd6\xf7\xbb"  // crc
+       "\x02"  // header_len
        "\x00"  // flags
        "\x80\xa4\x25\xcd\x74\xa0\x05\x00" // timestamp
        "\x01"  // nelements

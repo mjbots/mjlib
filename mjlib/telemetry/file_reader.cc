@@ -187,14 +187,19 @@ class FileReader::Impl {
     uint64_t size = {};
   };
 
-  std::optional<Header> ReadHeader(base::ReadStream& base_stream) {
+  std::optional<Header> ReadHeader(base::ReadStream& base_stream,
+                                   bool throw_on_error=true) {
     telemetry::ReadStream stream{base_stream};
     const auto maybe_type = stream.ReadVaruint();
     if (!maybe_type) { return {}; }
     const auto type = *maybe_type;
     if (type > static_cast<uint64_t>(Format::BlockType::kNumTypes) ||
         type == 0) {
-      throw base::system_error(errc::kInvalidBlockType);
+      if (throw_on_error) {
+        throw base::system_error(errc::kInvalidBlockType);
+      } else {
+        return {};
+      }
     }
 
     const auto size = stream.ReadVaruint().value();
@@ -403,6 +408,165 @@ class FileReader::Impl {
     return final_item_;
   }
 
+  struct SeekMarkerResult {
+    boost::posix_time::ptime timestamp;
+    Index index;
+    SeekResult seek_result;
+  };
+
+  std::optional<SeekMarkerResult> EvaluateSeekMarker(Index index) {
+    // @p index points to the last byte of the marker.  See if we can
+    // read a valid block out of this.
+
+    const uint8_t header_len = [&]() {
+      ReadStream stream{file_};
+      stream.Read<uint32_t>();  // crc
+      return stream.Read<uint8_t>().value();
+    }();
+    if (header_len > 10) {
+      // The max varuint size is 9 + 1 for the block type.
+      return {};
+    }
+    const auto possible_start = index - 7 - header_len;
+    if (possible_start < start_) {
+      // It can't be before the beginning of the file.
+      return {};
+    }
+
+    base::CrcReadStream<boost::crc_32_type> crc_stream{file_};
+
+    fptr_.Seek(possible_start);
+    const auto maybe_header = ReadHeader(crc_stream, false);
+    if (!maybe_header) { return {}; }
+    const auto header = *maybe_header;
+    if (header.type != Format::BlockType::kSeekMarker) {
+      return {};
+    }
+
+    SeekMarkerResult result;
+    result.index = possible_start;
+    BlockStream block_stream{crc_stream, static_cast<std::streamsize>(header.size)};
+    ReadStream stream{block_stream};
+
+    stream.Read<uint64_t>().value();  // marker
+    const auto crc = [&]() {
+      // We want to tell the crc stream that we had all zeros here.
+      const uint32_t all_zeros = 0;
+      crc_stream.crc().process_bytes(&all_zeros, sizeof(all_zeros));
+
+      // Tell our block stream we skipped those bytes.
+      block_stream.shrink(sizeof(all_zeros));
+
+      // Now we want to read the actual value straight from the file.
+      ReadStream nocrc_stream{file_};
+      return nocrc_stream.Read<uint32_t>().value();
+    }();
+    stream.Read<uint8_t>().value();  // header_len
+    const auto flags = stream.ReadVaruint().value();
+    if (flags) {
+      throw base::system_error(errc::kUnknownSeekMarkerFlag);
+    }
+    result.timestamp = stream.ReadTimestamp().value();
+    const auto nelements = stream.ReadVaruint().value();
+    for (uint64_t i = 0; i < nelements; i++) {
+      const auto identifier = stream.ReadVaruint().value();
+      const auto previous_offset = stream.ReadVaruint().value();
+      result.seek_result.insert(
+          std::make_pair(
+              id_to_record_.at(identifier), possible_start - previous_offset));
+    }
+
+    if (block_stream.remaining() != 0) {
+      return {};
+    }
+
+    if (crc != crc_stream.checksum()) {
+      // We'll count a checksum mismatch as just meaning we got a
+      // false positive.
+      return {};
+    }
+
+    return result;
+  }
+
+  std::optional<SeekMarkerResult> FindSeekMarker(Index index, Index end) {
+    fptr_.Seek(index);
+    const auto stop_point = std::min(fptr_.size(), end);
+
+    // Do the dumb thing for now, our search pattern is only 8 bytes
+    // long after all.
+    constexpr uint8_t to_match[] = {
+      0x64, 0x75, 0x86, 0x97, 0xa8, 0xb9, 0xca, 0xfd,
+    };
+    int matched = 0;
+    while (true) {
+      uint8_t c = {};
+      file_.read(base::string_span(reinterpret_cast<char*>(&c), 1));
+      if (c == to_match[matched]) {
+        matched++;
+        if (matched == 8) {
+          auto maybe_result = EvaluateSeekMarker(index);
+          if (!!maybe_result) {
+            return std::move(*maybe_result);
+          }
+          // Guess not, just keep looking.
+          fptr_.Seek(index);
+          matched = 0;
+        }
+      } else {
+        matched = 0;
+      }
+      index++;
+      if (index >= stop_point) {
+        // We got to the end and haven't found anything.
+        return {};
+      }
+    }
+  }
+
+  SeekResult Seek(const boost::posix_time::ptime timestamp) {
+    // We need to know about all schemas before we can do this.
+    if (!all_records_found_) { FullScan(); }
+
+    // We look exclusively for SeekMarkers, as they have a known
+    // signature and guaranteed checksum.  Our strategy is to find two
+    // SeekMarkers that bound the given timestamp, then walk from the
+    // first to the second updating the results as we go.
+    int64_t low = start_;
+    int64_t high = final_item_;
+
+    SeekResult result;
+
+    constexpr int64_t kMinSpacing = 1 << 16;
+    while ((high - low) > kMinSpacing) {
+      const int64_t mid_search_point = low + (high - low) / 2;
+      const auto seek = FindSeekMarker(mid_search_point, high);
+      if (!seek) {
+        // There are no seek points in our second half.  Just linear
+        // search from the current low point.
+        break;
+      }
+      if (seek->timestamp <= timestamp) {
+        low = seek->index;
+        result = seek->seek_result;
+      } else {
+        high = seek->index;
+      }
+    }
+
+    ItemsOptions items_options;
+    items_options.start = low;
+    items_options.end = high;
+    for (const auto& item : items(items_options)) {
+      if (item.timestamp.is_not_a_date_time()) { break; }
+      if (item.timestamp > timestamp) { break; }
+      auto& current_last = result[item.record];
+      if (item.index > current_last) { current_last = item.index; }
+    }
+
+    return result;
+  }
+
   void FullScan() {
     class NoFilter : public Filter {
      public:
@@ -527,8 +691,8 @@ FileReader::Index FileReader::final_item() {
   return impl_->final_item();
 }
 
-FileReader::Index FileReader::Seek(boost::posix_time::ptime) {
-  return impl_->start_;
+FileReader::SeekResult FileReader::Seek(boost::posix_time::ptime timestamp) {
+  return impl_->Seek(timestamp);
 }
 
 FileReader::Item FileReader::ItemIterator::operator*() {

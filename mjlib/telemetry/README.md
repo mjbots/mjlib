@@ -424,9 +424,11 @@ TODO
    * A fixed `0xfdcab9a897867564`
  * `crc32` - uint32_t
    * The CRC32 of this entire block, assuming the CRC field is all 0s
+ * `header_len` - uint8_t
+   * The length of the block type and block size records
  * `flags` - varuint
  * `timestamp` - fixedint64
- * `nelements`
+ * `nelements` - `varuint`
  * `nelements` copies of
    * `identifier` - varuint
    * `previous_offset` - varuint

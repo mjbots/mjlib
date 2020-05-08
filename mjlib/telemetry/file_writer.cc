@@ -243,12 +243,20 @@ class FileWriter::Impl : public ThreadWriter::Reclaimer {
     const int crc_pos = orig_start + 8;
 
     stream.Write(static_cast<uint32_t>(0));  // placeholder crc
+    stream.Write(static_cast<uint8_t>(0));  // placeholder header size
 
     stream.WriteVaruint(0);  // flags
     stream.Write(timestamp);
-    const uint64_t num_elements = schema_.size();
+    const uint64_t num_elements = [&]() {
+      uint64_t count = 0;
+      for (const auto& pair : schema_) {
+        if (pair.second.last_position >= 0) { count++; }
+      }
+      return count;
+    }();
     stream.WriteVaruint(num_elements);
     for (const auto& pair : schema_) {
+      if (pair.second.last_position < 0) { continue; }
       stream.WriteVaruint(pair.first);
       stream.WriteVaruint(writer_->position() - pair.second.last_position);
     }
@@ -264,6 +272,7 @@ class FileWriter::Impl : public ThreadWriter::Reclaimer {
       header_stream.WriteVaruint(u64(Format::BlockType::kSeekMarker));
       header_stream.WriteVaruint(body_size);
     }
+    *(buffer->data()->data() + crc_pos + 4) = header_size;
 
     boost::crc_32_type crc;
     crc.process_bytes(buffer->data()->data() + buffer->start(),

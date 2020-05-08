@@ -65,9 +65,14 @@ class FileReader {
 
   Index final_item();
 
-  /// @return an Index of a record that is equal to or before @p
-  /// timestamp
-  Index Seek(boost::posix_time::ptime timestamp);
+  /// The most recent index for all known records.  If no instance
+  /// exists at or prior to the given timestamp, that entry is
+  /// absent.
+  using SeekResult = std::map<const Record*, Index>;
+
+  /// Find the most recent records that are equal to or before given
+  /// timestamp.
+  SeekResult Seek(boost::posix_time::ptime timestamp);
 
   struct ItemsOptions {
     std::vector<std::string> records;
