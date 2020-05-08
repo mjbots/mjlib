@@ -174,10 +174,11 @@ BOOST_AUTO_TEST_CASE(BinarySchemaParserData) {
   telemetry::BinaryWriteArchive(ostr).Accept(&all_types);
 
   std::string str = ostr.str();
-  base::BufferReadStream data_stream{str};
+  {
+    base::BufferReadStream data_stream{str};
 
-  const auto result = Visit(dut.root(), data_stream);
-  const std::string expected = R"XX( type=16 value=
+    const auto result = Visit(dut.root(), data_stream);
+    const std::string expected = R"XX( type=16 value=
 .value_bool type=2 value=false
 .value_i8 type=3 value=-1
 .value_i16 type=3 value=-2
@@ -206,5 +207,11 @@ BOOST_AUTO_TEST_CASE(BinarySchemaParserData) {
 .value_duration type=22 value=500000
 
 )XX";
-  BOOST_TEST(result == expected);
+    BOOST_TEST(result == expected);
+  }
+  {
+    base::BufferReadStream data_stream{str};
+    dut.root()->Ignore(data_stream);
+    BOOST_TEST(data_stream.remaining() == 0);
+  }
 }

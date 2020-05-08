@@ -266,8 +266,8 @@ void BinarySchemaParser::Element::Ignore(base::ReadStream& base_stream) const {
       break;
     }
     case FT::kObject: {
-      for (const auto& child : children) {
-        child->Ignore(stream.base());
+      for (const auto& field : fields) {
+        field.element->Ignore(stream.base());
       }
       break;
     }
