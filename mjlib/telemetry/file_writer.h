@@ -38,6 +38,9 @@ class FileWriter : boost::noncopyable {
     /// Use compression for all data records by default.
     bool default_compression = true;
 
+    /// Enable checksums for all data blocks by default.
+    bool default_checksum_data = true;
+
     /// Write a trailing index block.
     bool index_block = true;
 
@@ -99,11 +102,18 @@ class FileWriter : boost::noncopyable {
 
     bool require = false;
     bool disable = false;
+
+    bool evaluate(bool default_value) const {
+      if (require) { return true; }
+      if (disable) { return false; }
+      return default_value;
+    }
   };
 
   struct WriteFlags {
-    // Potentially override the default compression setting.
+    // Potentially override the default settings.
     Override compression;
+    Override checksum;
   };
 
   /// Write a data block to the log file.

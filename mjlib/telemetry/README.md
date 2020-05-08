@@ -391,6 +391,9 @@ defined here:
      most recent data block for this identifier to the current block.
  * `timestamp` - 1 << 1
    * The additional data is a `fixedint64` timestamp
+ * `checksum` - 1 << 2
+   * The additional data is a 4 byte crc32 of the entire block
+     assuming the CRC field is all 00s.
 
 The following flags do not result in additional data being appended.
  * `zstandard` - 1 << 4

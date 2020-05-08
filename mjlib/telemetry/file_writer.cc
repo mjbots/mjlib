@@ -21,6 +21,7 @@
 #include <thread>
 
 #include <boost/assert.hpp>
+#include <boost/crc.hpp>
 
 #include <fmt/format.h>
 
@@ -308,7 +309,7 @@ class FileWriter::Impl : public ThreadWriter::Reclaimer {
   void WriteData(boost::posix_time::ptime timestamp,
                  Identifier identifier,
                  Buffer buffer,
-                 const WriteFlags&) {
+                 const WriteFlags& write_flags) {
     if (!writer_) { return; }
 
     uint64_t block_data_flags = 0;
@@ -332,6 +333,13 @@ class FileWriter::Impl : public ThreadWriter::Reclaimer {
         timestamp_to_write =
             boost::posix_time::microsec_clock::universal_time();
       }
+    }
+
+    bool write_checksum = false;
+    if (write_flags.checksum.evaluate(options_.default_checksum_data)) {
+      block_data_flags |= u64(Format::BlockDataFlags::kChecksum);
+      flag_header_size += 4;
+      write_checksum = true;
     }
 
     const auto identifier_size = Format::GetVaruintSize(identifier);
@@ -362,6 +370,19 @@ class FileWriter::Impl : public ThreadWriter::Reclaimer {
 
     if (block_data_flags & u64(Format::BlockDataFlags::kTimestamp)) {
       writer.Write(*timestamp_to_write);
+    }
+
+    if (write_checksum) {
+      auto position = stream.position();
+      writer.Write(static_cast<uint32_t>(0));
+      stream.reset(position);
+      // Now we need to calculate the checksum and put the correct
+      // value in.
+      boost::crc_32_type crc;
+      auto all_data = buffer->view();
+      crc.process_bytes(all_data.data() + buffer->start() - header_size,
+                        static_cast<std::size_t>(buffer->size() + header_size));
+      writer.Write(static_cast<uint32_t>(crc.checksum()));
     }
 
     buffer->set_start(buffer->start() - header_size);

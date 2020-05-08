@@ -185,10 +185,11 @@ BOOST_AUTO_TEST_CASE(FileWriterWriteDataUncompressed) {
   }
 
   const char suffix[] =
-      "\x02\x13"  // BlockType = Data, size=19
-      "\x01\x03"  // id=1, flags= (previous_offset|timestamp)
+      "\x02\x17"  // BlockType = Data, size=19
+      "\x01\x07"  // id=1, flags= (previous_offset|timestamp|checksum)
         "\x00"  // previous offset
         "\x00\x20\x07\xcd\x74\xa0\x05\x00"  // timestamp
+        "\x93\x73\xdf\x4e"  // crc32
         "testdata"
 
       "\x03\x1f"  // BlockType = Index, size=31

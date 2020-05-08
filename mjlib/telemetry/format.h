@@ -98,6 +98,12 @@ struct Format {
     ///  * fixedint64
     kTimestamp = 1 << 1,
 
+    /// The CRC32 of the entire block, including the type and size,
+    /// assuming the CRC field is all 0.
+    ///
+    ///  * fixeduint32
+    kChecksum = 1 << 2,
+
 
     // The following flags do not require that additional data be stored.
 
