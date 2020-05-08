@@ -49,6 +49,8 @@ class CrcReadStream : public ReadStream {
     return crc_.checksum();
   }
 
+  CrcType& crc() { return crc_; }
+
  private:
   ReadStream& base_;
   CrcType crc_;
