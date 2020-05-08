@@ -26,6 +26,7 @@ enum class errc {
   kInvalidUnionIndex,
   kInvalidHeader,
   kInvalidBlockType,
+  kInvalidHeaderFlags,
   kUnknownBlockDataFlag,
   kUnknownBlockSchemaFlag,
 };

@@ -42,7 +42,7 @@ using DUT = telemetry::FileReader;
 
 BOOST_AUTO_TEST_CASE(EmptyFileReaderTest) {
   std::vector<uint8_t> empty_log{
-    0x54, 0x4c, 0x4f, 0x47, 0x30, 0x30, 0x30, 0x33, };
+    0x54, 0x4c, 0x4f, 0x47, 0x30, 0x30, 0x30, 0x33, 0x00, };
   TemporaryContents contents{empty_log};
 
   DUT dut{contents.native()};
@@ -57,7 +57,7 @@ BOOST_AUTO_TEST_CASE(EmptyFileReaderTest) {
 
 BOOST_AUTO_TEST_CASE(SchemaOnly) {
   std::vector<uint8_t> log_data{
-    0x54, 0x4c, 0x4f, 0x47, 0x30, 0x30, 0x30, 0x33,
+    0x54, 0x4c, 0x4f, 0x47, 0x30, 0x30, 0x30, 0x33, 0x00,
         0x01, 0x09,  // BlockType=Schema, size
           0x02,  // identifier=2
           0x00,  // flags=0
@@ -89,7 +89,7 @@ BOOST_AUTO_TEST_CASE(SchemaOnly) {
 
 BOOST_AUTO_TEST_CASE(BasicLog) {
   std::vector<uint8_t> log_data{
-    0x54, 0x4c, 0x4f, 0x47, 0x30, 0x30, 0x30, 0x33,
+    0x54, 0x4c, 0x4f, 0x47, 0x30, 0x30, 0x30, 0x33, 0x00,
         0x01, 0x09,  // BlockType=Schema, size
           0x02,  // identifier=2
           0x00,  // flags=0
@@ -112,9 +112,9 @@ BOOST_AUTO_TEST_CASE(BasicLog) {
     BOOST_TEST(items[0].record->name == "test");
     BOOST_TEST(items[0].record->identifier == 2);
     BOOST_TEST(items[0].record == items[1].record);
-    BOOST_TEST(items[0].index == 19);
+    BOOST_TEST(items[0].index == 20);
     BOOST_TEST(items[0].data == std::string("\x05\x04\x03\x02"));
-    BOOST_TEST(items[1].index == 27);
+    BOOST_TEST(items[1].index == 28);
     BOOST_TEST(items[1].data == std::string("\x06\x05\x04\x03"));
   }
   {
@@ -127,7 +127,7 @@ BOOST_AUTO_TEST_CASE(BasicLog) {
 
 BOOST_AUTO_TEST_CASE(MultipleRecords) {
   std::vector<uint8_t> log_data{
-    0x54, 0x4c, 0x4f, 0x47, 0x30, 0x30, 0x30, 0x33,
+    0x54, 0x4c, 0x4f, 0x47, 0x30, 0x30, 0x30, 0x33, 0x00,
         0x01, 0x09,  // BlockType=Schema, size
           0x02,  // identifier=2
           0x00,  // flags=0

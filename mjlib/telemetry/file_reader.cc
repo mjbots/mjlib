@@ -19,6 +19,8 @@
 #include <deque>
 #include <set>
 
+#include <fmt/format.h>
+
 #include "mjlib/base/file_stream.h"
 #include "mjlib/base/system_error.h"
 #include "mjlib/telemetry/error.h"
@@ -31,7 +33,9 @@ class FilePtr {
  public:
   FilePtr(std::string_view name) {
     file_ = ::fopen(name.data(), "rb");
-    mjlib::base::system_error::throw_if(file_ == nullptr);
+    mjlib::base::system_error::throw_if(
+        file_ == nullptr,
+        fmt::format("When opening: '{}'", name));
     base::system_error::throw_if(::fseek(file_, 0, SEEK_END) < 0);
     size_ = Tell();
     base::system_error::throw_if(::fseek(file_, 0, SEEK_SET) < 0);
@@ -140,7 +144,13 @@ class FileReader::Impl {
     if (std::memcmp(header, "TLOG0003", 8) != 0) {
       throw base::system_error(errc::kInvalidHeader);
     }
+    telemetry::ReadStream stream{file_};
+    const auto header_flags = stream.ReadVaruint();
+    if (header_flags != 0) {
+      throw base::system_error(errc::kInvalidHeaderFlags);
+    }
 
+    start_ = fptr_.Tell();
     // TODO: Look for an index.
   }
 
@@ -332,7 +342,7 @@ class FileReader::Impl {
     };
 
     NoFilter no_filter;
-    ReadUntil(8, &no_filter);
+    ReadUntil(start_, &no_filter);
   }
 
   const Options options_;
@@ -344,6 +354,7 @@ class FileReader::Impl {
   std::map<std::string, const Record*> name_to_record_;
 
   bool read_everything_ = false;
+  int64_t start_ = 0;
 };
 
 FileReader::FileReader(std::string_view filename, const Options& options)
@@ -360,7 +371,7 @@ std::vector<const FileReader::Record*> FileReader::records() {
 }
 
 FileReader::Index FileReader::Seek(boost::posix_time::ptime) {
-  return 8;
+  return impl_->start_;
 }
 
 FileReader::Item FileReader::ItemIterator::operator*() {
@@ -382,7 +393,8 @@ bool FileReader::ItemIterator::operator!=(const ItemIterator& rhs) const {
 FileReader::ItemIterator FileReader::ItemRange::begin() {
   // For now, always start at the very beginning.
   auto [first, next] = context_->impl->ReadUntil(
-      context_->options.start < 0 ? 8 : context_->options.start,
+      context_->options.start < 0 ? context_->impl->start_ :
+      context_->options.start,
       context_.get());
   return ItemIterator(context_, first);
 }

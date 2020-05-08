@@ -30,6 +30,7 @@ class ErrorCategory : public boost::system::error_category {
       case errc::kInvalidUnionIndex: return "Invalid union index";
       case errc::kInvalidHeader: return "Invalid header";
       case errc::kInvalidBlockType: return "Invalid block type";
+      case errc::kInvalidHeaderFlags: return "Invalid header flags";
       case errc::kUnknownBlockDataFlag: return "Unknown block data flag";
       case errc::kUnknownBlockSchemaFlag: return "Unknown block schema flag";
     }
