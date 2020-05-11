@@ -46,7 +46,8 @@ BOOST_AUTO_TEST_CASE(BinaryWriteArchive) {
     0x02, 'd', 'e',  // value_str : "de"
     0x03, 0x00, 0x00, 0x00,  // SubTest1::value_u32 : 3
     0x00,  // value_enum : 0
-    0x01,  0x03, 0x00, 0x00, 0x00,  // value_array : { SubTest1() }
+    0x01,  0x03, 0x00, 0x00, 0x00,  // value_array : [ SubTest1() ]
+    0x0e, 0x0f,  // value_fixedarray : [ 14, 15 ]
     0x01, 0x15, 0x00, 0x00, 0x00,  // value_optional : 21
     0x40, 0x42, 0x0f, 0x00, 0x00, 0x00, 0x00, 0x00,  // value_timestamp
     0x20, 0xa1, 0x07, 0x00, 0x00, 0x00, 0x00, 0x00,  // value_duration
@@ -199,9 +200,19 @@ BOOST_AUTO_TEST_CASE(BinarySchemaArchive) {
         0x01, 0x01, 0x03, 0x00, 0x00, 0x00, // default : [ SubTest1{3} ]
 
       0x00,  // FieldFlags
+      0x10, 'v', 'a', 'l', 'u', 'e', '_', 'f', 'i', 'x', 'e', 'd',
+            'a', 'r', 'r', 'a', 'y',
+       0x00,  // naliases
+       0x13,  // fixedarray
+         0x02,  // size=2
+         0x04, 0x01,  // uint8
+       0x01, 0x0e, 0x0f,  // default: [ 14, 15 ]
+
+
+      0x00,  // FieldFlags
        0x0e, 'v', 'a', 'l', 'u', 'e', '_', 'o', 'p', 't', 'i', 'o', 'n', 'a', 'l',
        0x00,  // naliases
-       0x14,  // union
+       0x15,  // union
 
         0x01,  // null
         0x03, 0x04,  // fixedint32
@@ -214,13 +225,13 @@ BOOST_AUTO_TEST_CASE(BinarySchemaArchive) {
        0x0f, 'v', 'a', 'l', 'u', 'e', '_',
              't', 'i', 'm', 'e', 's', 't', 'a', 'm', 'p',
        0x00,  // naliases
-       0x15,  // timestamp
+       0x16,  // timestamp
        0x01, 0x40, 0x42, 0x0f, 0x00, 0x00, 0x00, 0x00, 0x00,
 
       0x00,  // FieldFlags
        0x0e, 'v', 'a', 'l', 'u', 'e', '_', 'd', 'u', 'r', 'a', 't', 'i', 'o', 'n',
        0x00,  // naliases
-       0x16,  // timestamp
+       0x17,  // timestamp
        0x01, 0x20, 0xa1, 0x07, 0x00, 0x00, 0x00, 0x00, 0x00,
 
       0x00,  // FieldFlags

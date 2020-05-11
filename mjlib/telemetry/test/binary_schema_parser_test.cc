@@ -76,11 +76,13 @@ name=.value_enum.value_enum type=6 maybe_fixed_size=-1 int_size=-1
 name=.value_array type=18 maybe_fixed_size=-1 int_size=-1
 name=.value_array.value_array type=16 maybe_fixed_size=4 int_size=-1
 name=.value_array.value_array.value_u32 type=4 maybe_fixed_size=4 int_size=4
-name=.value_optional type=20 maybe_fixed_size=-1 int_size=-1
+name=.value_fixedarray type=19 maybe_fixed_size=-1 int_size=-1
+name=.value_fixedarray.value_fixedarray type=4 maybe_fixed_size=1 int_size=1
+name=.value_optional type=21 maybe_fixed_size=-1 int_size=-1
 name=.value_optional.value_optional type=1 maybe_fixed_size=0 int_size=-1
 name=.value_optional.value_optional type=3 maybe_fixed_size=4 int_size=4
-name=.value_timestamp type=21 maybe_fixed_size=8 int_size=-1
-name=.value_duration type=22 maybe_fixed_size=8 int_size=-1
+name=.value_timestamp type=22 maybe_fixed_size=8 int_size=-1
+name=.value_duration type=23 maybe_fixed_size=8 int_size=-1
 )XX";
   BOOST_TEST(ostr.str() == expected);
 }
@@ -134,6 +136,16 @@ std::string Visit(const DUT::Element* element, base::ReadStream& stream) {
           }
           case FT::kArray: {
             const auto size = element->ReadArraySize(stream);
+            std::ostringstream ostr;
+            ostr << "[\n";
+            for (uint64_t i = 0; i < size; i++) {
+              ostr << Visit(element->children.front(), stream);
+            }
+            ostr << "]";
+            return ostr.str();
+          }
+          case FT::kFixedArray: {
+            const auto size = element->array_size;
             std::ostringstream ostr;
             ostr << "[\n";
             for (uint64_t i = 0; i < size; i++) {
@@ -201,10 +213,14 @@ BOOST_AUTO_TEST_CASE(BinarySchemaParserData) {
 .value_array.value_array.value_u32 type=4 value=3
 
 ]
-.value_optional type=20 value=.value_optional.value_optional type=3 value=21
+.value_fixedarray type=19 value=[
+.value_fixedarray.value_fixedarray type=4 value=14
+.value_fixedarray.value_fixedarray type=4 value=15
+]
+.value_optional type=21 value=.value_optional.value_optional type=3 value=21
 
-.value_timestamp type=21 value=1000000
-.value_duration type=22 value=500000
+.value_timestamp type=22 value=1000000
+.value_duration type=23 value=500000
 
 )XX";
     BOOST_TEST(result == expected);

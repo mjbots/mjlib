@@ -75,6 +75,9 @@ class BinarySchemaParser {
     /// For kArray, kMap, kUnion, kEnum
     std::vector<const Element*> children;
 
+    /// For kFixedArray
+    uint64_t array_size = 0;
+
     /// For kEnum
     std::map<uint64_t, std::string> enum_items;
 

@@ -345,6 +345,20 @@ class ArrayType:
         return [self.type_class.read(data_stream) for _ in range(nvalues)]
 
 
+class FixedArrayType:
+    @staticmethod
+    def from_binary(schema_stream, **kwargs):
+        size = schema_stream.read_varuint()
+        return FixedArrayType(size, Type.from_binary(schema_stream))
+
+    def __init__(self, size, type_class):
+        self.size = size
+        self.type_class = type_class
+
+    def read(self, data_stream):
+        return [self.type_class.read(data_stream) for _ in range(self.size)]
+
+
 class MapType:
     @staticmethod
     def from_binary(schema_stream, **kwargs):
@@ -420,10 +434,11 @@ TYPES = [
     ObjectType,     # 16
     EnumType,       # 17
     ArrayType,      # 18
-    MapType,        # 19
-    UnionType,      # 20
-    TimestampType,  # 21
-    DurationType,   # 22
+    FixedArrayType, # 19
+    MapType,        # 20
+    UnionType,      # 21
+    TimestampType,  # 22
+    DurationType,   # 23
 ]
 
 

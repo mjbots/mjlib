@@ -55,6 +55,10 @@ BOOST_AUTO_TEST_CASE(BasicJson5Write) {
     "value_u32" : 3,
   },
   ],
+  "value_fixedarray" : [
+    14,
+    15,
+  ],
   "value_optional" : 21,
   "value_timestamp" : "1970-Jan-01 00:00:01",
   "value_duration" : "00:00:00.500000",

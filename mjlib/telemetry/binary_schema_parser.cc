@@ -139,6 +139,11 @@ class BinarySchemaParser::Impl {
         result->maybe_fixed_size = child->maybe_fixed_size;
         break;
       }
+      case FT::kFixedArray: {
+        result->array_size = stream.ReadVaruint().value();
+        result->children.push_back(ReadType(result, stream, name));
+        break;
+      }
       case FT::kArray:
       case FT::kMap: {
         result->children.push_back(ReadType(result, stream, name));
@@ -281,6 +286,16 @@ void BinarySchemaParser::Element::Ignore(base::ReadStream& base_stream) const {
         stream.Ignore(nelements * children.front()->maybe_fixed_size);
       } else {
         for (uint64_t i = 0; i < nelements; i++) {
+          children.front()->Ignore(stream.base());
+        }
+      }
+      break;
+    }
+    case FT::kFixedArray: {
+      if (children.front()->maybe_fixed_size >= 0) {
+        stream.Ignore(array_size * children.front()->maybe_fixed_size);
+      } else {
+        for (uint64_t i = 0; i < array_size; i++) {
           children.front()->Ignore(stream.base());
         }
       }

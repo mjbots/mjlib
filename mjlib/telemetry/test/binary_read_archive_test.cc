@@ -40,6 +40,7 @@ BOOST_AUTO_TEST_CASE(BinaryReadArchive) {
     0x06, 0x00, 0x00, 0x00,  // value_object : SubTest1{6}
     0x05,  // value_enum : kNextValue
     0x00,  // value_array : []
+    0x20, 0x21,  // value_fixedarray : [32, 33]
     0x01, 0x09, 0x00, 0x00, 0x00,  // value_optional : 9
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  // value_timestamp : 0
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  // value_duration : 0
@@ -69,6 +70,8 @@ BOOST_AUTO_TEST_CASE(BinaryReadArchive) {
   BOOST_TEST(all_types.value_object.value_u32 == 6);
   BOOST_TEST((all_types.value_enum == base::test::TestEnumeration::kNextValue));
   BOOST_TEST(all_types.value_array.size() == 0);
+  BOOST_TEST(all_types.value_fixedarray[0] == 32);
+  BOOST_TEST(all_types.value_fixedarray[1] == 33);
   BOOST_TEST(all_types.value_optional.has_value());
   BOOST_TEST(*all_types.value_optional == 9);
   BOOST_TEST(base::ConvertPtimeToEpochMicroseconds(all_types.value_timestamp) == 0);

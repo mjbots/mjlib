@@ -72,6 +72,7 @@ struct AllTypesTest {
   SubTest1 value_object;
   TestEnumeration value_enum = TestEnumeration::kValue1;
   std::vector<SubTest1> value_array = {{}};
+  std::array<uint8_t, 2> value_fixedarray = {{14, 15}};
   // std::map<std::string, int16_t> value_map = {
   //   { "abc", 2 },
   //   { "def", 4 },
@@ -101,6 +102,7 @@ struct AllTypesTest {
     a->Visit(MJ_NVP(value_object));
     a->Visit(MJ_ENUM(value_enum, TestEnumerationMapper));
     a->Visit(MJ_NVP(value_array));
+    a->Visit(MJ_NVP(value_fixedarray));
     // a->Visit(MJ_NVP(value_map));
     a->Visit(MJ_NVP(value_optional));
     // a->Visit(MJ_NVP(value_union));

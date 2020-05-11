@@ -80,6 +80,15 @@ This represents a list of items.  It has the following attributes:
  - `items`: A full schema declaration that describes the type of each
    element in the array.
 
+### Fixed Array ###
+
+This also represents a list of items of fixed length.  It has the
+following attributes.
+
+ - `size`: The number of items in every instance of this array.
+ - `items`: A full schema declaration that describes the type of each
+   element in the array.
+
 ### Map ###
 
 This represents a map of strings to a value.  It has the following attributes:
@@ -170,10 +179,11 @@ The type is encoded as a `varuint` with the following mapping:
  - `object`: 16
  - `enum`: 17
  - `array`: 18
- - `map`: 19
- - `union` : 20
- - `timestamp` : 21
- - `duration` : 22
+ - `fixedarray`: 19
+ - `map`: 20
+ - `union` : 21
+ - `timestamp` : 22
+ - `duration` : 23
 
 The following additional attributes follow these given types:
 
@@ -194,6 +204,9 @@ The following additional attributes follow these given types:
      - `value` : corresponding to `type`
      - `name` : `string`
  - `array`
+   - `items` : A complete "type" encoding
+ - `fixedarray`
+   - `size`: `varuint`
    - `items` : A complete "type" encoding
  - `map`
    - `values`: A complete "type" encoding
@@ -255,7 +268,7 @@ are used for each type:
   "type" : "enum",
   "name" : "MyEnumName",
   "aliases" : ["MyOldEnumName"],
-  "type" : "varint",
+  "type" : "varuint",
   "symbols" : ["enumval1", "enumval2"]
 }
 ```
@@ -265,6 +278,16 @@ are used for each type:
   "type" : "array",
   "name" : "MyArrayName",
   "aliases" : ["MyOldArrayName"],
+  "items" : "string"
+}
+```
+ - `fixedarray`
+```
+{
+  "type" : "fixedarray",
+  "name" : "MyArrayName",
+  "aliases" : ["MyOldArrayName"],
+  "size" : "varuint",
   "items" : "string"
 }
 ```
@@ -291,6 +314,8 @@ Each of the fields is serialized as follows for binary purposes.
  - `array`:
    - `nelements` : `varuint`
    - `nelements` copies of the item serialization
+ - `fixedarray`:
+   - `size` copies of the item serialization
  - `map`:
    - `nitems` : `varuint`
    - `nitems` copies of
@@ -314,6 +339,7 @@ The following types are serialized in JSON as follows:
  - `object` : A JSON "object"
  - `enum` : A JSON string containing the text of the element
  - `array`: A JSON array
+ - `fixedarray`: A JSON array
  - `map` : A JSON object
  - `union` : A JSON "value".  TODO(jpieper): How to encode names.
 

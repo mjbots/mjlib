@@ -51,6 +51,7 @@ struct Format {
     kObject = 16,
     kEnum,
     kArray,
+    kFixedArray,
     kMap,
     kUnion,
     kTimestamp,

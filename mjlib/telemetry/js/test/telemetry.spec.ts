@@ -180,9 +180,20 @@ describe('createBinaryType', () => {
     expect(result[1]).toBe(9);
   });
 
-  it('map', () => {
+  it('fixedarray', () => {
     var result = readBinary([
       0x13,
+      0x02,
+      0x04, 0x01,
+    ], [0x02, 0x09]);
+    expect(result.length).toBe(2);
+    expect(result[0]).toBe(2);
+    expect(result[1]).toBe(9);
+  });
+
+  it('map', () => {
+    var result = readBinary([
+      0x14,
       0x04, 0x01,
     ], [
       0x02,
@@ -195,7 +206,7 @@ describe('createBinaryType', () => {
 
   it('union', () => {
     var result = readBinary([
-      0x14,
+      0x15,
       0x01,
       0x02,
       0x03, 0x02,
@@ -205,12 +216,12 @@ describe('createBinaryType', () => {
   });
 
   it('timestamp', () => {
-    var result = readBinary([0x15], [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00]);
+    var result = readBinary([0x16], [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00]);
     expect(result.toISOString()).toBe("1978-12-02T19:29:36.710Z");
   });
 
   it('duration', () => {
-    var result = readBinary([0x16], [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00]);
+    var result = readBinary([0x17], [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00]);
     expect(result).toBe(281474976.710656);
   });
 });

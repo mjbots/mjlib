@@ -76,7 +76,7 @@ BOOST_AUTO_TEST_CASE(BasicSerializableHandler) {
     char buffer[100] = {};
     base::BufferWriteStream write_stream{buffer};
     dut.WriteBinary(write_stream);
-    BOOST_TEST(write_stream.offset() == 61);
+    BOOST_TEST(write_stream.offset() == 59);
 
     my_struct.int_value = 20;
     BOOST_TEST(my_struct.int_value == 20);

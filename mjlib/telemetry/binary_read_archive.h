@@ -84,17 +84,6 @@ class BinaryReadArchive : public base::VisitArchive<BinaryReadArchive> {
   void VisitHelper(const NameValuePair&,
                    std::array<T, N>* value,
                    base::PriorityTag<1>) {
-    const auto maybe_size = stream_.ReadVaruint();
-    if (!maybe_size) {
-      error_ = true;
-      return;
-    }
-    const auto size = *maybe_size;
-
-    if (size != N) {
-      error_ = true;
-      return;
-    }
     VisitArrayHelper(*value);
   }
 

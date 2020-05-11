@@ -365,6 +365,27 @@ export class ArrayType implements Type {
   }
 }
 
+export class FixedArrayType implements Type {
+  size: number;
+  type: Type;
+
+  static fromBinary(schemaStream: ReadStream) : FixedArrayType {
+    var result = new FixedArrayType();
+    result.size = schemaStream.readVaruint();
+    result.type = Type.fromBinary(schemaStream);
+    return result;
+  }
+
+  read(stream: ReadStream) : any {
+    var result : any[] = [];
+
+    for (var i = 0; i < this.size; i++) {
+      result.push(this.type.read(stream));
+    }
+    return result;
+  }
+}
+
 export class MapType implements Type {
   type: Type;
 
@@ -450,10 +471,11 @@ var TYPES  = [
   ObjectType,     // 16
   EnumType,       // 17
   ArrayType,      // 18
-  MapType,        // 19
-  UnionType,      // 20
-  TimestampType,  // 21
-  DurationType,   // 22
+  FixedArrayType, // 19
+  MapType,        // 20
+  UnionType,      // 21
+  TimestampType,  // 22
+  DurationType,   // 23
 ];
 
 var TypesFromBinary = TYPES.map(
