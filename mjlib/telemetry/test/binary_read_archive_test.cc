@@ -47,33 +47,40 @@ BOOST_AUTO_TEST_CASE(BinaryReadArchive) {
   };
 
   std::string source_str(reinterpret_cast<const char*>(&source[0]), source.size());
-  base::FastIStringStream istr(source_str);
+  {
+    base::FastIStringStream istr(source_str);
 
-  telemetry::BinaryReadArchive dut(istr);
-  base::test::AllTypesTest all_types;
-  dut.Accept(&all_types);
+    telemetry::BinaryReadArchive dut(istr);
+    base::test::AllTypesTest all_types;
+    dut.Accept(&all_types);
 
-  BOOST_TEST(all_types.value_bool == true);
-  BOOST_TEST(all_types.value_i8 == -16);
-  BOOST_TEST(all_types.value_i16 == -15);
-  BOOST_TEST(all_types.value_i32 == -14);
-  BOOST_TEST(all_types.value_i64 == -13);
-  BOOST_TEST(all_types.value_u8 == 8);
-  BOOST_TEST(all_types.value_u16 == 9);
-  BOOST_TEST(all_types.value_u32 == 10);
-  BOOST_TEST(all_types.value_u64 == 11);
-  BOOST_TEST(all_types.value_f32 == 0.0);
-  BOOST_TEST(all_types.value_f64 == 0.0);
-  BOOST_TEST(all_types.value_bytes.size() == 1);
-  BOOST_TEST(all_types.value_bytes[0] == 0x08);
-  BOOST_TEST(all_types.value_str == "test");
-  BOOST_TEST(all_types.value_object.value_u32 == 6);
-  BOOST_TEST((all_types.value_enum == base::test::TestEnumeration::kNextValue));
-  BOOST_TEST(all_types.value_array.size() == 0);
-  BOOST_TEST(all_types.value_fixedarray[0] == 32);
-  BOOST_TEST(all_types.value_fixedarray[1] == 33);
-  BOOST_TEST(all_types.value_optional.has_value());
-  BOOST_TEST(*all_types.value_optional == 9);
-  BOOST_TEST(base::ConvertPtimeToEpochMicroseconds(all_types.value_timestamp) == 0);
-  BOOST_TEST(base::ConvertDurationToMicroseconds(all_types.value_duration) == 0);
+    BOOST_TEST(all_types.value_bool == true);
+    BOOST_TEST(all_types.value_i8 == -16);
+    BOOST_TEST(all_types.value_i16 == -15);
+    BOOST_TEST(all_types.value_i32 == -14);
+    BOOST_TEST(all_types.value_i64 == -13);
+    BOOST_TEST(all_types.value_u8 == 8);
+    BOOST_TEST(all_types.value_u16 == 9);
+    BOOST_TEST(all_types.value_u32 == 10);
+    BOOST_TEST(all_types.value_u64 == 11);
+    BOOST_TEST(all_types.value_f32 == 0.0);
+    BOOST_TEST(all_types.value_f64 == 0.0);
+    BOOST_TEST(all_types.value_bytes.size() == 1);
+    BOOST_TEST(all_types.value_bytes[0] == 0x08);
+    BOOST_TEST(all_types.value_str == "test");
+    BOOST_TEST(all_types.value_object.value_u32 == 6);
+    BOOST_TEST((all_types.value_enum == base::test::TestEnumeration::kNextValue));
+    BOOST_TEST(all_types.value_array.size() == 0);
+    BOOST_TEST(all_types.value_fixedarray[0] == 32);
+    BOOST_TEST(all_types.value_fixedarray[1] == 33);
+    BOOST_TEST(all_types.value_optional.has_value());
+    BOOST_TEST(*all_types.value_optional == 9);
+    BOOST_TEST(base::ConvertPtimeToEpochMicroseconds(all_types.value_timestamp) == 0);
+    BOOST_TEST(base::ConvertDurationToMicroseconds(all_types.value_duration) == 0);
+  }
+  {
+    const auto another_all_types = telemetry::BinaryReadArchive::Read<
+      base::test::AllTypesTest>(source_str);
+    BOOST_TEST(*another_all_types.value_optional == 9);
+  }
 }

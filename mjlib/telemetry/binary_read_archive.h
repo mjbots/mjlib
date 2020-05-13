@@ -21,6 +21,7 @@
 
 #include <boost/date_time/posix_time/posix_time_types.hpp>
 
+#include "mjlib/base/buffer_stream.h"
 #include "mjlib/base/bytes.h"
 #include "mjlib/base/priority_tag.h"
 #include "mjlib/base/stream.h"
@@ -47,6 +48,26 @@ class BinaryReadArchive : public base::VisitArchive<BinaryReadArchive> {
   template <typename NameValuePair>
   void VisitSerializable(const NameValuePair& nvp) {
     Accept(nvp.value());
+  }
+
+  template <typename ValueType>
+  BinaryReadArchive& Value(ValueType* value) {
+    base::ReferenceNameValuePair nvp(value, "");
+    VisitArchive<BinaryReadArchive>::Visit(nvp);
+    return *this;
+  }
+
+  template <typename ValueType>
+  static ValueType Read(base::ReadStream& stream) {
+    ValueType result;
+    BinaryReadArchive(stream).Value(&result);
+    return result;
+  }
+
+  template <typename ValueType>
+  static ValueType Read(std::string_view data) {
+    base::BufferReadStream stream(data);
+    return Read<ValueType>(stream);
   }
 
   template <typename NameValuePair>

@@ -57,6 +57,7 @@ cc_library(
     hdrs = ["binary_read_archive.h"],
     deps = [
         ":format",
+        "//mjlib/base:buffer_stream",
         "//mjlib/base:priority_tag",
         "//mjlib/base:stream",
         "//mjlib/base:visitor",
