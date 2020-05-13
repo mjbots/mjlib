@@ -56,6 +56,7 @@ class BinarySchemaParser {
     /// Available for all types.
 
     std::string name;
+    std::string binary_schema;
 
     /// If known, the fixed offset within a data record of this
     /// element.

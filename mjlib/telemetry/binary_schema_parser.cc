@@ -32,14 +32,14 @@ using FT = Format::Type;
 class BinarySchemaParser::Impl {
  public:
   Impl(std::string_view schema, std::string_view name) {
-    base::BufferReadStream read_stream{schema};
-    telemetry::ReadStream stream{read_stream};
+    base::BufferReadStream stream{schema};
 
     root_ = ReadType(nullptr, stream, name);
   }
 
   std::optional<Field> ReadField(
-      const Element* parent, telemetry::ReadStream& stream) {
+      const Element* parent, base::ReadStream& base_stream) {
+    telemetry::ReadStream stream{base_stream};
     Field result;
     result.field_flags = stream.ReadVaruint().value();
     result.name = stream.ReadString().value();
@@ -47,7 +47,7 @@ class BinarySchemaParser::Impl {
     for (uint64_t i = 0; i < naliases; i++) {
       result.aliases.push_back(stream.ReadString().value());
     }
-    result.element = ReadType(parent, stream, result.name);
+    result.element = ReadType(parent, stream.base(), result.name);
     const uint8_t default_present = stream.Read<uint8_t>().value();
     if (default_present == 1) {
       result.default_value = result.element->Read(stream.base());
@@ -63,7 +63,10 @@ class BinarySchemaParser::Impl {
   }
 
   Element* ReadType(const Element* parent,
-                    telemetry::ReadStream& stream, std::string_view name) {
+                    base::ReadStream& stream_in, std::string_view name) {
+    base::RecordingStream recording_stream{stream_in};
+    telemetry::ReadStream stream{recording_stream};
+
     elements_.push_back({});
     auto* const result = &elements_.back();
     result->name = name;
@@ -74,7 +77,7 @@ class BinarySchemaParser::Impl {
       throw base::system_error(
           {errc::kInvalidType, fmt::format("type {} unknown", type)});
     }
-   result->type = static_cast<FT>(type);
+    result->type = static_cast<FT>(type);
 
     switch (result->type) {
       case FT::kFinal: {
@@ -113,7 +116,7 @@ class BinarySchemaParser::Impl {
         result->object_flags = stream.ReadVaruint().value();
         int64_t maybe_size = 0;
         while (true) {
-          const auto maybe_field = ReadField(result, stream);
+          const auto maybe_field = ReadField(result, stream.base());
           if (!maybe_field) { break; }
           result->fields.push_back(*maybe_field);
           if (maybe_field->element->maybe_fixed_size < 0) {
@@ -128,7 +131,7 @@ class BinarySchemaParser::Impl {
         break;
       }
       case FT::kEnum: {
-        auto* const child = ReadType(result, stream, name);
+        auto* const child = ReadType(result, stream.base(), name);
         result->children.push_back(child);
         const auto nvalues = stream.ReadVaruint().value();
         for (uint64_t i = 0; i < nvalues; i++) {
@@ -141,17 +144,17 @@ class BinarySchemaParser::Impl {
       }
       case FT::kFixedArray: {
         result->array_size = stream.ReadVaruint().value();
-        result->children.push_back(ReadType(result, stream, name));
+        result->children.push_back(ReadType(result, stream.base(), name));
         break;
       }
       case FT::kArray:
       case FT::kMap: {
-        result->children.push_back(ReadType(result, stream, name));
+        result->children.push_back(ReadType(result, stream.base(), name));
         break;
       }
       case FT::kUnion: {
         while (true) {
-          auto* const child = ReadType(result, stream, name);
+          auto* const child = ReadType(result, stream.base(), name);
           if (child->type == FT::kFinal) { break; }
           result->children.push_back(child);
         }
@@ -164,6 +167,7 @@ class BinarySchemaParser::Impl {
       }
     }
 
+    result->binary_schema = recording_stream.str();
     return result;
   }
 
