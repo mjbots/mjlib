@@ -245,4 +245,8 @@ BOOST_AUTO_TEST_CASE(BinarySchemaArchive) {
   telemetry::test::Compare(
       expected, telemetry::BinarySchemaArchive::schema<
       base::test::AllTypesTest>());
+
+  telemetry::test::Compare(
+      expected,
+      telemetry::BinarySchemaArchive::Write<base::test::AllTypesTest>());
 }

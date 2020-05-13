@@ -147,10 +147,7 @@ class BinarySchemaArchive : public base::VisitArchive<BinarySchemaArchive> {
  public:
   using TF = Format;
 
-  BinarySchemaArchive(base::WriteStream& stream) : stream_(stream) {
-    stream_.WriteVaruint(TF::Type::kObject);
-    stream_.WriteVaruint(0);  // ObjectFlags
-  }
+  BinarySchemaArchive(base::WriteStream& stream) : stream_(stream) {}
 
   template <typename Serializable>
   static std::string schema() {
@@ -163,10 +160,32 @@ class BinarySchemaArchive : public base::VisitArchive<BinarySchemaArchive> {
 
   template <typename Serializable>
   BinarySchemaArchive& Accept(const Serializable* serializable) {
+    stream_.WriteVaruint(TF::Type::kObject);
+    stream_.WriteVaruint(0);  // ObjectFlags
     base::VisitArchive<BinarySchemaArchive>::Accept(
         const_cast<Serializable*>(serializable));
     Finish();
     return *this;
+  }
+
+  template <typename ValueType>
+  BinarySchemaArchive& Value() {
+    ValueType value;
+    base::ReferenceNameValuePair nvp(const_cast<ValueType*>(&value), "");
+    VisitArchive<BinarySchemaArchive>::Visit(nvp);
+    return *this;
+  }
+
+  template <typename ValueType>
+  static void Write(base::WriteStream& stream) {
+    BinarySchemaArchive(stream).template Value<ValueType>();
+  }
+
+  template <typename ValueType>
+  static std::string Write() {
+    base::FastOStringStream ostr;
+    Write<ValueType>(ostr);
+    return ostr.str();
   }
 
   template <typename NameValuePair>
