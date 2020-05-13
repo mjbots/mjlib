@@ -70,6 +70,11 @@ inline constexpr bool IsExternalSerializable(T* = 0) {
   return mjlib::base::detail::IsExternalSerializable<T>();
 }
 
+template <typename T>
+inline constexpr bool IsSerializable(T* = 0) {
+  return IsNativeSerializable<T>() || IsExternalSerializable<T>();
+}
+
 /// template <typename T>
 /// class NameValuePair {
 ///  public:
