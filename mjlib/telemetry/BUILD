@@ -83,6 +83,15 @@ cc_library(
 )
 
 cc_library(
+    name = "mapped_binary_reader",
+    hdrs = ["mapped_binary_reader.h"],
+    deps = [
+        ":binary_read_archive",
+        ":binary_schema_parser",
+    ],
+)
+
+cc_library(
     name = "file_writer",
     hdrs = ["file_writer.h"],
     srcs = ["file_writer.cc"],
@@ -121,6 +130,7 @@ cc_test(
         "test/file_reader_test.cc",
         "test/file_writer_test.cc",
         "test/format_test.cc",
+        "test/mapped_binary_reader_test.cc",
         "test/test_main.cc",
 
         "test/test_util.h",
@@ -133,6 +143,7 @@ cc_test(
         ":binary_write_archive",
         ":file_reader",
         ":file_writer",
+        ":mapped_binary_reader",
         "//mjlib/base:all_types_struct",
         "//mjlib/base:temporary_file",
         "@boost//:test",

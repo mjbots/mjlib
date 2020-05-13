@@ -37,6 +37,7 @@ class ErrorCategory : public boost::system::error_category {
       case errc::kUnknownSeekMarkerFlag: return "Unknown seek marker flag";
       case errc::kDataChecksumMismatch: return "Data checksum mismatch";
       case errc::kDecompressionError: return "Decompression error";
+      case errc::kTypeMismatch: return "Type mismatch";
     }
     return "unknown";
   }
