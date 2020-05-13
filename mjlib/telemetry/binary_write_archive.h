@@ -1,4 +1,4 @@
-// Copyright 2015-2019 Josh Pieper, jjp@pobox.com.
+// Copyright 2015-2020 Josh Pieper, jjp@pobox.com.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -79,9 +79,9 @@ class BinaryWriteArchive : public base::VisitArchive<BinaryWriteArchive> {
     Accept(nvp.value());
   }
 
-  template <typename NameValuePair>
-  void VisitEnumeration(const NameValuePair& nvp) {
-    stream_.WriteVaruint(nvp.get_value());
+  template <typename NameValuePair, typename NameMapGetter>
+  void VisitEnumeration(const NameValuePair& nvp, NameMapGetter) {
+    stream_.WriteVaruint(static_cast<uint64_t>(nvp.get_value()));
   }
 
  private:
@@ -228,15 +228,16 @@ class BinarySchemaArchive : public base::VisitArchive<BinarySchemaArchive> {
     sub_archive.Accept(nvp.value());
   }
 
-  template <typename NameValuePair>
-  void VisitEnumeration(const NameValuePair& nvp) {
+  template <typename NameValuePair, typename NameMapGetter>
+  void VisitEnumeration(const NameValuePair&,
+                        NameMapGetter enumeration_mapper) {
     stream_.WriteVaruint(TF::Type::kEnum);
 
     /// For now, we only provide a way to have enums of type varuint.
     /// Later we can support the other fixed types.
     stream_.WriteVaruint(TF::Type::kVaruint);
 
-    const auto items = nvp.enumeration_mapper();
+    const auto items = enumeration_mapper();
     const auto nvalues = items.size();
     stream_.WriteVaruint(nvalues);
 

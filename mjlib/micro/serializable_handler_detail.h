@@ -91,6 +91,12 @@ struct EnumerateArchive : public mjlib::base::VisitArchive<EnumerateArchive> {
     VisitArchive<EnumerateArchive>::Visit(pair);
   }
 
+  template <typename NameValuePair, typename NameMapGetter>
+  void VisitEnumeration(const NameValuePair& pair,
+                        NameMapGetter) {
+    EmitValue(pair, [](auto value) { return static_cast<int32_t>(value); });
+  }
+
   template <typename NameValuePair>
   void VisitScalar(const NameValuePair& pair) {
     this->VisitHelper(pair, pair.value(), 0);
@@ -98,6 +104,11 @@ struct EnumerateArchive : public mjlib::base::VisitArchive<EnumerateArchive> {
 
   template <typename NameValuePair, typename T>
   void VisitHelper(const NameValuePair& pair, T*, long) {
+    EmitValue(pair, [](auto value) { return value; });
+  }
+
+  template <typename NameValuePair, typename Mapper>
+  void EmitValue(const NameValuePair& pair, Mapper mapper) {
     auto old_index = *current_index_;
     (*current_index_)++;
 
@@ -105,7 +116,8 @@ struct EnumerateArchive : public mjlib::base::VisitArchive<EnumerateArchive> {
       *done_ = true;
 
       std::string_view data = FormatField(
-          context_->buffer, std::string_view(pair.name()), pair.get_value());
+          context_->buffer, std::string_view(pair.name()),
+          mapper(pair.get_value()));
       AsyncWrite(*context_->stream, data, [ctx = this->context_](
                      error_code error) {
           if (error) { ctx->callback(error); return; }
@@ -285,6 +297,12 @@ struct SetArchive : public ItemArchive<SetArchive> {
              const std::string_view& value)
       : ItemArchive(key), value_(value) {}
 
+  template <typename NameValuePair, typename NameMapGetter>
+  void VisitEnumeration(const NameValuePair& pair, NameMapGetter getter) {
+    pair.set_value(static_cast<decltype(getter().begin()->first)>(
+                       ParseValue<int32_t>(value_)));
+  }
+
   template <typename NameValuePair>
   void VisitScalar(const NameValuePair& pair) {
     using Tref = decltype(pair.get_value());
@@ -336,6 +354,14 @@ struct ReadArchive : public ItemArchive<ReadArchive> {
         buffer_(buffer),
         stream_(stream),
         callback_(callback) {
+  }
+
+  template <typename NameValuePair, typename NameMapGetter>
+  void VisitEnumeration(const NameValuePair& pair,
+                        NameMapGetter) {
+    auto out_buffer = EmitValue(static_cast<int32_t>(pair.get_value()));
+
+    AsyncWrite(stream_, out_buffer, callback_);
   }
 
   template <typename NameValuePair>

@@ -1,4 +1,4 @@
-// Copyright 2015-2019 Josh Pieper, jjp@pobox.com.
+// Copyright 2015-2020 Josh Pieper, jjp@pobox.com.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -35,15 +35,6 @@ enum class TestEnumeration : int {
   kNextValue = 5,
   kAnotherValue = 20,
 };
-
-inline std::map<TestEnumeration, const char*> TestEnumerationMapper() {
-  using TE = TestEnumeration;
-  return {
-    { TE::kValue1, "kValue1" },
-    { TE::kNextValue, "kNextValue" },
-    { TE::kAnotherValue, "kAnotherValue" },
-  };
-}
 
 struct SubTest1 {
   uint32_t value_u32 = 3;
@@ -100,7 +91,7 @@ struct AllTypesTest {
     a->Visit(MJ_NVP(value_bytes));
     a->Visit(MJ_NVP(value_str));
     a->Visit(MJ_NVP(value_object));
-    a->Visit(MJ_ENUM(value_enum, TestEnumerationMapper));
+    a->Visit(MJ_NVP(value_enum));
     a->Visit(MJ_NVP(value_array));
     a->Visit(MJ_NVP(value_fixedarray));
     // a->Visit(MJ_NVP(value_map));
@@ -112,5 +103,22 @@ struct AllTypesTest {
 };
 
 }
+
+template <>
+struct IsEnum<test::TestEnumeration> {
+  static constexpr bool value = true;
+
+  static std::map<test::TestEnumeration, const char*> map() {
+    using TE = test::TestEnumeration;
+    return {
+      { TE::kValue1, "kValue1" },
+      { TE::kNextValue, "kNextValue" },
+      { TE::kAnotherValue, "kAnotherValue" },
+  };
+}
+
+
+};
+
 }
 }

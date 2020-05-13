@@ -1,4 +1,4 @@
-// Copyright 2014-2019 Josh Pieper, jjp@pobox.com.
+// Copyright 2014-2020 Josh Pieper, jjp@pobox.com.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -108,43 +108,17 @@ ReferenceNameValuePair<T> MakeNameValuePair(T* value, const char* name) {
   return ReferenceNameValuePair<T>(value, name);
 }
 
-template <typename RawEnumeration, typename NameMapGetter>
-class EnumerationNameValuePair {
- public:
-  using Base = RawEnumeration;
-  using NameMapper = NameMapGetter;
+/// Clients can specialize this structure to declare enumeration
+/// types.
+template <typename T>
+struct IsEnum {
+  static constexpr bool value = false;
 
-  EnumerationNameValuePair(RawEnumeration* value,
-                           const char* name,
-                           NameMapGetter mapper)
-      : enumeration_mapper(mapper),
-        value_(value),
-        name_(name) {}
-
-  uint32_t get_value() const { return static_cast<int>(*value_); }
-  void set_value(uint32_t value) const {
-    *value_ = static_cast<RawEnumeration>(value);
-  }
-  RawEnumeration* value() const { return value_; }
-  const char* name() const { return name_; }
-
-  const NameMapGetter enumeration_mapper;
-
- private:
-  RawEnumeration* const value_;
-  const char* const name_;
+  /// Any specialization should declare the following.
+  // using NameMapGetter = X;
 };
 
-template <typename RawEnumeration, typename NameMapGetter>
-EnumerationNameValuePair<RawEnumeration, NameMapGetter>
-MakeEnumerationNameValuePair(RawEnumeration* raw_enumeration,
-                             const char* name,
-                             NameMapGetter getter) {
-  return EnumerationNameValuePair<RawEnumeration, NameMapGetter>(
-      raw_enumeration, name, getter);
-}
 }
 }
 
 #define MJ_NVP(x) mjlib::base::MakeNameValuePair(&x, #x)
-#define MJ_ENUM(x, getter) mjlib::base::MakeEnumerationNameValuePair(&x, #x, getter)

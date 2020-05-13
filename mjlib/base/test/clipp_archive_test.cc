@@ -1,4 +1,4 @@
-// Copyright 2019 Josh Pieper, jjp@pobox.com.
+// Copyright 2019-2020 Josh Pieper, jjp@pobox.com.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,13 +26,25 @@ enum MyEnum {
   kValue1 = 1,
   kValue2 = 2,
 };
-
-std::map<MyEnum, const char*> MyEnumMapper() {
-  return {
-    { kValue1, "kValue1", },
-    { kValue2, "kValue2", },
-  };
 }
+
+namespace mjlib {
+namespace base {
+template <>
+struct IsEnum<MyEnum> {
+  static constexpr bool value = true;
+
+  static std::map<MyEnum, const char*> map() {
+    return {
+      { kValue1, "kValue1", },
+      { kValue2, "kValue2", },
+          };
+  }
+};
+}
+}
+
+namespace {
 
 struct SubStruct {
   bool bool_switch = false;
@@ -55,7 +67,7 @@ struct MyStruct {
   void Serialize(Archive* a) {
     a->Visit(MJ_NVPT(int_value).help("special text"));
     a->Visit(MJ_NVPT(string_value).label("STR"));
-    a->Visit(MJ_ENUMT(enum_value, MyEnumMapper).help("stuff"));
+    a->Visit(MJ_NVPT(enum_value).help("stuff"));
     a->Visit(MJ_NVP(sub_struct));
     a->Visit(MJ_NVP(array_subs));
     a->Visit(MJ_NVP(array_scalars));

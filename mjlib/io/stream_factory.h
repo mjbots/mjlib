@@ -1,4 +1,4 @@
-// Copyright 2015-2019 Josh Pieper, jjp@pobox.com.
+// Copyright 2015-2020 Josh Pieper, jjp@pobox.com.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -60,7 +60,7 @@ class StreamFactory : boost::noncopyable {
 
     template <typename Archive>
     void Serialize(Archive* a) {
-      a->Visit(MJ_ENUM(type, TypeMapper));
+      a->Visit(MJ_NVPT(type));
       a->Visit(MJ_NVPT(stdio_in).label("FD"));
       a->Visit(MJ_NVPT(stdio_out).label("FD"));
       a->Visit(MJ_NVPT(serial_port).label("PORT"));
@@ -88,5 +88,17 @@ class StreamFactory : boost::noncopyable {
   std::unique_ptr<Impl> impl_;
 };
 
-}
-}
+}  // namespace io
+
+namespace base {
+template <>
+struct IsEnum<io::StreamFactory::Type> {
+  static constexpr bool value = true;
+
+  static std::map<io::StreamFactory::Type, const char*> map() {
+    return io::StreamFactory::TypeMapper();
+  }
+};
+
+}  // namespace base
+}  // namespace mjlib

@@ -1,4 +1,4 @@
-// Copyright 2015-2019 Josh Pieper, jjp@pobox.com.
+// Copyright 2015-2020 Josh Pieper, jjp@pobox.com.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -70,14 +70,16 @@ class BinaryReadArchive : public base::VisitArchive<BinaryReadArchive> {
     return Read<ValueType>(stream);
   }
 
-  template <typename NameValuePair>
-  void VisitEnumeration(const NameValuePair& nvp) {
+  template <typename NameValuePair, typename NameMapGetter>
+  void VisitEnumeration(const NameValuePair& nvp,
+                        NameMapGetter enumeration_mapper) {
     const auto maybe_value = stream_.ReadVaruint();
     if (!maybe_value) {
       error_ = true;
       return;
     }
-    nvp.set_value(*maybe_value);
+    nvp.set_value(static_cast<decltype(enumeration_mapper().begin()->first)>(
+                      *maybe_value));
   }
 
   bool error() const {

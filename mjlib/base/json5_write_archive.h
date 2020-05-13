@@ -1,4 +1,4 @@
-// Copyright 2019 Josh Pieper, jjp@pobox.com.
+// Copyright 2019-2020 Josh Pieper, jjp@pobox.com.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -93,9 +93,10 @@ class Json5WriteArchive : public VisitArchive<Json5WriteArchive> {
     sub_archive.Accept(nvp.value());
   }
 
-  template <typename NameValuePair>
-  void VisitEnumeration(const NameValuePair& nvp) {
-    stream_ << "\"" << nvp.enumeration_mapper()[*nvp.value()] << "\"";
+  template <typename NameValuePair, typename NameMapGetter>
+  void VisitEnumeration(const NameValuePair& nvp,
+                        NameMapGetter enumeration_mapper) {
+    stream_ << "\"" << enumeration_mapper().at(*nvp.value()) << "\"";
   }
 
   template <typename NameValuePair>

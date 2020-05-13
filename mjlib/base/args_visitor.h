@@ -1,4 +1,4 @@
-// Copyright 2019 Josh Pieper, jjp@pobox.com.
+// Copyright 2019-2020 Josh Pieper, jjp@pobox.com.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -50,40 +50,7 @@ ReferenceNameValuePairTraits<T> MakeNameValuePairTraits(T* value, const char* na
   return ReferenceNameValuePairTraits<T>(value, name);
 }
 
-template <typename RawEnumeration, typename NameMapGetter>
-class EnumerationNameValuePairTraits
-    : public EnumerationNameValuePair<RawEnumeration, NameMapGetter> {
- public:
-  using EnumerationNameValuePair<RawEnumeration, NameMapGetter>::EnumerationNameValuePair;
-
-  const ArgumentTraits& argument_traits() const { return argument_traits_; }
-
-  EnumerationNameValuePairTraits& help(const char* text) {
-    argument_traits_.help = text;
-    return *this;
-  }
-
-  EnumerationNameValuePairTraits& label(const char* text) {
-    argument_traits_.label = text;
-    return *this;
-  }
-
- private:
-  ArgumentTraits argument_traits_;
-};
-
-template <typename RawEnumeration, typename NameMapGetter>
-EnumerationNameValuePairTraits<RawEnumeration, NameMapGetter>
-MakeEnumerationNameValuePairTraits(RawEnumeration* raw_enumeration,
-                                   const char* name,
-                                   NameMapGetter getter) {
-  return EnumerationNameValuePairTraits<RawEnumeration, NameMapGetter>(
-      raw_enumeration, name, getter);
-}
-
 #define MJ_NVPT(x) mjlib::base::MakeNameValuePairTraits(&x, #x)
-#define MJ_ENUMT(x, getter) \
-  mjlib::base::MakeEnumerationNameValuePairTraits(&x, #x, getter)
 
 }
 }

@@ -1,4 +1,4 @@
-// Copyright 2019 Josh Pieper, jjp@pobox.com.
+// Copyright 2019-2020 Josh Pieper, jjp@pobox.com.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -108,11 +108,12 @@ class Json5ReadArchive : public VisitArchive<Json5ReadArchive> {
     sub_archive.Accept(nvp.value());
   }
 
-  template <typename NameValuePair>
-  void VisitEnumeration(const NameValuePair& nvp) {
+  template <typename NameValuePair, typename NameMapGetter>
+  void VisitEnumeration(const NameValuePair& nvp,
+                        NameMapGetter enumeration_mapper) {
     const auto text = Read_JSON5String();
     *nvp.value() = [&]() {
-      for (const auto& pair : nvp.enumeration_mapper()) {
+      for (const auto& pair : enumeration_mapper()) {
         if (pair.second == text) {
           return pair.first;
         }

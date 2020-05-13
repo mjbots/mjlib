@@ -1,4 +1,4 @@
-// Copyright 2015-2019 Josh Pieper, jjp@pobox.com.
+// Copyright 2015-2020 Josh Pieper, jjp@pobox.com.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -37,8 +37,8 @@ struct VisitArchive {
     VisitHelper(pair, pair.value(), PriorityTag<1>());
   }
 
-  template <typename NameValuePair>
-  void VisitEnumeration(const NameValuePair& pair) {
+  template <typename NameValuePair, typename NameMapGetter>
+  void VisitEnumeration(const NameValuePair& pair, NameMapGetter) {
     static_cast<Derived*>(this)->VisitScalar(pair);
   }
 
@@ -65,10 +65,9 @@ struct VisitArchive {
   }
 
   template <typename NameValuePair, typename T>
-  auto VisitHelper(const NameValuePair& pair, T*, PriorityTag<1>) ->
-      decltype(pair.enumeration_mapper) {
-    static_cast<Derived*>(this)->VisitEnumeration(pair);
-    return pair.enumeration_mapper;
+  void VisitHelper(const NameValuePair& pair, T*, PriorityTag<1>,
+                   std::enable_if_t<IsEnum<T>::value, int> = 0) {
+    static_cast<Derived*>(this)->VisitEnumeration(pair, &IsEnum<T>::map);
   }
 
   template <typename NameValuePair, typename T, size_t N>

@@ -64,22 +64,28 @@ class ClippArchive : public VisitArchive<ClippArchive> {
   }
 
 
-  template <typename NameValuePair>
-  void VisitEnumeration(const NameValuePair& nvp) {
-    auto option = clipp::option(MakeName(nvp)) &
-        clipp::value(get_label(nvp, PriorityTag<1>()), [nvp](std::string value) {
-            for (const auto& pair : nvp.enumeration_mapper()) {
-              if (value == pair.second) {
-                nvp.set_value(static_cast<uint32_t>(pair.first));
-                return;
+  template <typename NameValuePair, typename NameMapGetter>
+  void VisitEnumeration(const NameValuePair& nvp,
+                        NameMapGetter enumeration_mapper) {
+    auto option =
+        clipp::option(MakeName(nvp)) &
+        clipp::value(
+            get_label(nvp, PriorityTag<1>()),
+            [nvp, enumeration_mapper](std::string value) {
+              for (const auto& pair : enumeration_mapper()) {
+                if (value == pair.second) {
+                  nvp.set_value(pair.first);
+                  return;
+                }
               }
-            }
-            system_error::throw_if(
-                true, fmt::format("invalid enum: {} not in {}",
-                                  value, allowable_enums(nvp.enumeration_mapper)));
-          });
+              system_error::throw_if(
+                  true, fmt::format(
+                      "invalid enum: {} not in {}",
+                      value, allowable_enums(enumeration_mapper)));
+            });
     option = SetOptions(option, nvp, PriorityTag<1>());
-    option = option.doc(option.doc() + " (" + allowable_enums(nvp.enumeration_mapper) + ")");
+    option = option.doc(option.doc() + " (" +
+                        allowable_enums(enumeration_mapper) + ")");
     group_.push_back(ensure_doc(option));
   }
 
