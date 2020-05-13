@@ -54,6 +54,8 @@ BOOST_AUTO_TEST_CASE(BinaryWriteArchive) {
   };
 
   telemetry::test::Compare(expected, ostr.str());
+  telemetry::test::Compare(
+      expected, telemetry::BinaryWriteArchive::Write(all_types));
 }
 
 BOOST_AUTO_TEST_CASE(BinarySchemaArchive) {

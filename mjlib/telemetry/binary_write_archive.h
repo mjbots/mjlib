@@ -50,6 +50,25 @@ class BinaryWriteArchive : public base::VisitArchive<BinaryWriteArchive> {
     return *this;
   }
 
+  template <typename ValueType>
+  BinaryWriteArchive& Value(const ValueType& value) {
+    base::ReferenceNameValuePair nvp(const_cast<ValueType*>(&value), "");
+    VisitArchive<BinaryWriteArchive>::Visit(nvp);
+    return *this;
+  }
+
+  template <typename ValueType>
+  static void Write(const ValueType& value, base::WriteStream& stream) {
+    BinaryWriteArchive(stream).Value(value);
+  }
+
+  template <typename ValueType>
+  static std::string Write(const ValueType& value) {
+    base::FastOStringStream ostr;
+    Write(value, ostr);
+    return ostr.str();
+  }
+
   template <typename NameValuePair>
   void VisitScalar(const NameValuePair& nvp) {
     VisitHelper(nvp, nvp.value(), base::PriorityTag<2>());
