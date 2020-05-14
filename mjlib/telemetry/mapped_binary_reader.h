@@ -243,7 +243,7 @@ class MappedBinaryReader {
     }
 
     template <typename NameValuePair, typename T>
-    void VisitHelper(const NameValuePair& nvp, T* value, base::PriorityTag<0>) {
+    void VisitHelper(const NameValuePair& nvp, T*, base::PriorityTag<0>) {
       using ChildTypeCV = decltype(*nvp.value());
       using ChildType = typename std::remove_const<
         typename std::remove_reference<ChildTypeCV>::type>::type;
