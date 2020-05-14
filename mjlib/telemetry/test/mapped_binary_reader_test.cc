@@ -80,3 +80,97 @@ BOOST_AUTO_TEST_CASE(ChangeTypeError) {
   };
   BOOST_CHECK_EXCEPTION(create(), base::system_error, is_type_error);
 }
+
+namespace {
+struct NeedsExternalSerialization {
+  int32_t stuff = 10;
+};
+
+struct WrappedExternal {
+  int32_t baz = 11;
+};
+
+struct Compatible {
+  int32_t baz = 23;
+  int32_t bing = 200;
+
+  template <typename Archive>
+  void Serialize(Archive* a) {
+    a->Visit(MJ_NVP(baz));
+    a->Visit(MJ_NVP(bing));
+  }
+};
+
+struct WrappedExternalWrapper {
+  WrappedExternalWrapper(WrappedExternal* o) : o_(o) {}
+
+  template <typename Archive>
+  void Serialize(Archive* a) {
+    a->Visit(mjlib::base::MakeNameValuePair(&o_->baz, "baz"));
+  }
+
+  WrappedExternal* o_;
+};
+}
+
+namespace mjlib {
+namespace base {
+
+template <>
+struct ExternalSerializer<NeedsExternalSerialization> {
+  template <typename PairReceiver>
+  void Serialize(NeedsExternalSerialization* o, PairReceiver receiver) {
+    receiver(mjlib::base::MakeNameValuePair(&o->stuff, ""));
+  }
+};
+
+template <>
+struct ExternalSerializer<WrappedExternal> {
+  template <typename PairReceiver>
+  void Serialize(WrappedExternal* o, PairReceiver receiver) {
+    WrappedExternalWrapper wrapper{o};
+    receiver(mjlib::base::MakeNameValuePair(&wrapper, ""));
+  }
+};
+
+}
+}
+
+BOOST_AUTO_TEST_CASE(ParseExternalSerializer) {
+  {
+    tl::BinarySchemaParser parser(
+        tl::BinarySchemaArchive::Write<base::test::AllTypesTest>());
+    tl::MappedBinaryReader<NeedsExternalSerialization> dut{&parser};
+    auto copy = dut.Read(tl::BinaryWriteArchive::Write(
+                             base::test::AllTypesTest()));
+    BOOST_TEST(copy.stuff == 10);
+  }
+
+  {
+    tl::BinarySchemaParser parser(
+        tl::BinarySchemaArchive::Write<int32_t>());
+    tl::MappedBinaryReader<NeedsExternalSerialization> dut{&parser};
+    auto copy = dut.Read(tl::BinaryWriteArchive::Write(static_cast<int32_t>(23)));
+    BOOST_TEST(copy.stuff == 23);
+  }
+
+  {
+    tl::BinarySchemaParser parser(
+        tl::BinarySchemaArchive::Write<int32_t>());
+    auto is_type_mismatch = [](const base::system_error& error) {
+      return error.code() == telemetry::errc::kTypeMismatch;
+    };
+    BOOST_CHECK_EXCEPTION(
+        (tl::MappedBinaryReader<WrappedExternal>{&parser}),
+        base::system_error,
+        is_type_mismatch);
+  }
+
+  {
+    tl::BinarySchemaParser parser(
+        tl::BinarySchemaArchive::Write<Compatible>());
+    tl::MappedBinaryReader<WrappedExternal> dut{&parser};
+    auto copy = dut.Read(tl::BinaryWriteArchive::Write(Compatible()));
+    BOOST_TEST(copy.baz == 23);
+  }
+}

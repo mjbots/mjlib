@@ -60,3 +60,27 @@ BOOST_AUTO_TEST_CASE(EigenVectorVisit) {
   ])XXX";
   BOOST_TEST(actual == expected);
 }
+
+namespace {
+struct StructWithEigen {
+  Eigen::Vector3d vector;
+
+  template <typename Archive>
+  void Serialize(Archive* a) {
+    a->Visit(MJ_NVP(vector));
+  }
+};
+}
+
+BOOST_AUTO_TEST_CASE(EigenStruct) {
+  StructWithEigen test;
+  const auto actual = base::Json5WriteArchive::Write(test);
+  const std::string expected = R"XXX({
+    "vector" : [
+      0,
+      0,
+      0,
+    ],
+  })XXX";
+  BOOST_TEST(actual == expected);
+}

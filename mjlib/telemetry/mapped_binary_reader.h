@@ -19,8 +19,10 @@
 
 #include <fmt/format.h>
 
+#include "mjlib/base/detail/serialize.h"
 #include "mjlib/base/error_code.h"
 #include "mjlib/base/fail.h"
+#include "mjlib/base/priority_tag.h"
 #include "mjlib/base/recording_stream.h"
 #include "mjlib/base/system_error.h"
 
@@ -41,6 +43,7 @@ class MappedBinaryReader {
  public:
   using Element = BinarySchemaParser::Element;
   using StringElementMap = std::map<std::string, const Element*>;
+  using StringMap = std::map<std::string, std::string>;
 
   MappedBinaryReader(const BinarySchemaParser* parser)
       : MappedBinaryReader(parser->root()) {}
@@ -51,35 +54,92 @@ class MappedBinaryReader {
       schemas_same_ = true;
     } else if (base::IsSerializable<ParentType>() &&
                element->type == Format::Type::kObject) {
-      SetupReaders<base::IsSerializable<ParentType>()>(element);
+      // We can map on a field level, prepare our mapping structure.
+      for (const auto& field : element->fields) {
+        element_map_.insert(std::make_pair(field.name, field.element));
+      }
+
+      SetupReaders<base::IsNativeSerializable<ParentType>() ? 1 :
+                   base::IsExternalSerializable<ParentType>() ? 2 : 0>();
     } else {
       throw base::system_error(
           base::error_code(
               errc::kTypeMismatch,
               fmt::format(
-                  "C++ {} has incorrect type for {}/{}",
+                  "C++ {} has incorrect type for {}",
                   typeid(ParentType).name(),
-                  element->name, static_cast<int>(element->type))));
+                  static_cast<int>(element->type))));
     }
   }
 
-  template <bool _>
-  void SetupReaders(const Element*) {
+  template <int _>
+  void SetupReaders() {
     // We have this dummy method so that we don't instantiate things
     // for non-structure types.
     base::AssertNotReached();
   }
 
   template <>
-  void SetupReaders<true>(const Element* element) {
-      // We can map on a field level, prepare our mapping structure.
-      StringElementMap element_map;
-      for (const auto& field : element->fields) {
-        element_map.insert(std::make_pair(field.name, field.element));
-      }
-      SchemaArchive archive(&element_map, this);
-      ParentType value;
-      base::Serialize(&value, &archive);
+  void SetupReaders<1>() {
+    ParentType parent;
+    SetupNativeSerializable<ParentType>(&parent);
+  }
+
+  template <typename Serializable>
+  void SetupNativeSerializable(Serializable* serializable) {
+    SchemaArchive archive(&element_map_, this);
+    base::Serialize(serializable, &archive);
+  }
+
+  // NOTE: This class would be very simple if we didn't have to deal
+  // with external serialization, which adds a lot of complexity.  We
+  // have to handle external serialization of types that resolve to
+  // primitives and those that resolve to serializable, all while
+  // making we we don't instantiate a template that doesn't make
+  // sense.
+
+  struct SetupReaderExternal {
+    SetupReaderExternal(MappedBinaryReader* parent) : parent_(parent) {}
+
+    template <typename T>
+    void operator()(const T& nvp) {
+      using ChildRef = decltype(*nvp.value());
+      using Child = typename std::remove_reference<ChildRef>::type;
+      SetupReaderExternalHelper<
+        base::IsNativeSerializable<Child>() ? 1 : 0>{parent_}(nvp.value());
+    }
+
+    MappedBinaryReader* parent_;
+  };
+
+  template <int _>
+  struct SetupReaderExternalHelper {
+    SetupReaderExternalHelper(MappedBinaryReader*) {}
+
+    template <typename Serializable>
+    void operator()(Serializable*) {}
+  };
+
+  template <>
+  struct SetupReaderExternalHelper<1> {
+    SetupReaderExternalHelper(MappedBinaryReader* parent) : parent_(parent) {}
+
+    template <typename Serializable>
+    void operator()(Serializable* serializable) {
+      parent_->SetupNativeSerializable<Serializable>(serializable);
+    }
+
+    MappedBinaryReader* parent_;
+  };
+
+  template <>
+  void SetupReaders<2>() {
+    // This only works if the type we get back from the external
+    // serializer is also an object.
+    SchemaArchive archive(&element_map_, this);
+    ParentType value;
+    mjlib::base::ExternalSerializer<ParentType> serializer;
+    serializer.Serialize(&value, SetupReaderExternal(this));
   }
 
   ParentType Read(std::string_view data) const {
@@ -98,38 +158,44 @@ class MappedBinaryReader {
       BinaryReadArchive(stream).Value(value);
       return;
     } else {
-      ReadHelper<base::IsSerializable<ParentType>()>(value, stream);
+      // Read all the field data in an unstructured manner.
+      //
+      // NOTE: You could imagine delaying this, and reading fields
+      // directly until one was found which needed the mapping at which
+      // point some or all of the remainder would be read into temporary
+      // memory.
+      StringMap field_data;
+      for (const auto& field : element_->fields) {
+        base::RecordingStream recording_stream{stream};
+        field.element->Ignore(recording_stream);
+        field_data.insert(std::make_pair(field.name, recording_stream.str()));
+      }
+
+      ReadHelper<base::IsNativeSerializable<ParentType>() ? 1 :
+                 base::IsExternalSerializable<ParentType>() ? 2 : 0>(
+                     &field_data, value);
     }
   }
 
-  template <bool _>
-  void ReadHelper(ParentType*, base::ReadStream&) const {
+  template <int _>
+  void ReadHelper(StringMap*, ParentType*) const {
     base::AssertNotReached();
   }
 
   template <>
-  void ReadHelper<true>(ParentType* value, base::ReadStream& stream) const {
-    // Read all the field data in an unstructured manner.
-    //
-    // NOTE: You could imagine delaying this, and reading fields
-    // directly until one was found which needed the mapping at which
-    // point some or all of the remainder would be read into temporary
-    // memory.
-    StringMap field_data;
-    for (const auto& field : element_->fields) {
-      base::RecordingStream recording_stream{stream};
-      field.element->Ignore(recording_stream);
-      field_data.insert(std::make_pair(field.name, recording_stream.str()));
-    }
-
+  void ReadHelper<1>(StringMap* field_data, ParentType* value) const {
     // Now visit the C++ structure.
-    DataArchive archive(&field_data, &readers_);
+    DataArchive archive(field_data, &readers_);
     base::Serialize(value, &archive);
   }
 
- private:
-  using StringMap = std::map<std::string, std::string>;
+  template <>
+  void ReadHelper<2>(StringMap* field_data, ParentType* value) const {
+    mjlib::base::ExternalSerializer<ParentType> serializer;
+    serializer.Serialize(value, ExternalDataHelper{field_data, &readers_});
+  }
 
+ private:
   class Reader {
    public:
     virtual ~Reader() {}
@@ -162,6 +228,22 @@ class MappedBinaryReader {
 
     template <typename NameValuePair>
     void Visit(const NameValuePair& nvp) {
+      VisitHelper(nvp, nvp.value(), base::PriorityTag<1>());
+    }
+
+    template <typename NameValuePair, typename T>
+    void VisitHelper(const NameValuePair& nvp, T* value, base::PriorityTag<1>,
+                     std::enable_if_t<base::IsExternalSerializable<T>(), int> = 0) {
+      // We have to invoke the external serializer here.
+      mjlib::base::ExternalSerializer<T> serializer;
+      serializer.Serialize(value, [&](const auto& new_nvp) {
+          base::detail::NameValuePairNameOverride old_name(new_nvp, nvp.name());
+          Visit(old_name);
+        });
+    }
+
+    template <typename NameValuePair, typename T>
+    void VisitHelper(const NameValuePair& nvp, T* value, base::PriorityTag<0>) {
       using ChildTypeCV = decltype(*nvp.value());
       using ChildType = typename std::remove_const<
         typename std::remove_reference<ChildTypeCV>::type>::type;
@@ -200,12 +282,46 @@ class MappedBinaryReader {
     const ReaderMap* const reader_map_;
   };
 
+  template <int _>
+  struct ExtraHelper {
+    template <typename NameValuePair>
+    void operator()(DataArchive* archive, const NameValuePair& nvp) {
+      archive->Visit(nvp);
+    }
+  };
+
+  template<>
+  struct ExtraHelper<1> {
+    template <typename NameValuePair>
+    void operator()(DataArchive* archive, const NameValuePair& nvp) {
+      nvp.value()->Serialize(archive);
+    }
+  };
+
+  struct ExternalDataHelper {
+    ExternalDataHelper(StringMap* field_data_in, const ReaderMap* readers_in)
+        : archive(field_data_in, readers_in) {}
+
+    template <typename NameValuePair>
+    void operator()(const NameValuePair& nvp) {
+      using ChildRef = decltype(*nvp.value());
+      using Child = typename std::remove_reference<ChildRef>::type;
+      ExtraHelper<
+        base::IsNativeSerializable<Child>() ? 1 : 0>{}(&archive, nvp);
+    }
+
+    DataArchive archive;
+  };
+
   bool schemas_same_ = false;
   const Element* element_;
 
   // There is one entry here for each field of the C++ structure,
   // indexed by name.
   ReaderMap readers_;
+
+  // This is really just a member variable for convenience.
+  StringElementMap element_map_;
 };
 
 }
