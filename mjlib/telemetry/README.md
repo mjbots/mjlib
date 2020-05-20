@@ -54,6 +54,11 @@ which describes one field of the object.  Each field consists of:
  - `type`: A full schema declaration
  - `default`: A default value for this field
  - `aliases`: Zero or more alternate names
+ - `version`: A JSON number which indicates the semantic
+   interpretation of one or more fields differs from objects with an
+   earlier version number.  This can be used to handle schema
+   evolution more complicated than what JSON and "aliases" renamed
+   fields provides for.
 
 
 ### Enum ###
@@ -214,7 +219,18 @@ The following additional attributes follow these given types:
    - `types`: One or more "type" encodings.  The final must be of type
      `final`.
 
-## Field ##
+## Object Additional Data ##
+
+### Flags ###
+
+The following flags are defined.
+
+ * `version` - 1 << 0
+   * This indicates that a `varuint` field is present in the optional
+     data section.  It has the same meaning as `version` in the JSON
+     schema representation.
+
+### Field ###
 
 This comprises one element of the `object` types additional data.
 
