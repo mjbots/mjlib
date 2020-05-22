@@ -515,15 +515,19 @@ class Json5ReadArchive : public VisitArchive<Json5ReadArchive> {
   }
 
   std::string Read_ExponentPart() {
-    const auto first = Peek();
-    if (first != 'e' && first != 'E') { return ""; }
-    return static_cast<char>(Get()) + Read_SignedInteger();
+    const auto peek = Peek();
+    if (peek != 'e' && peek != 'E') { return ""; }
+    const auto first = Get();
+    const auto digits = Read_SignedInteger();
+    return static_cast<char>(first) + digits;
   }
 
   std::string Read_SignedInteger() {
-    const auto first = Peek();
-    if (first == '+' || first == '-') {
-      return static_cast<char>(Get()) + Read_DecimalDigits();
+    const auto peek = Peek();
+    if (peek == '+' || peek == '-') {
+      const auto first = Get();
+      const auto digits = Read_DecimalDigits();
+      return static_cast<char>(first) + digits;
     }
     return Read_DecimalDigits();
   }
