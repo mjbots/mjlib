@@ -121,4 +121,4 @@ struct IsEnum {
 }
 }
 
-#define MJ_NVP(x) mjlib::base::MakeNameValuePair(&x, #x)
+#define MJ_NVP(x) ::mjlib::base::MakeNameValuePair(&x, #x)
