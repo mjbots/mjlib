@@ -29,7 +29,9 @@
 #include "mjlib/telemetry/binary_read_archive.h"
 #include "mjlib/telemetry/binary_schema_parser.h"
 #include "mjlib/telemetry/binary_write_archive.h"
+#include "mjlib/telemetry/container_types.h"
 #include "mjlib/telemetry/error.h"
+#include "mjlib/telemetry/format.h"
 
 namespace mjlib {
 namespace telemetry {
@@ -61,6 +63,18 @@ class MappedBinaryReader {
 
       SetupReaders<base::IsNativeSerializable<ParentType>() ? 1 :
                    base::IsExternalSerializable<ParentType>() ? 2 : 0>();
+    } else if ((element->type == Format::Type::kArray ||
+                element->type == Format::Type::kMap ||
+                element->type == Format::Type::kUnion ||
+                element->type == Format::Type::kEnum ||
+                element->type == Format::Type::kFixedArray) &&
+               [&]() {
+                 ParentType ignored;
+                 return detail::IsContainerTypeMatch(&ignored, element->type);
+               }()) {
+      // Set up our container readers.
+      ParentType ignored;
+      SetupContainerReaders(element, &ignored, base::PriorityTag<1>());
     } else {
       throw base::system_error(
           base::error_code(
@@ -95,7 +109,7 @@ class MappedBinaryReader {
   // with external serialization, which adds a lot of complexity.  We
   // have to handle external serialization of types that resolve to
   // primitives and those that resolve to serializable, all while
-  // making we we don't instantiate a template that doesn't make
+  // making sure we don't instantiate a template that doesn't make
   // sense.
 
   struct SetupReaderExternal {
@@ -142,6 +156,71 @@ class MappedBinaryReader {
     serializer.Serialize(&value, SetupReaderExternal(this));
   }
 
+  template <typename T>
+  void SetupContainerReaders(const Element* element,
+                             std::vector<T>*, base::PriorityTag<1>) {
+    container_readers_.push_back(std::make_unique<ChildReader<T>>(
+                                     element->children.at(0)));
+  }
+
+  template <typename T, size_t N>
+  void SetupContainerReaders(const Element* element,
+                             std::array<T, N>*, base::PriorityTag<1>) {
+    if (N != element->array_size) {
+      throw base::system_error(
+          base::error_code(
+              errc::kTypeMismatch,
+              fmt::format(
+                  "C++ {} kFixedArray has incorrect size, {} != {}",
+                  typeid(ParentType).name(),
+                  N, element->array_size)));
+    }
+    container_readers_.push_back(std::make_unique<ChildReader<T>>(
+                                     element->children.at(0)));
+  }
+
+  template <typename T>
+  void SetupContainerReaders(const Element* element,
+                             std::optional<T>*, base::PriorityTag<1>) {
+    if (element->children.size() != 2 &&
+        element->children.front()->type != Format::Type::kNull) {
+      throw base::system_error(
+          base::error_code(
+              errc::kTypeMismatch,
+              fmt::format(
+                  "C++ {} optional does not match",
+                  typeid(ParentType).name())));
+    }
+    container_readers_.push_back(std::make_unique<ChildReader<T>>(
+                                     element->children.at(1)));
+  }
+
+  template <typename T>
+  void SetupContainerReaders(const Element* element,
+                             std::map<std::string, T>*, base::PriorityTag<1>) {
+    container_readers_.push_back(std::make_unique<ChildReader<T>>(
+                                     element->children.at(0)));
+  }
+
+  template <typename T>
+  void SetupContainerReaders(const Element*, T*, base::PriorityTag<1>,
+                             std::enable_if_t<base::IsEnum<T>::value, int> = 0) {
+    // We do nothing here, as we only support varuint enums currently.
+    // Push an empty thing on the list so we hit the container read
+    // path.
+    container_readers_.push_back({});
+  }
+
+  void SetupContainerReaders(const Element*, base::Bytes*, base::PriorityTag<1>) {
+    // All bytes should be the same.
+    base::AssertNotReached();
+  }
+
+  template <typename T>
+  void SetupContainerReaders(const Element*, T*, base::PriorityTag<0>) {
+    base::AssertNotReached();
+  }
+
   ParentType Read(std::string_view data) const {
     ParentType result;
     Read(&result, data);
@@ -157,6 +236,8 @@ class MappedBinaryReader {
     if (schemas_same_) {
       BinaryReadArchive(stream).Value(value);
       return;
+    } else if (!container_readers_.empty()) {
+      ReadContainer(value, stream);
     } else {
       // Read all the field data in an unstructured manner.
       //
@@ -195,15 +276,61 @@ class MappedBinaryReader {
     serializer.Serialize(value, ExternalDataHelper{field_data, &readers_});
   }
 
+  template <typename T>
+  void ReadContainer(std::vector<T>* value, base::ReadStream& stream_in) const {
+    ReadStream stream{stream_in};
+    const auto maybe_vector_size = stream.ReadVaruint();
+    value->resize(maybe_vector_size.value());
+    for (auto& item : *value) {
+      container_readers_.front()->Read(stream_in, &item);
+    }
+  }
+
+  template <typename T, size_t N>
+  void ReadContainer(std::array<T, N>* value, base::ReadStream& stream_in) const {
+    for (auto& item : *value) {
+      container_readers_.front()->Read(stream_in, &item);
+    }
+  }
+
+  template <typename T>
+  void ReadContainer(std::optional<T>* value, base::ReadStream& stream_in) const {
+    ReadStream stream{stream_in};
+    const auto union_index = stream.ReadVaruint();
+    if (union_index == 0) {
+      value->reset();
+    } else {
+      T to_emplace;
+      container_readers_.front()->Read(stream_in, &to_emplace);
+      value->emplace(std::move(to_emplace));
+    }
+  }
+
+  template <typename T>
+  void ReadContainer(T* value, base::ReadStream& stream_in,
+                     std::enable_if_t<base::IsEnum<T>::value, int> = 0) const {
+    ReadStream stream{stream_in};
+    const auto maybe_value = stream.ReadVaruint();
+    *value = static_cast<T>(maybe_value.value());
+  }
+
+  template <typename T>
+  void ReadContainer(T*, base::ReadStream&,
+                     std::enable_if_t<!base::IsEnum<T>::value, int> = 0) const {
+    base::AssertNotReached();
+  }
+
  private:
   class Reader {
    public:
     virtual ~Reader() {}
 
     virtual void Read(std::string_view data, void* value) = 0;
+    virtual void Read(base::ReadStream& stream, void* value) = 0;
   };
 
   using ReaderMap = std::map<std::string, std::unique_ptr<Reader>>;
+  using ContainerReaders = std::vector<std::unique_ptr<Reader>>;
 
   template <typename ChildType>
   class ChildReader : public Reader {
@@ -214,6 +341,11 @@ class MappedBinaryReader {
     void Read(std::string_view data, void* value) override {
       ChildType* child = reinterpret_cast<ChildType*>(value);
       reader_.Read(child, data);
+    }
+
+    void Read(base::ReadStream& stream, void* value) override {
+      ChildType* child = reinterpret_cast<ChildType*>(value);
+      reader_.Read(child, stream);
     }
 
     MappedBinaryReader<ChildType> reader_;
@@ -319,6 +451,7 @@ class MappedBinaryReader {
   // There is one entry here for each field of the C++ structure,
   // indexed by name.
   ReaderMap readers_;
+  ContainerReaders container_readers_;
 
   // This is really just a member variable for convenience.
   StringElementMap element_map_;

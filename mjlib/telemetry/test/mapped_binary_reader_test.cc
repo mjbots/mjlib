@@ -56,6 +56,85 @@ BOOST_AUTO_TEST_CASE(SchemaEvolution) {
   BOOST_TEST(only_some.extra == 27);
 }
 
+BOOST_AUTO_TEST_CASE(InverseSchemaEvolution) {
+  tl::BinarySchemaParser parser(tl::BinarySchemaArchive::Write<OnlySome>());
+  tl::MappedBinaryReader<base::test::AllTypesTest> dut{&parser};
+  auto all = dut.Read(tl::BinaryWriteArchive::Write(OnlySome()));
+  BOOST_TEST(all.value_i8 == 34);
+  BOOST_TEST(all.value_object.value_u32 == 10);
+}
+
+BOOST_AUTO_TEST_CASE(ArrayEvolution) {
+  tl::BinarySchemaParser parser(
+      tl::BinarySchemaArchive::Write<std::vector<OnlySome>>());
+  tl::MappedBinaryReader<std::vector<base::test::AllTypesTest>> dut{&parser};
+  auto all = dut.Read(tl::BinaryWriteArchive::Write(
+                          std::vector<OnlySome>{{}, {}}));
+  BOOST_TEST(all.size() == 2);
+  BOOST_TEST(all[0].value_i8 == 34);
+  BOOST_TEST(all[1].value_i8 == 34);
+}
+
+BOOST_AUTO_TEST_CASE(FixedArrayEvolution) {
+  tl::BinarySchemaParser parser(
+      tl::BinarySchemaArchive::Write<std::array<OnlySome, 2>>());
+  tl::MappedBinaryReader<std::array<base::test::AllTypesTest, 2>> dut{&parser};
+  auto all = dut.Read(tl::BinaryWriteArchive::Write(
+                          std::array<OnlySome, 2>{}));
+  BOOST_TEST(all.size() == 2);
+  BOOST_TEST(all[0].value_i8 == 34);
+  BOOST_TEST(all[1].value_i8 == 34);
+}
+
+BOOST_AUTO_TEST_CASE(OptionalEvolution) {
+  tl::BinarySchemaParser parser(
+      tl::BinarySchemaArchive::Write<std::optional<OnlySome>>());
+  tl::MappedBinaryReader<std::optional<base::test::AllTypesTest>> dut{&parser};
+  auto all = dut.Read(tl::BinaryWriteArchive::Write(
+                          std::optional<OnlySome>{OnlySome()}));
+  BOOST_TEST(!!all);
+  BOOST_TEST(all->value_i8 == 34);
+}
+
+namespace {
+enum class NewEnumeration : int {
+  kValue1,
+  kNextValue = 5,
+  kAnotherValue = 20,
+  kYetMoreValues = 50,
+};
+}
+
+namespace mjlib {
+namespace base {
+
+template <>
+struct IsEnum<NewEnumeration> {
+  static constexpr bool value = true;
+
+  static std::map<NewEnumeration, const char*> map() {
+    using NE = NewEnumeration;
+    return {
+      { NE::kValue1, "kValue1" },
+      { NE::kNextValue, "kNextValue" },
+      { NE::kAnotherValue, "kAnotherValue" },
+      { NE::kYetMoreValues, "kYetMoreValues" },
+    };
+  }
+};
+
+}
+}
+
+BOOST_AUTO_TEST_CASE(EnumEvolution) {
+  tl::BinarySchemaParser parser(
+      tl::BinarySchemaArchive::Write<base::test::TestEnumeration>());
+  tl::MappedBinaryReader<NewEnumeration> dut{&parser};
+  auto all = dut.Read(tl::BinaryWriteArchive::Write(
+                          base::test::TestEnumeration::kAnotherValue));
+  BOOST_TEST((all == NewEnumeration::kAnotherValue));
+}
+
 namespace {
 struct TypeError {
   int32_t value_i8 = 103;

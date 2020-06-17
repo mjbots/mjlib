@@ -84,7 +84,10 @@ cc_library(
 
 cc_library(
     name = "mapped_binary_reader",
-    hdrs = ["mapped_binary_reader.h"],
+    hdrs = [
+        "container_types.h",
+        "mapped_binary_reader.h",
+    ],
     deps = [
         ":binary_read_archive",
         ":binary_schema_parser",

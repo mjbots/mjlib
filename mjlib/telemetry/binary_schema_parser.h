@@ -73,7 +73,7 @@ class BinarySchemaParser {
     /// for kFixedInt and kFixedUInt
     int int_size = -1;
 
-    /// For kArray, kMap, kUnion, kEnum
+    /// For kArray, kMap, kUnion, kEnum, and kFixedArray
     std::vector<const Element*> children;
 
     /// For kFixedArray
