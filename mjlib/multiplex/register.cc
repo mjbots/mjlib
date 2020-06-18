@@ -1,4 +1,4 @@
-// Copyright 2019 Josh Pieper, jjp@pobox.com.
+// Copyright 2019-2020 Josh Pieper, jjp@pobox.com.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -99,6 +99,11 @@ std::string_view RegisterRequest::buffer() const {
   return std::string_view(buffer_.data()->data(), buffer_.data()->size());
 }
 
+void RegisterRequest::clear() {
+  request_reply_ = false;
+  buffer_.clear();
+}
+
 namespace {
 std::optional<Format::Value> ReadValue(BaseReadStream& stream,
                                        size_t type_index) {
@@ -115,12 +120,10 @@ std::optional<Format::Value> ReadValue(BaseReadStream& stream,
   base::AssertNotReached();
 }
 
-std::optional<RegisterReply> ParseSubframe(BaseReadStream& stream) {
+bool ParseSubframe(BaseReadStream& stream, std::vector<RegisterValue>* output) {
   const auto maybe_subframe_id = stream.ReadVaruint();
-  if (!maybe_subframe_id) { return {}; }
+  if (!maybe_subframe_id) { return false; }
   const auto subframe_id = *maybe_subframe_id;
-
-  RegisterReply this_result;
 
   if (subframe_id >= u32(Format::Subframe::kReplyBase) &&
       subframe_id < (u32(Format::Subframe::kReplyBase) + 16)) {
@@ -131,52 +134,64 @@ std::optional<RegisterReply> ParseSubframe(BaseReadStream& stream) {
     const auto maybe_num_registers =
         (encoded_length == 0) ? stream.ReadVaruint() :
         std::make_optional<uint32_t>(encoded_length);
-    if (!maybe_num_registers) { return {}; }
+    if (!maybe_num_registers) { return false; }
     const auto num_registers = *maybe_num_registers;
 
     const auto maybe_start_reg = stream.ReadVaruint();
-    if (!maybe_start_reg) { return {}; }
+    if (!maybe_start_reg) { return false; }
     const auto start_reg = *maybe_start_reg;
 
     for (size_t i = 0; i < num_registers; i++) {
       const auto maybe_value = ReadValue(stream, type);
-      if (!maybe_value) { return {}; }
-      this_result[start_reg + i] = *maybe_value;
+      if (!maybe_value) { return false; }
+      output->push_back(std::make_pair(start_reg + i, *maybe_value));
     }
   } else if (subframe_id == u32(Format::Subframe::kWriteError) ||
              subframe_id == u32(Format::Subframe::kReadError)) {
     const auto maybe_this_reg = stream.ReadVaruint();
     const auto maybe_this_err = stream.ReadVaruint();
     if (!maybe_this_reg || !maybe_this_err) {
-      return {};
+      return false;
     }
-    this_result[*maybe_this_reg] = *maybe_this_err;
+    output->push_back(std::make_pair(*maybe_this_reg, *maybe_this_err));
   } else if (subframe_id == u32(Format::Subframe::kNop)) {
-    return {};
+    return false;
   } else {
     // We could report an error someday.  For now, we'll just call
     // ourselves done.
-    return {};
+    return false;
   }
 
-  return this_result;
+  return true;
 }
 }
 
 RegisterReply ParseRegisterReply(base::ReadStream& read_stream) {
-  multiplex::ReadStream stream{read_stream};
+  std::vector<RegisterValue> data;
+  ParseRegisterReply(read_stream, &data);
 
   RegisterReply result;
-  while (true) {
-    const auto maybe_result = ParseSubframe(stream);
-    if (!maybe_result) { return result; }
+  for (const auto& pair : data) {
+    result.insert(pair);
+  }
 
-    // Merge the current result into our final.
-    for (const auto& pair : *maybe_result) {
-      result.insert(pair);
+  return result;
+}
+
+void ParseRegisterReply(base::ReadStream& stream_in,
+                        std::vector<RegisterValue>* result) {
+  result->clear();
+  BaseReadStream stream{stream_in};
+
+  while (true) {
+    const size_t old_size = result->size();
+    const bool success = ParseSubframe(stream, result);
+    if (!success) {
+      result->resize(old_size);
+      return;
     }
   }
 }
 
-}
-}
+}  // namespace multiplex
+}  // namespace mjlib

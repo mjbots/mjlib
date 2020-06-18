@@ -1,4 +1,4 @@
-// Copyright 2019 Josh Pieper, jjp@pobox.com.
+// Copyright 2019-2020 Josh Pieper, jjp@pobox.com.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -262,8 +262,8 @@ class CommandRunner {
     }
 
     // Now we make our request.
-    client_->AsyncRegisterMultiple(
-        requests_,
+    client_->AsyncTransmit(
+        &requests_,
         &reply_,
         std::bind(&CommandRunner::HandleRequest, this, pl::_1));
   }
@@ -296,13 +296,20 @@ class CommandRunner {
 
     bool first = true;
 
-    for (const auto& id_reply : reply_.replies) {
+    // Group our replies by ID.
+    std::map<int, std::vector<RegisterValue>> groups;
+
+    for (const auto& item : reply_) {
+      groups[item.id].push_back(std::make_pair(item.reg, item.value));
+    }
+
+    for (const auto& pair : groups) {
       if (!first) {
         std::cout << " | ";
       }
       first = false;
-      const auto id = id_reply.id;
-      const auto& reply = id_reply.reply;
+      const auto id = pair.first;
+      const auto& reply = pair.second;
 
       if (reply.size() != 0) {
         std::cout << static_cast<int>(id) << ": ";
@@ -411,7 +418,7 @@ class CommandRunner {
   std::optional<io::BidirectionalStreamCopy> copy_;
 
   boost::asio::streambuf streambuf_;
-  std::vector<mp::AsioClient::IdRequest> requests_;
+  mp::AsioClient::Request requests_;
   mp::AsioClient::Reply reply_;
 
   io::DeadlineTimer delay_timer_{executor_};

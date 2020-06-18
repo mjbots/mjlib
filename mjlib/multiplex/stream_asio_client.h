@@ -1,4 +1,4 @@
-// Copyright 2019 Josh Pieper, jjp@pobox.com.
+// Copyright 2019-2020 Josh Pieper, jjp@pobox.com.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -45,13 +45,9 @@ class StreamAsioClient : public AsioClient {
   StreamAsioClient(FrameStream*, const Options& = Options());
   ~StreamAsioClient();
 
-  void AsyncRegister(const IdRequest&,
-                     SingleReply*,
+  void AsyncTransmit(const Request*,
+                     Reply*,
                      io::ErrorCallback) override;
-
-  void AsyncRegisterMultiple(const std::vector<IdRequest>&,
-                             Reply*,
-                             io::ErrorCallback) override;
 
   /// Allocate a tunnel which can be used to send and receive serial
   /// stream data.

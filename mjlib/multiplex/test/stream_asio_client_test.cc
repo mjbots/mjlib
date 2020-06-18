@@ -1,4 +1,4 @@
-// Copyright 2019 Josh Pieper, jjp@pobox.com.
+// Copyright 2019-2020 Josh Pieper, jjp@pobox.com.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -36,13 +36,17 @@ struct Fixture {
     context.reset();
   }
 
-  void AsyncRegister(const mp::RegisterRequest& request) {
-    dut.AsyncRegister({2, request},
-                      &single_reply,
-                      [this](const base::error_code& ec) {
-                        mjlib::base::FailIf(ec);
-                        this->register_done++;
-                      });
+  void AsyncRegister(const mp::RegisterRequest& request_in) {
+    request = {{2, request_in}};
+    reply = {};
+
+    dut.AsyncTransmit(
+        &request,
+        &reply,
+        [this](const base::error_code& ec) {
+          mjlib::base::FailIf(ec);
+          this->register_done++;
+        });
   }
 
   boost::asio::io_context context;
@@ -58,8 +62,9 @@ struct Fixture {
   io::test::Reader server_reader{server_side.get()};
 
   int register_done = 0;
-  mp::AsioClient::SingleReply single_reply;
-  mp::RegisterReply& reply = single_reply.reply;
+
+  mp::AsioClient::Request request;
+  mp::AsioClient::Reply reply;
 };
 }
 
@@ -106,8 +111,10 @@ BOOST_FIXTURE_TEST_CASE(StreamAsioClientRegisterReply, Fixture) {
   BOOST_TEST(write_done == 1);
   BOOST_TEST(register_done == 1);
   BOOST_TEST(reply.size() == 1);
-  BOOST_TEST(reply.count(3) == 1);
-  BOOST_TEST((reply.at(3) == mp::Format::ReadResult(
+  const auto it = std::find_if(reply.begin(), reply.end(),
+                               [](const auto& v) { return v.reg == 3; });
+  BOOST_TEST((it != reply.end()));
+  BOOST_TEST((it->value == mp::Format::ReadResult(
                   mp::Format::Value(static_cast<int8_t>(4)))));
 }
 

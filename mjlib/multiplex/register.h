@@ -1,4 +1,4 @@
-// Copyright 2019 Josh Pieper, jjp@pobox.com.
+// Copyright 2019-2020 Josh Pieper, jjp@pobox.com.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -44,6 +44,8 @@ class RegisterRequest {
   std::string_view buffer() const;
   bool request_reply() const { return request_reply_; }
 
+  void clear();
+
  private:
   base::FastOStringStream buffer_;
   bool request_reply_ = false;
@@ -53,6 +55,15 @@ class RegisterRequest {
 using RegisterReply = std::map<Format::Register, Format::ReadResult>;
 
 RegisterReply ParseRegisterReply(base::ReadStream&);
+
+using RegisterValue = std::pair<Format::Register, Format::ReadResult>;
+
+/// This version of the above call can be used in a system where no
+/// steady state memory allocation is required.  @p result is not
+/// required to be empty initially, and no operation will be performed
+/// which causes it to shrink (it may grow if necessary)
+void ParseRegisterReply(base::ReadStream&,
+                        std::vector<RegisterValue>* result);
 
 }
 }

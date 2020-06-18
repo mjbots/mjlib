@@ -1,4 +1,4 @@
-// Copyright 2015-2018 Josh Pieper, jjp@pobox.com.
+// Copyright 2015-2020 Josh Pieper, jjp@pobox.com.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -34,6 +34,8 @@ class FastOStringStream : public WriteStream {
 
   std::string str() const { return std::string(&data_[0], data_.size()); }
   std::string_view view() const { return std::string_view(&data_[0], data_.size()); }
+
+  void clear() { data_.clear(); }
 
   class vector {
    public:

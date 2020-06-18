@@ -1,4 +1,4 @@
-// Copyright 2019 Josh Pieper, jjp@pobox.com.
+// Copyright 2019-2020 Josh Pieper, jjp@pobox.com.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -68,16 +68,10 @@ class StreamAsioClientBuilder : public AsioClient {
         });
   }
 
-  void AsyncRegister(const IdRequest& id_request,
-                     SingleReply* reply,
-                     io::ErrorCallback handler) override {
-    client_->AsyncRegister(id_request, reply, std::move(handler));
-  }
-
-  void AsyncRegisterMultiple(const std::vector<IdRequest>& requests,
-                             Reply* reply,
-                             io::ErrorCallback callback) override {
-    client_->AsyncRegisterMultiple(requests, reply, std::move(callback));
+  void AsyncTransmit(const Request* request,
+                     Reply* reply,
+                     io::ErrorCallback callback) override {
+    client_->AsyncTransmit(request, reply, std::move(callback));
   }
 
   io::SharedStream MakeTunnel(

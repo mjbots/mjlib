@@ -1,4 +1,4 @@
-// Copyright 2019 Josh Pieper, jjp@pobox.com.
+// Copyright 2019-2020 Josh Pieper, jjp@pobox.com.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -34,27 +34,26 @@ class AsioClient {
     RegisterRequest request;
   };
 
-  struct SingleReply {
+  using Request = std::vector<IdRequest>;
+
+  struct IdRegisterValue {
     uint8_t id = 0;
-    RegisterReply reply;
+    Format::Register reg;
+    Format::ReadResult value;
   };
 
-  struct Reply {
-    std::vector<SingleReply> replies;
-  };
+  using Reply = std::vector<IdRegisterValue>;
 
-  /// Make a single register request.  The handler will always be
+  /// Make a register request.  The handler will always be
   /// invoked.  If a reply was requested, it will only be invoked on
   /// error or the reply.  If no reply was requested, it will be
   /// invoked once the write has been completed.
-  virtual void AsyncRegister(const IdRequest&,
-                             SingleReply*,
+  ///
+  /// Both @p request and @p reply must remain valid until the
+  /// callback is invoked.
+  virtual void AsyncTransmit(const Request* request,
+                             Reply* reply,
                              io::ErrorCallback) = 0;
-
-  /// Operate on multiple devices simultaneously.
-  virtual void AsyncRegisterMultiple(const std::vector<IdRequest>&,
-                                     Reply*,
-                                     io::ErrorCallback) = 0;
 
   struct TunnelOptions {
     // Poll this often for data to be received.
