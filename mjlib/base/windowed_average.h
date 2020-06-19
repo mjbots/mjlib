@@ -51,6 +51,9 @@ class WindowedAverage {
     return total_ / static_cast<T>(size_);
   }
 
+  AccumType total() const { return total_; }
+  size_t size() const { return size_; }
+
  private:
   T data_[MaxCapacity] = {};
   AccumType total_ = 0;
