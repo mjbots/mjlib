@@ -268,6 +268,7 @@ cc_library(
     name = "json5_read_archive",
     hdrs = ["json5_read_archive.h"],
     deps = [
+        ":bytes",
         ":error",
         ":fail",
         ":system_error",

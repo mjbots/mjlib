@@ -14,6 +14,8 @@
 
 #pragma once
 
+#include <string_view>
+
 #include "mjlib/base/error_code.h"
 
 namespace mjlib {
