@@ -128,6 +128,42 @@ class Json5ReadArchive : public VisitArchive<Json5ReadArchive> {
   }
 
  private:
+  template <typename NameValuePair, typename T>
+  void VisitHelper(const NameValuePair&,
+                   std::map<std::string, T>* value,
+                   base::PriorityTag<2>) {
+    ReadLiteral("{");
+
+    value->clear();
+
+    while (true) {
+      IgnoreWhitespace();
+
+      const auto next = Peek();
+      if (next == '}') {
+        ReadLiteral("}");
+        return;
+      }
+
+      const std::string name = Read_JSON5MemberName();
+      ReadLiteral(":");
+      IgnoreWhitespace();
+
+      T item{};
+      Value(&item);
+
+      value->insert(std::make_pair(name, std::move(item)));
+      IgnoreWhitespace();
+
+      if (Peek() != ',') {
+        ReadLiteral("}");
+        return;
+      } else {
+        ReadLiteral(",");
+      }
+    }
+  }
+
   template <typename NameValuePair>
   void VisitHelper(const NameValuePair& nvp,
                    Bytes* value,

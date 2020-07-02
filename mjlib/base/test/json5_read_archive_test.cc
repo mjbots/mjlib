@@ -297,3 +297,24 @@ BOOST_AUTO_TEST_CASE(Json5ReadIntoExistingStruct) {
   BOOST_TEST(test.optional->value1 == 8);  // unchanged
   BOOST_TEST(test.optional->value2 == 20);
 }
+
+namespace {
+struct MapTest {
+  std::map<std::string, int> map_to_int;
+
+  template <typename Archive>
+  void Serialize(Archive* a) {
+    a->Visit(MJ_NVP(map_to_int));
+  }
+};
+}
+
+BOOST_AUTO_TEST_CASE(Json5ReadMap) {
+  std::istringstream istr("{\"map_to_int\":{ \"stuff\":10,\"baz\":20}}");
+  MapTest test;
+  DUT(istr).Accept(&test);
+
+  BOOST_TEST(test.map_to_int.size() == 2);
+  BOOST_TEST(test.map_to_int["stuff"] == 10);
+  BOOST_TEST(test.map_to_int["baz"] == 20);
+}
