@@ -64,7 +64,7 @@ class Json5WriteArchive : public VisitArchive<Json5WriteArchive> {
   Json5WriteArchive& Accept(Serializable* serializable) {
     stream_ << "{\n";
     VisitArchive<Json5WriteArchive>::Accept(serializable);
-    stream_ << Indent(-2) << "}";
+    stream_ << "\n" << Indent(-2) << "}";
     return *this;
   }
 
@@ -77,12 +77,15 @@ class Json5WriteArchive : public VisitArchive<Json5WriteArchive> {
 
   template <typename NameValuePair>
   void Visit(const NameValuePair& nvp) {
+    if (!first_) {
+      stream_ << ",\n";
+    }
+    first_ = false;
+
     // Write out the field name and colon.
     stream_ << Indent() << "\"" << nvp.name() << "\" : ";
 
     VisitArchive<Json5WriteArchive>::Visit(nvp);
-
-    stream_ << ",\n";
   }
 
   template <typename NameValuePair>
@@ -209,12 +212,16 @@ class Json5WriteArchive : public VisitArchive<Json5WriteArchive> {
     auto options_copy = options_;
     Json5WriteArchive sub_archive(
         stream_, options_copy.set_indent(options_copy.indent + 2));
+    bool first = true;
     for (auto& item : array) {
+      if (!first) {
+        stream_ << ",\n";
+      }
+      first = false;
       stream_ << Indent(2);
       Value(item);
-      stream_ << ",\n";
     }
-    stream_ << Indent() << "]";
+    stream_ << "\n" << Indent() << "]";
   }
 
   std::string EscapeString(const std::string& in) {
@@ -269,6 +276,8 @@ class Json5WriteArchive : public VisitArchive<Json5WriteArchive> {
 
   std::ostream& stream_;
   const Options options_;
+
+  bool first_ = true;
 };
 
 }

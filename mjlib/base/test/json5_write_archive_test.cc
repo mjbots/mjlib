@@ -43,25 +43,25 @@ BOOST_AUTO_TEST_CASE(BasicJson5Write) {
   "value_bytes" : [
     11,
     12,
-    13,
+    13
   ],
   "value_str" : "de",
   "value_object" : {
-    "value_u32" : 3,
+    "value_u32" : 3
   },
   "value_enum" : "kValue1",
   "value_array" : [
     {
-    "value_u32" : 3,
-  },
+    "value_u32" : 3
+  }
   ],
   "value_fixedarray" : [
     14,
-    15,
+    15
   ],
   "value_optional" : 21,
   "value_timestamp" : "1970-Jan-01 00:00:01",
-  "value_duration" : "00:00:00.500000",
+  "value_duration" : "00:00:00.500000"
 })XXX";
   BOOST_TEST(actual == expected);
 }

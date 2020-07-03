@@ -31,18 +31,18 @@ BOOST_AUTO_TEST_CASE(BasicEigenVisit) {
     [
     1,
     0,
-    0,
+    0
   ],
     [
     2,
     0,
-    0,
+    0
   ],
     [
     3,
     0,
-    9,
-  ],
+    9
+  ]
   ])XXX";
   BOOST_TEST(actual == expected);
 }
@@ -56,7 +56,7 @@ BOOST_AUTO_TEST_CASE(EigenVectorVisit) {
   const std::string expected = R"XXX([
     2,
     5,
-    6,
+    6
   ])XXX";
   BOOST_TEST(actual == expected);
 }
@@ -79,8 +79,8 @@ BOOST_AUTO_TEST_CASE(EigenStruct) {
     "vector" : [
       0,
       0,
-      0,
-    ],
+      0
+    ]
   })XXX";
   BOOST_TEST(actual == expected);
 }
