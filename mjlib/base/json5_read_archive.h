@@ -35,7 +35,21 @@ namespace base {
 
 class Json5ReadArchive : public VisitArchive<Json5ReadArchive> {
  public:
-  Json5ReadArchive(std::istream& istr) : istr_(istr) {}
+  struct Options {
+    /// Allow "null" as a respelling of NaN for numbers.
+    bool permissive_nan = false;
+
+    Options() {}
+
+    Options& set_permissive_nan(bool value) {
+      permissive_nan = value;
+      return *this;
+    }
+  };
+
+  Json5ReadArchive(std::istream& istr,
+                   const Options& options = Options())
+      : istr_(istr), options_(options) {}
 
   template <typename Serializable>
   Json5ReadArchive& Accept(Serializable* serializable) {
@@ -64,16 +78,18 @@ class Json5ReadArchive : public VisitArchive<Json5ReadArchive> {
   }
 
   template <typename ValueType>
-  static ValueType Read(std::istream& istr) {
+  static ValueType Read(std::istream& istr,
+                        const Options& options = Options()) {
     ValueType result;
-    Json5ReadArchive(istr).Value(&result);
+    Json5ReadArchive(istr, options).Value(&result);
     return result;
   }
 
   template <typename ValueType>
-  static ValueType Read(const std::string_view& str) {
+  static ValueType Read(const std::string_view& str,
+                        const Options& options = Options()) {
     std::istringstream istr{std::string(str)};
-    return Read<ValueType>(istr);
+    return Read<ValueType>(istr, options);
   }
 
   template <typename ValueType>
@@ -104,7 +120,7 @@ class Json5ReadArchive : public VisitArchive<Json5ReadArchive> {
 
   template <typename NameValuePair>
   void VisitSerializable(const NameValuePair& nvp) {
-    Json5ReadArchive sub_archive(istr_);
+    Json5ReadArchive sub_archive(istr_, options_);
     sub_archive.Accept(nvp.value());
   }
 
@@ -485,6 +501,9 @@ class Json5ReadArchive : public VisitArchive<Json5ReadArchive> {
     } else if (first == 'N') {
       ReadLiteral("NaN");
       return {"NaN"};
+    } else if (options_.permissive_nan && first == 'n') {
+      ReadLiteral("null");
+      return {"NaN"};
     }
 
     if (first != '0') {
@@ -814,6 +833,7 @@ class Json5ReadArchive : public VisitArchive<Json5ReadArchive> {
   }
 
   std::istream& istr_;
+  const Options options_;
   bool done_ = false;
   std::string current_field_name_;
   bool any_found_ = false;

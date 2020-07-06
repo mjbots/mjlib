@@ -59,6 +59,9 @@ BOOST_AUTO_TEST_CASE(Json5ReadValidNumbers) {
   BOOST_TEST(DUT::Read<int>("-0o10") == -8);
   BOOST_TEST(DUT::Read<int>("0b10") == 2);
   BOOST_TEST(DUT::Read<int>("-0b10") == -2);
+  BOOST_TEST(!std::isfinite(
+                 DUT::Read<double>(
+                     "null", DUT::Options().set_permissive_nan(true))));
 }
 
 BOOST_AUTO_TEST_CASE(Json5ReadValidStrings) {

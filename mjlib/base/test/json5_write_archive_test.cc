@@ -22,10 +22,12 @@
 
 using namespace mjlib;
 
+using DUT = base::Json5WriteArchive;
+
 BOOST_AUTO_TEST_CASE(BasicJson5Write) {
   std::ostringstream ostr;
   base::test::AllTypesTest all_types;
-  base::Json5WriteArchive(ostr).Accept(&all_types);
+  DUT(ostr).Accept(&all_types);
 
   const std::string actual = ostr.str();
   const std::string expected = R"XXX({
@@ -67,19 +69,29 @@ BOOST_AUTO_TEST_CASE(BasicJson5Write) {
 }
 
 BOOST_AUTO_TEST_CASE(JsonStringEscape) {
-  BOOST_TEST(base::Json5WriteArchive::Write(std::string("abcdef"))
+  BOOST_TEST(DUT::Write(std::string("abcdef"))
              == "\"abcdef\"");
-  BOOST_TEST(base::Json5WriteArchive::Write(
+  BOOST_TEST(DUT::Write(
                  std::string("a\"\\\b\f\n\r\t\x00"
                              "def", 12))
              == "\"a\\\"\\\\\\b\\f\\n\\r\\t\\u0000def\"");
 }
 
 BOOST_AUTO_TEST_CASE(JsonSpecialNumber) {
-  BOOST_TEST(base::Json5WriteArchive::Write(
+  BOOST_TEST(DUT::Write(
                  std::numeric_limits<double>::infinity()) == "Infinity");
-  BOOST_TEST(base::Json5WriteArchive::Write(
+  BOOST_TEST(DUT::Write(
                  -std::numeric_limits<double>::infinity()) == "-Infinity");
-  BOOST_TEST(base::Json5WriteArchive::Write(
+  BOOST_TEST(DUT::Write(
                  std::numeric_limits<double>::quiet_NaN()) == "NaN");
+
+  BOOST_TEST(DUT::Write(
+                 std::numeric_limits<double>::infinity(),
+                 DUT::Options().set_standard(true)) == "null");
+  BOOST_TEST(DUT::Write(
+                 -std::numeric_limits<double>::infinity(),
+                 DUT::Options().set_standard(true)) == "null");
+  BOOST_TEST(DUT::Write(
+                 std::numeric_limits<double>::quiet_NaN(),
+                 DUT::Options().set_standard(true)) == "null");
 }

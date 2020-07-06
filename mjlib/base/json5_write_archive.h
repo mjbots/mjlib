@@ -41,10 +41,18 @@ class Json5WriteArchive : public VisitArchive<Json5WriteArchive> {
   struct Options {
     int indent = 0;
 
+    /// Emit only standard JSON
+    bool standard = false;
+
     Options() {}
 
     Options& set_indent(int value) {
       indent = value;
+      return *this;
+    }
+
+    Options& set_standard(bool value) {
+      standard = value;
       return *this;
     }
   };
@@ -54,9 +62,10 @@ class Json5WriteArchive : public VisitArchive<Json5WriteArchive> {
         options_(options) {}
 
   template <typename Value>
-  static std::string Write(const Value& value) {
+  static std::string Write(const Value& value,
+                           const Options& options = Options()) {
     std::ostringstream ostr;
-    Json5WriteArchive(ostr).Value(value);
+    Json5WriteArchive(ostr, options).Value(value);
     return ostr.str();
   }
 
@@ -168,11 +177,11 @@ class Json5WriteArchive : public VisitArchive<Json5WriteArchive> {
   template <typename T>
   void FormatFloat(T value, const char* format_string) {
     if (value == std::numeric_limits<T>::infinity()) {
-      stream_ << "Infinity";
+      stream_ << (options_.standard ? "null" : "Infinity");
     } else if (value == -std::numeric_limits<T>::infinity()) {
-      stream_ << "-Infinity";
+      stream_ << (options_.standard ? "null" : "-Infinity");
     } else if (!std::isfinite(value)) {
-      stream_ << "NaN";
+      stream_ << (options_.standard ? "null" : "NaN");
     } else {
       stream_ << fmt::format(format_string, value);
     }
