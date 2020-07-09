@@ -252,10 +252,17 @@ cc_library(
 )
 
 cc_library(
+    name = "escape_json_string",
+    hdrs = ["escape_json_string.h"],
+    srcs = ["escape_json_string.cc"],
+)
+
+cc_library(
     name = "json5_write_archive",
     hdrs = ["json5_write_archive.h"],
     deps = [
         ":bytes",
+        ":escape_json_string",
         ":priority_tag",
         ":visitor",
         ":visit_archive",

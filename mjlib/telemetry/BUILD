@@ -83,6 +83,20 @@ cc_library(
 )
 
 cc_library(
+    name = "emit_json",
+    hdrs = ["emit_json.h"],
+    srcs = ["emit_json.cc"],
+    deps = [
+        ":binary_schema_parser",
+        ":format",
+        "//mjlib/base:escape_json_string",
+        "//mjlib/base:fail",
+        "//mjlib/base:stream",
+        "//mjlib/base:time_conversions",
+    ],
+)
+
+cc_library(
     name = "mapped_binary_reader",
     hdrs = [
         "container_types.h",
@@ -130,6 +144,7 @@ cc_test(
         "test/binary_read_archive_test.cc",
         "test/binary_schema_parser_test.cc",
         "test/binary_write_archive_test.cc",
+        "test/emit_json_test.cc",
         "test/file_reader_test.cc",
         "test/file_writer_test.cc",
         "test/format_test.cc",
@@ -139,11 +154,12 @@ cc_test(
         "test/test_util.h",
     ],
     deps = [
-        ":error",
-        ":format",
         ":binary_read_archive",
         ":binary_schema_parser",
         ":binary_write_archive",
+        ":emit_json",
+        ":error",
+        ":format",
         ":file_reader",
         ":file_writer",
         ":mapped_binary_reader",

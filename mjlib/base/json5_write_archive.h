@@ -26,6 +26,7 @@
 #include <fmt/format.h>
 
 #include "mjlib/base/bytes.h"
+#include "mjlib/base/escape_json_string.h"
 #include "mjlib/base/priority_tag.h"
 #include "mjlib/base/visitor.h"
 #include "mjlib/base/visit_archive.h"
@@ -170,7 +171,7 @@ class Json5WriteArchive : public VisitArchive<Json5WriteArchive> {
                    std::string* value,
                    base::PriorityTag<1>) {
     stream_ << "\"";
-    stream_ << EscapeString(*value);
+    stream_ << EscapeJsonString(*value);
     stream_ << "\"";
   }
 
@@ -231,52 +232,6 @@ class Json5WriteArchive : public VisitArchive<Json5WriteArchive> {
       Value(item);
     }
     stream_ << "\n" << Indent() << "]";
-  }
-
-  std::string EscapeString(const std::string& in) {
-    std::ostringstream out;
-    for (char c : in) {
-      switch (c) {
-        case '"': {
-          out << "\\\"";
-          break;
-        }
-        case '\\': {
-          out << "\\\\";
-          break;
-        }
-        case '\b': {
-          out << "\\b";
-          break;
-        }
-        case '\f': {
-          out << "\\f";
-          break;
-        }
-        case '\n': {
-          out << "\\n";
-          break;
-        }
-        case '\r': {
-          out << "\\r";
-          break;
-        }
-        case '\t': {
-          out << "\\t";
-          break;
-        }
-        case 0: {
-          out << "\\u0000";
-          break;
-        }
-        default: {
-          out << c;
-          break;
-        }
-      }
-    }
-
-    return out.str();
   }
 
   std::string Indent(int extra = 0) {
