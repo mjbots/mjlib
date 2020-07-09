@@ -138,6 +138,17 @@ cc_library(
     ],
 )
 
+cc_binary(
+    name = "file_json_dump",
+    srcs = ["file_json_dump.cc"],
+    deps = [
+        ":emit_json",
+        ":file_reader",
+        "//mjlib/base:buffer_stream",
+        "//mjlib/base:clipp",
+    ],
+)
+
 cc_test(
     name = "test",
     srcs = [
@@ -171,6 +182,8 @@ cc_test(
     ],
     data = [
         "//mjlib/telemetry/js",
+        # Just so it is built.
+        ":file_json_dump",
     ],
 )
 
