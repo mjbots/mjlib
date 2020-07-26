@@ -216,6 +216,14 @@ class StreamAsioClient::Impl {
                          io::ReadHandler handler) override {
       MJ_ASSERT(!read_handler_);
 
+      if (boost::asio::buffer_size(buffers) == 0) {
+        // We're done!
+        boost::asio::post(
+            get_executor(),
+            std::bind(std::move(handler), base::error_code(), 0));
+        return;
+      }
+
       // We create a local lambda to be the immediate callback, that
       // way the lock can be released in between polls.  Boy would
       // this ever be more clear if we could express it with
@@ -242,6 +250,14 @@ class StreamAsioClient::Impl {
     void async_write_some(io::ConstBufferSequence buffers,
                           io::WriteHandler handler) override {
       MJ_ASSERT(!write_handler_);
+
+      if (boost::asio::buffer_size(buffers) == 0) {
+        boost::asio::post(
+            get_executor(),
+            std::bind(std::move(handler), base::error_code(), 0));
+        return;
+      }
+
       write_handler_ = std::move(handler);
       write_nonce_ = parent_->lock_.Invoke(
           [self=shared_from_this(), buffers](

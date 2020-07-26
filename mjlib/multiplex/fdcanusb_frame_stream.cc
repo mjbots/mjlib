@@ -270,6 +270,8 @@ class FdcanusbFrameStream::Impl {
   }
 
   void EmitFrame() {
+    timer_.cancel();
+
     current_frame_ = nullptr;
     auto copy = std::move(current_callback_);
     current_callback_ = {};
