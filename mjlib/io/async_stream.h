@@ -1,4 +1,4 @@
-// Copyright 2015-2019 Josh Pieper, jjp@pobox.com.
+// Copyright 2015-2020 Josh Pieper, jjp@pobox.com.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 
 #include <functional>
 
-#include <boost/asio/executor.hpp>
+#include <boost/asio/any_io_executor.hpp>
 #include <boost/noncopyable.hpp>
 
 #include "mjlib/io/async_types.h"
@@ -26,7 +26,7 @@ namespace io {
 
 class AsyncReadStream : boost::noncopyable {
  public:
-  using executor_type = boost::asio::executor;
+  using executor_type = boost::asio::any_io_executor;
 
   virtual ~AsyncReadStream() {}
 
@@ -35,7 +35,7 @@ class AsyncReadStream : boost::noncopyable {
 
 class AsyncWriteStream : boost::noncopyable {
  public:
-  using executor_type = boost::asio::executor;
+  using executor_type = boost::asio::any_io_executor;
 
   virtual ~AsyncWriteStream() {}
 
@@ -44,11 +44,11 @@ class AsyncWriteStream : boost::noncopyable {
 
 class AsyncStream : public AsyncReadStream, public AsyncWriteStream {
  public:
-  using executor_type = boost::asio::executor;
+  using executor_type = boost::asio::any_io_executor;
 
   ~AsyncStream() override {}
 
-  virtual boost::asio::executor get_executor() = 0;
+  virtual boost::asio::any_io_executor get_executor() = 0;
   virtual void cancel() = 0;
 };
 

@@ -1,4 +1,4 @@
-// Copyright 2015-2019 Josh Pieper, jjp@pobox.com.
+// Copyright 2015-2020 Josh Pieper, jjp@pobox.com.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -37,13 +37,13 @@ std::map<StreamFactory::Type, const char*> StreamFactory::TypeMapper() {
 
 class StreamFactory::Impl {
  public:
-  Impl(const boost::asio::executor& executor) : executor_(executor) {}
+  Impl(const boost::asio::any_io_executor& executor) : executor_(executor) {}
 
-  boost::asio::executor executor_;
+  boost::asio::any_io_executor executor_;
   StreamPipeFactory pipe_factory_{executor_};
 };
 
-StreamFactory::StreamFactory(const boost::asio::executor& executor)
+StreamFactory::StreamFactory(const boost::asio::any_io_executor& executor)
     : impl_(std::make_unique<Impl>(executor)) {}
 
 StreamFactory::~StreamFactory() {}

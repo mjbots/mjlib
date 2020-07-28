@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Josh Pieper, jjp@pobox.com.
+// Copyright 2016-2020 Josh Pieper, jjp@pobox.com.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
 #include <memory>
 
 #include <boost/asio/basic_deadline_timer.hpp>
-#include <boost/asio/executor.hpp>
+#include <boost/asio/any_io_executor.hpp>
 #include <boost/asio/time_traits.hpp>
 #include <boost/date_time/posix_time/posix_time_types.hpp>
 #include <boost/system/error_code.hpp>
@@ -33,7 +33,7 @@ class TimerBase {
   using duration_type = boost::posix_time::time_duration;
   using time_type = boost::posix_time::ptime;
   using traits_type = boost::asio::time_traits<time_type>;
-  using executor_type = boost::asio::executor;
+  using executor_type = boost::asio::any_io_executor;
 
   virtual ~TimerBase() {};
 

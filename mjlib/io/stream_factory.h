@@ -16,7 +16,7 @@
 
 #include <map>
 
-#include <boost/asio/executor.hpp>
+#include <boost/asio/any_io_executor.hpp>
 
 #include "mjlib/base/args_visitor.h"
 #include "mjlib/io/async_stream.h"
@@ -76,7 +76,7 @@ class StreamFactory : boost::noncopyable {
     }
   };
 
-  StreamFactory(const boost::asio::executor&);
+  StreamFactory(const boost::asio::any_io_executor&);
   ~StreamFactory();
 
   /// Create a new stream asynchronously.  The stream will be passed

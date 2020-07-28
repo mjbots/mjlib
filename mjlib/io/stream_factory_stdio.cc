@@ -1,4 +1,4 @@
-// Copyright 2015-2019 Josh Pieper, jjp@pobox.com.
+// Copyright 2015-2020 Josh Pieper, jjp@pobox.com.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -28,7 +28,7 @@ using namespace std::placeholders;
 
 class StdioStream : public AsyncStream {
  public:
-  StdioStream(const boost::asio::executor& executor,
+  StdioStream(const boost::asio::any_io_executor& executor,
               const StreamFactory::Options& options)
       : executor_(executor),
         stdin_(executor, ::dup(options.stdio_in)),
@@ -36,7 +36,7 @@ class StdioStream : public AsyncStream {
     BOOST_ASSERT(options.type == StreamFactory::Type::kStdio);
   }
 
-  boost::asio::executor get_executor() override { return executor_; }
+  boost::asio::any_io_executor get_executor() override { return executor_; }
 
   void async_read_some(MutableBufferSequence buffers,
                        ReadHandler handler) override {
@@ -54,14 +54,14 @@ class StdioStream : public AsyncStream {
   }
 
  private:
-  boost::asio::executor executor_;
+  boost::asio::any_io_executor executor_;
   boost::asio::posix::stream_descriptor stdin_;
   boost::asio::posix::stream_descriptor stdout_;
 };
 }
 
 void AsyncCreateStdio(
-    const boost::asio::executor& executor,
+    const boost::asio::any_io_executor& executor,
     const StreamFactory::Options& options,
     StreamHandler handler) {
   boost::asio::post(

@@ -78,7 +78,7 @@ std::vector<std::string> Split(std::string_view str, std::string delimiter) {
 
 class CommandRunner {
  public:
-  CommandRunner(const boost::asio::executor& executor,
+  CommandRunner(const boost::asio::any_io_executor& executor,
                 io::StreamFactory* stream_factory,
                 io::Selector<AsioClient>* client_selector,
                 const Options& options)
@@ -408,7 +408,7 @@ class CommandRunner {
     }
   }
 
-  boost::asio::executor executor_;
+  boost::asio::any_io_executor executor_;
   io::Selector<AsioClient>* const client_selector_;
   const Options options_;
   mp::AsioClient* client_ = nullptr;

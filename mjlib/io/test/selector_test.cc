@@ -1,4 +1,4 @@
-// Copyright 2019 Josh Pieper, jjp@pobox.com.
+// Copyright 2019-2020 Josh Pieper, jjp@pobox.com.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -48,7 +48,7 @@ class Class1 : public Base {
     }
   };
 
-  Class1(const boost::asio::executor&, const Options& options, Resource*)
+  Class1(const boost::asio::any_io_executor&, const Options& options, Resource*)
       : options_(options) {}
   ~Class1() override {}
 
@@ -77,7 +77,7 @@ class Class2 : public Base {
     }
   };
 
-  Class2(const boost::asio::executor&, const Options& options, Resource*)
+  Class2(const boost::asio::any_io_executor&, const Options& options, Resource*)
       : options_(options) {}
   ~Class2() override {}
 
@@ -138,7 +138,7 @@ class EmptyOptions : public Base {
     void Serialize(Archive*) {}
   };
 
-  EmptyOptions(const boost::asio::executor&, const Options&, Resource*) {}
+  EmptyOptions(const boost::asio::any_io_executor&, const Options&, Resource*) {}
   ~EmptyOptions() override {}
   int type() override { return 3; }
   int value() override { return 10; }

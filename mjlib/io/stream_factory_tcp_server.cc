@@ -1,4 +1,4 @@
-// Copyright 2015-2019 Josh Pieper, jjp@pobox.com.
+// Copyright 2015-2020 Josh Pieper, jjp@pobox.com.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@ using tcp = boost::asio::ip::tcp;
 namespace {
 class TcpServerStream : public AsyncStream {
  public:
-  TcpServerStream(const boost::asio::executor& executor,
+  TcpServerStream(const boost::asio::any_io_executor& executor,
                   const StreamFactory::Options& options)
       : executor_(executor),
         options_(options),
@@ -48,7 +48,7 @@ class TcpServerStream : public AsyncStream {
         std::bind(&TcpServerStream::HandleAccept, this, pl::_1));
   }
 
-  boost::asio::executor get_executor() override { return executor_; }
+  boost::asio::any_io_executor get_executor() override { return executor_; }
 
   void async_read_some(MutableBufferSequence buffers,
                        ReadHandler handler) override {
@@ -153,7 +153,7 @@ class TcpServerStream : public AsyncStream {
     }
   }
 
-  boost::asio::executor executor_;
+  boost::asio::any_io_executor executor_;
   const StreamFactory::Options options_;
   tcp::acceptor acceptor_;
   tcp::socket socket_;
@@ -171,7 +171,7 @@ class TcpServerStream : public AsyncStream {
 }
 
 void AsyncCreateTcpServer(
-    const boost::asio::executor& executor,
+    const boost::asio::any_io_executor& executor,
     const StreamFactory::Options& options,
     StreamHandler handler) {
   auto stream = std::make_shared<TcpServerStream>(executor, options);

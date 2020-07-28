@@ -1,4 +1,4 @@
-// Copyright 2015-2019 Josh Pieper, jjp@pobox.com.
+// Copyright 2015-2020 Josh Pieper, jjp@pobox.com.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -38,7 +38,7 @@ namespace io = mjlib::io;
 namespace {
 class Communicator {
  public:
-  Communicator(const boost::asio::executor& executor,
+  Communicator(const boost::asio::any_io_executor& executor,
                io::StreamFactory* stream_factory,
                const io::StreamFactory::Options& options)
       : executor_(executor) {
@@ -83,7 +83,7 @@ class Communicator {
     base::FailIf(ec);
   }
 
-  boost::asio::executor executor_;
+  boost::asio::any_io_executor executor_;
   io::SharedStream stdio_;
   io::SharedStream remote_;
   std::optional<io::BidirectionalStreamCopy> copy_;

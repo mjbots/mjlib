@@ -1,4 +1,4 @@
-// Copyright 2019 Josh Pieper, jjp@pobox.com.
+// Copyright 2019-2020 Josh Pieper, jjp@pobox.com.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -105,7 +105,7 @@ class Rs485FrameStream::Impl {
     return streambuf_.size() > 0;
   }
 
-  boost::asio::executor get_executor() const {
+  boost::asio::any_io_executor get_executor() const {
     return stream_->get_executor();
   }
 
@@ -249,7 +249,7 @@ class Rs485FrameStream::Impl {
 };
 
 Rs485FrameStream::Rs485FrameStream(
-    const boost::asio::executor&, const Options&, io::AsyncStream* stream)
+    const boost::asio::any_io_executor&, const Options&, io::AsyncStream* stream)
     : impl_(std::make_unique<Impl>(stream)) {}
 Rs485FrameStream::~Rs485FrameStream() {}
 
@@ -289,7 +289,7 @@ bool Rs485FrameStream::read_data_queued() const {
   return impl_->read_data_queued();
 }
 
-boost::asio::executor Rs485FrameStream::get_executor() const {
+boost::asio::any_io_executor Rs485FrameStream::get_executor() const {
   return impl_->get_executor();
 }
 

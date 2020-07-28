@@ -1,4 +1,4 @@
-// Copyright 2019 Josh Pieper, jjp@pobox.com.
+// Copyright 2019-2020 Josh Pieper, jjp@pobox.com.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
 
 #pragma once
 
-#include <boost/asio/executor.hpp>
+#include <boost/asio/any_io_executor.hpp>
 #include <boost/date_time/posix_time/posix_time_types.hpp>
 
 #include <function2/function2.hpp>
@@ -33,7 +33,7 @@ namespace io {
 /// boost::asio::error::operation_aborted.
 class RepeatingTimer {
  public:
-  RepeatingTimer(const boost::asio::executor&);
+  RepeatingTimer(const boost::asio::any_io_executor&);
 
   using Callback = fu2::function<void (const mjlib::base::error_code&)>;
 
@@ -50,7 +50,7 @@ class RepeatingTimer {
   void StartInternal();
   void HandleTimer(const base::error_code&);
 
-  boost::asio::executor executor_;
+  boost::asio::any_io_executor executor_;
   DeadlineTimer timer_;
   boost::posix_time::time_duration period_;
   Callback callback_;

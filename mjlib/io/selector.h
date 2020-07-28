@@ -1,4 +1,4 @@
-// Copyright 2019 Josh Pieper, jjp@pobox.com.
+// Copyright 2019-2020 Josh Pieper, jjp@pobox.com.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@
 #include <sstream>
 #include <string>
 
-#include <boost/asio/executor.hpp>
+#include <boost/asio/any_io_executor.hpp>
 
 #include "mjlib/base/clipp_archive.h"
 #include "mjlib/base/system_error.h"
@@ -41,7 +41,7 @@ namespace io {
 template <typename Base, typename... Args>
 class Selector {
  public:
-  Selector(const boost::asio::executor& executor,
+  Selector(const boost::asio::any_io_executor& executor,
            const std::string& selector_name)
       : executor_(executor),
         selector_name_(selector_name) {}
@@ -108,7 +108,7 @@ class Selector {
 
     virtual clipp::group program_options() = 0;
     virtual std::unique_ptr<Base> AsyncStart(
-        const boost::asio::executor&,
+        const boost::asio::any_io_executor&,
         mjlib::io::ErrorCallback, Args...) = 0;
   };
 
@@ -123,7 +123,7 @@ class Selector {
     }
 
     std::unique_ptr<Base> AsyncStart(
-        const boost::asio::executor& executor,
+        const boost::asio::any_io_executor& executor,
         io::ErrorCallback callback,
         Args... args) override {
       auto result = std::make_unique<T>(
@@ -135,7 +135,7 @@ class Selector {
     typename T::Options options_;
   };
 
-  boost::asio::executor executor_;
+  boost::asio::any_io_executor executor_;
   const std::string selector_name_;
   std::unique_ptr<Base> selected_;
 

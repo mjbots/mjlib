@@ -1,4 +1,4 @@
-// Copyright 2015-2019 Josh Pieper, jjp@pobox.com.
+// Copyright 2015-2020 Josh Pieper, jjp@pobox.com.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
 
 #pragma once
 
-#include <boost/asio/executor.hpp>
+#include <boost/asio/any_io_executor.hpp>
 #include <boost/asio/post.hpp>
 #include <boost/asio/write.hpp>
 
@@ -27,7 +27,7 @@ namespace io {
 
 class StreamCopy {
  public:
-  StreamCopy(const boost::asio::executor& executor,
+  StreamCopy(const boost::asio::any_io_executor& executor,
              AsyncReadStream* read_stream, AsyncWriteStream* write_stream,
              ErrorCallback done_callback)
       : executor_(executor),
@@ -75,7 +75,7 @@ class StreamCopy {
     StartRead();
   }
 
-  boost::asio::executor executor_;
+  boost::asio::any_io_executor executor_;
   AsyncReadStream* const read_stream_;
   AsyncWriteStream* const write_stream_;
   char buffer_[4096] = {};
@@ -84,7 +84,7 @@ class StreamCopy {
 
 class BidirectionalStreamCopy {
  public:
-  BidirectionalStreamCopy(const boost::asio::executor& executor,
+  BidirectionalStreamCopy(const boost::asio::any_io_executor& executor,
                           AsyncStream* left, AsyncStream* right,
                           ErrorCallback done_callback)
       : executor_(executor),
@@ -106,7 +106,7 @@ class BidirectionalStreamCopy {
     done_callback_ = {};
   }
 
-  boost::asio::executor executor_;
+  boost::asio::any_io_executor executor_;
   StreamCopy copy1_;
   StreamCopy copy2_;
   ErrorCallback done_callback_;

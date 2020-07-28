@@ -1,4 +1,4 @@
-// Copyright 2019 Josh Pieper, jjp@pobox.com.
+// Copyright 2019-2020 Josh Pieper, jjp@pobox.com.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,8 +14,8 @@
 
 #pragma once
 
-#include <boost/asio/executor.hpp>
 #include <boost/asio/execution_context.hpp>
+#include <boost/asio/io_context.hpp>
 
 #include "mjlib/base/assert.h"
 #include "mjlib/base/aborting_posix_timer.h"
@@ -32,7 +32,17 @@ namespace io {
 /// It wraps an existing executor.
 class RealtimeExecutor {
  public:
-  RealtimeExecutor(const boost::asio::executor& base) : base_(base) {}
+  using Base = boost::asio::io_context::executor_type;
+
+  RealtimeExecutor(const Base& base) noexcept : base_(base) {}
+
+  RealtimeExecutor(const RealtimeExecutor& other) noexcept : base_(other.base_) {}
+
+  RealtimeExecutor(RealtimeExecutor&& other) noexcept
+      : base_(std::move(other.base_)) {}
+
+  ~RealtimeExecutor() noexcept {}
+
 
   struct Options {
     // Zero is disabled.
@@ -40,32 +50,54 @@ class RealtimeExecutor {
     int64_t idle_timeout_ns = 0;
   };
 
-  boost::asio::execution_context& context() { return base_.context(); }
+  // boost::asio::execution_context& context() { return base_.context(); }
 
-  void on_work_started() {
-    base_.on_work_started();
+  const boost::asio::io_context::executor_type& base() const {
+    return base_;
   }
 
-  void on_work_finished() {
-    base_.on_work_finished();
+  // TODO(jpieper): I'm not fully comfortable with the property
+  // mechanism.  However, this seems to work result in the desired
+  // wrapping behavior, so I'm leaving it for now.
+  template <typename T>
+  RealtimeExecutor require(
+      T value, typename std::add_pointer<
+        decltype(std::declval<Base>().require(value))>::type = 0) const {
+    return *this;
+  }
+
+  template <typename T>
+  auto query(T value) const -> decltype(this->base().query(value)) {
+    return base_.query(value);
+  }
+
+  template <typename Callback>
+  void execute(Callback&& callback) const {
+    Service& s = const_cast<Service&>(service());
+    s.StartWork();
+    base_.execute(Wrap<typename std::decay<Callback>::type>(
+                      &s, std::move(callback)));
   }
 
   template <typename Callback, typename Allocator>
-  void dispatch(Callback callback, const Allocator& a) {
+  void dispatch(Callback&& callback, const Allocator& a) {
     service().StartWork();
-    base_.dispatch(Wrap<Callback>(&service(), std::move(callback)), a);
+    base_.dispatch(Wrap<typename std::decay<Callback>::type>(
+                       &service(), std::move(callback)), a);
   }
 
   template <typename Callback, typename Allocator>
   void post(Callback callback, const Allocator& a) {
     service().StartWork();
-    base_.post(Wrap<Callback>(&service(), std::move(callback)), a);
+    base_.post(Wrap<typename std::decay<Callback>::type>(
+                   &service(), std::move(callback)), a);
   }
 
   template <typename Callback, typename Allocator>
   void defer(Callback callback, const Allocator& a) {
     service().StartWork();
-    base_.defer(Wrap<Callback>(&service(), std::move(callback)), a);
+    base_.defer(Wrap<typename std::decay<Callback>::type>(
+                    &service(), std::move(callback)), a);
   }
 
   void set_options(const Options& options) {
@@ -77,11 +109,19 @@ class RealtimeExecutor {
   }
 
   friend bool operator==(const RealtimeExecutor& lhs,
-                         const RealtimeExecutor& rhs) {
+                         const RealtimeExecutor& rhs) noexcept {
     return lhs.base_ == rhs.base_;
   }
 
  private:
+  void on_work_started() {
+    base_.on_work_started();
+  }
+
+  void on_work_finished() {
+    base_.on_work_finished();
+  }
+
   // We make this a templated class solely so that the static 'id'
   // member does not need a dedicated translation unit.
   template <typename Ignored>
@@ -128,7 +168,7 @@ class RealtimeExecutor {
   template <typename Callback>
   class Wrap {
    public:
-    Wrap(Service* service, Callback callback)
+    Wrap(Service* service, Callback&& callback)
         : service_(service), callback_(std::move(callback)) {}
 
     void operator()() {
@@ -156,7 +196,7 @@ class RealtimeExecutor {
     return boost::asio::use_service<Service>(base_.context());
   }
 
-  boost::asio::executor base_;
+  Base base_;
 };
 
 template <typename Ignored>

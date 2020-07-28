@@ -1,4 +1,4 @@
-// Copyright 2015-2019 Josh Pieper, jjp@pobox.com.
+// Copyright 2015-2020 Josh Pieper, jjp@pobox.com.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,13 +25,13 @@ namespace io {
 namespace {
 class HalfPipe : public AsyncStream {
  public:
-  HalfPipe(const boost::asio::executor& executor)
+  HalfPipe(const boost::asio::any_io_executor& executor)
       : executor_(executor) {}
   ~HalfPipe() override {}
 
   void SetOther(HalfPipe* other) { other_ = other; }
 
-  boost::asio::executor get_executor() override { return executor_; }
+  boost::asio::any_io_executor get_executor() override { return executor_; }
   void async_read_some(MutableBufferSequence buffers,
                        ReadHandler handler) override {
     BOOST_ASSERT(other_);
@@ -117,7 +117,7 @@ class HalfPipe : public AsyncStream {
   }
 
  private:
-  boost::asio::executor executor_;
+  boost::asio::any_io_executor executor_;
   HalfPipe* other_ = nullptr;
 
   std::optional<MutableBufferSequence> read_buffers_;
@@ -129,7 +129,7 @@ class HalfPipe : public AsyncStream {
 
 class BidirectionalPipe : boost::noncopyable {
  public:
-  BidirectionalPipe(const boost::asio::executor& executor)
+  BidirectionalPipe(const boost::asio::any_io_executor& executor)
       : direction_a_(executor),
         direction_b_(executor) {
     direction_a_.SetOther(&direction_b_);
@@ -150,7 +150,7 @@ class HalfPipeRef : public AsyncStream {
       : parent_(parent),
         pipe_(pipe) {}
 
-  boost::asio::executor get_executor() override {
+  boost::asio::any_io_executor get_executor() override {
     return pipe_->get_executor();
   }
 
@@ -175,13 +175,13 @@ class HalfPipeRef : public AsyncStream {
 
 class StreamPipeFactory::Impl {
  public:
-  Impl(const boost::asio::executor& executor) : executor_(executor) {}
+  Impl(const boost::asio::any_io_executor& executor) : executor_(executor) {}
 
-  boost::asio::executor executor_;
+  boost::asio::any_io_executor executor_;
   std::map<std::string, std::shared_ptr<BidirectionalPipe>> pipes_;
 };
 
-StreamPipeFactory::StreamPipeFactory(const boost::asio::executor& executor)
+StreamPipeFactory::StreamPipeFactory(const boost::asio::any_io_executor& executor)
     : impl_(std::make_unique<Impl>(executor)) {}
 
 StreamPipeFactory::~StreamPipeFactory() {}

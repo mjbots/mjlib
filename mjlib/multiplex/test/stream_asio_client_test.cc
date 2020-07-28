@@ -50,7 +50,7 @@ struct Fixture {
   }
 
   boost::asio::io_context context;
-  boost::asio::executor executor{context.get_executor()};
+  boost::asio::any_io_executor executor{context.get_executor()};
   io::DebugDeadlineService* const debug_service{
     io::DebugDeadlineService::Install(context)};
   io::StreamPipeFactory pipe_factory{executor};

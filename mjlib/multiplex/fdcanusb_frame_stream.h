@@ -1,4 +1,4 @@
-// Copyright 2019 Josh Pieper, jjp@pobox.com.
+// Copyright 2019-2020 Josh Pieper, jjp@pobox.com.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 
 #include <vector>
 
-#include <boost/asio/executor.hpp>
+#include <boost/asio/any_io_executor.hpp>
 #include <boost/date_time/posix_time/posix_time_types.hpp>
 
 #include "mjlib/io/async_stream.h"
@@ -36,7 +36,7 @@ class FdcanusbFrameStream : public FrameStream {
     void Serialize(Archive*) {}
   };
 
-  FdcanusbFrameStream(const boost::asio::executor&, const Options&,
+  FdcanusbFrameStream(const boost::asio::any_io_executor&, const Options&,
                       io::AsyncStream*);
   ~FdcanusbFrameStream() override;
 
@@ -56,7 +56,7 @@ class FdcanusbFrameStream : public FrameStream {
 
   bool read_data_queued() const override;
 
-  boost::asio::executor get_executor() const override;
+  boost::asio::any_io_executor get_executor() const override;
 
  private:
   class Impl;

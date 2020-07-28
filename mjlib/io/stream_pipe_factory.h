@@ -1,4 +1,4 @@
-// Copyright 2015-2019 Josh Pieper, jjp@pobox.com.
+// Copyright 2015-2020 Josh Pieper, jjp@pobox.com.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 
 #include <memory>
 
-#include <boost/asio/executor.hpp>
+#include <boost/asio/any_io_executor.hpp>
 
 #include "mjlib/io/async_stream.h"
 
@@ -25,7 +25,7 @@ namespace io {
 
 class StreamPipeFactory {
  public:
-  StreamPipeFactory(const boost::asio::executor&);
+  StreamPipeFactory(const boost::asio::any_io_executor&);
   ~StreamPipeFactory();
 
   SharedStream GetStream(const std::string& key, int direction);

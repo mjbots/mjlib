@@ -1,4 +1,4 @@
-// Copyright 2019 Josh Pieper, jjp@pobox.com.
+// Copyright 2019-2020 Josh Pieper, jjp@pobox.com.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 #include <memory>
 #include <string_view>
 
-#include <boost/asio/executor.hpp>
+#include <boost/asio/any_io_executor.hpp>
 
 #include "mjlib/io/async_types.h"
 
@@ -31,7 +31,7 @@ namespace io {
 /// There wouldn't be much need for this if we had coroutines.
 class AsyncSequence {
  public:
-  AsyncSequence(const boost::asio::executor&);
+  AsyncSequence(const boost::asio::any_io_executor&);
 
   /// Append a new operation to the list.
   AsyncSequence& Add(ChainableCallback, std::string_view description = "");

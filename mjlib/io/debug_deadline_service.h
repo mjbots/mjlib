@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Josh Pieper, jjp@pobox.com.
+// Copyright 2016-2020 Josh Pieper, jjp@pobox.com.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,6 +15,8 @@
 #pragma once
 
 #include <map>
+
+#include <boost/asio/post.hpp>
 
 #include "mjlib/base/assert.h"
 #include "mjlib/base/fail.h"
@@ -51,9 +53,9 @@ class DebugDeadlineService {
       auto& item = *entry.item;
 
       item.position_ = queue_.end();
-      item.executor_.post(
-          std::bind(std::move(entry.handler), boost::system::error_code()),
-          std::allocator<void>());
+      boost::asio::post(
+          item.executor_,
+          std::bind(std::move(entry.handler), boost::system::error_code()));
       queue_.erase(queue_.begin());
     }
   }
@@ -85,10 +87,10 @@ class DebugDeadlineService {
         result++;
         auto& entry = position_->second;
         MJ_ASSERT(this == entry.item);
-        executor_.post(
+        boost::asio::post(
+            executor_,
             std::bind(std::move(entry.handler),
-                      boost::asio::error::operation_aborted),
-            std::allocator<void>());
+                      boost::asio::error::operation_aborted));
         queue.erase(position_);
         position_ = queue.end();
       }
@@ -139,7 +141,7 @@ class DebugDeadlineService {
     }
 
     DebugDeadlineService* const debug_service_;
-    boost::asio::executor executor_;
+    boost::asio::any_io_executor executor_;
     boost::posix_time::ptime timestamp_;
     Queue::iterator position_;
   };

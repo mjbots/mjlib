@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Josh Pieper, jjp@pobox.com.
+// Copyright 2016-2020 Josh Pieper, jjp@pobox.com.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 #include <memory>
 
 #include <boost/asio/execution_context.hpp>
-#include <boost/asio/executor.hpp>
+#include <boost/asio/any_io_executor.hpp>
 #include <boost/date_time/posix_time/posix_time_types.hpp>
 #include <boost/system/error_code.hpp>
 
@@ -36,7 +36,7 @@ class DeadlineTimer {
 
   DeadlineTimer(boost::asio::io_context& context)
       : executor_(context.get_executor()) {}
-  DeadlineTimer(const boost::asio::executor& executor)
+  DeadlineTimer(const boost::asio::any_io_executor& executor)
       : executor_(executor) {}
   ~DeadlineTimer() {}
 

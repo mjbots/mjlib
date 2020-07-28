@@ -16,7 +16,7 @@
 
 #include <functional>
 
-#include <boost/asio/executor.hpp>
+#include <boost/asio/any_io_executor.hpp>
 #include <boost/asio/post.hpp>
 
 #include "mjlib/io/selector.h"
@@ -45,7 +45,7 @@ class StreamAsioClientBuilder : public AsioClient {
     }
   };
 
-  StreamAsioClientBuilder(const boost::asio::executor& executor,
+  StreamAsioClientBuilder(const boost::asio::any_io_executor& executor,
                           const Options& options)
       : executor_(executor),
         options_(options) {
@@ -115,7 +115,7 @@ class StreamAsioClientBuilder : public AsioClient {
         std::bind(std::move(callback), base::error_code()));
   }
 
-  boost::asio::executor executor_;
+  boost::asio::any_io_executor executor_;
   const Options options_;
   io::StreamFactory factory_{executor_};
   io::SharedStream stream_;

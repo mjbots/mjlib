@@ -294,7 +294,7 @@ class StreamAsioClient::Impl {
           });
     }
 
-    boost::asio::executor get_executor() override {
+    boost::asio::any_io_executor get_executor() override {
       return parent_->executor_;
     }
 
@@ -511,7 +511,7 @@ class StreamAsioClient::Impl {
       return impl_->async_write_some(buffers, std::move(handler));
     }
 
-    boost::asio::executor get_executor() override {
+    boost::asio::any_io_executor get_executor() override {
       return impl_->get_executor();
     }
 
@@ -526,7 +526,7 @@ class StreamAsioClient::Impl {
   const Options options_;
   FrameStream& frame_stream_;
   const FrameStream::Properties stream_properties_{frame_stream_.properties()};
-  boost::asio::executor executor_{frame_stream_.get_executor()};
+  boost::asio::any_io_executor executor_{frame_stream_.get_executor()};
 
   io::ExclusiveCommand lock_{executor_};
 

@@ -1,4 +1,4 @@
-// Copyright 2019 Josh Pieper, jjp@pobox.com.
+// Copyright 2019-2020 Josh Pieper, jjp@pobox.com.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -35,7 +35,7 @@ struct Item {
 
 class AsyncSequence::Impl : public std::enable_shared_from_this<Impl> {
  public:
-  Impl(const boost::asio::executor& executor)
+  Impl(const boost::asio::any_io_executor& executor)
       : executor_(executor) {}
 
   void Start(ErrorCallback completion_callback) {
@@ -78,12 +78,12 @@ class AsyncSequence::Impl : public std::enable_shared_from_this<Impl> {
     RunNextOperation();
   }
 
-  boost::asio::executor executor_;
+  boost::asio::any_io_executor executor_;
   std::deque<std::shared_ptr<Item>> sequence_;
   ErrorCallback completion_callback_;
 };
 
-AsyncSequence::AsyncSequence(const boost::asio::executor& executor)
+AsyncSequence::AsyncSequence(const boost::asio::any_io_executor& executor)
     : impl_(std::make_shared<Impl>(executor)) {}
 
 AsyncSequence& AsyncSequence::Add(ChainableCallback callback,
