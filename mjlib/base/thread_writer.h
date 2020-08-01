@@ -216,7 +216,7 @@ class ThreadWriter : boost::noncopyable {
         if (done_) {
           RunWork();
           HandleFlush();
-          return;
+          break;
         }
         if (flush_) {
           HandleFlush();
@@ -228,6 +228,10 @@ class ThreadWriter : boost::noncopyable {
       }
 
       RunWork();
+    }
+
+    if (options_.blocking_mode == kAsynchronous) {
+      StopTimer();
     }
   }
 
@@ -276,6 +280,10 @@ class ThreadWriter : boost::noncopyable {
                            value.it_interval.tv_sec) * 1e9);
     value.it_value = value.it_interval;
     mjlib::base::FailIfErrno(::timer_settime(timer_id_, 0, &value, nullptr) < 0);
+  }
+
+  void StopTimer() {
+    mjlib::base::FailIfErrno(::timer_delete(timer_id_) < 0);
   }
 
   void HandleTimer() {
