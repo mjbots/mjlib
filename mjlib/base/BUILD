@@ -228,6 +228,7 @@ cc_library(
     hdrs = ["clipp_archive.h"],
     deps = [
         ":args_visitor",
+        ":system_error",
         ":visit_archive",
         "@com_github_muellan_clipp//:clipp",
     ],
