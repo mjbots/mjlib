@@ -89,7 +89,10 @@ cc_library(
 cc_library(
     name = "asio_client",
     hdrs = ["asio_client.h"],
-    deps = [":register"],
+    deps = [
+        ":register",
+        "//mjlib/io:async_stream",
+    ],
 )
 
 cc_library(
