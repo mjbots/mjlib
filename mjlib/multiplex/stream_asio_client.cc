@@ -35,12 +35,19 @@ namespace mjlib {
 namespace multiplex {
 namespace {
 const boost::posix_time::time_duration kDefaultTimeout =
-    boost::posix_time::milliseconds(10);
+    boost::posix_time::milliseconds(15);
 
 template <typename T>
 uint32_t u32(T value) {
   return static_cast<uint32_t>(value);
 }
+
+struct ReadContext {
+  io::ReadHandler handler;
+  io::MutableBufferSequence buffers;
+  bool canceled = false;
+  size_t bytes_read = 0;
+};
 }
 
 class StreamAsioClient::Impl {
@@ -214,7 +221,7 @@ class StreamAsioClient::Impl {
 
     void async_read_some(io::MutableBufferSequence buffers,
                          io::ReadHandler handler) override {
-      MJ_ASSERT(!read_handler_);
+      MJ_ASSERT(!read_context_);
 
       if (boost::asio::buffer_size(buffers) == 0) {
         // We're done!
@@ -224,27 +231,37 @@ class StreamAsioClient::Impl {
         return;
       }
 
+      auto ctx = std::make_shared<ReadContext>();
+      ctx->handler = std::move(handler);
+      ctx->buffers = std::move(buffers);
+      read_context_ = ctx;
+
       // We create a local lambda to be the immediate callback, that
       // way the lock can be released in between polls.  Boy would
       // this ever be more clear if we could express it with
       // coroutines.
 
-      read_handler_ = std::move(handler);
-      read_bytes_read_ = 0;
-
       read_nonce_ = parent_->lock_.Invoke(
-          [self=shared_from_this(), buffers](io::SizeCallback handler) mutable {
+          [self=shared_from_this(), ctx](io::SizeCallback handler) mutable {
             self->read_nonce_ = {};
+
+            // Have we been canceled?
+            if (ctx->canceled) {
+              ctx->handler(boost::asio::error::operation_aborted, 0);
+              return;
+            }
+
             self->MakeFrame(boost::asio::buffer("", 0), 0, true);
 
             self->parent_->frame_stream_.AsyncWrite(
                 &self->parent_->tx_frame_,
-                [self, buffers, handler=std::move(handler)](const auto& ec) mutable {
-                  self->HandleRequestRead(ec, buffers, std::move(handler));
+                [self, handler=std::move(handler), ctx](const auto& ec) mutable {
+                  self->HandleRequestRead(ec, std::move(handler), ctx);
                 });
           },
-          std::bind(&Tunnel::MaybeRetry, shared_from_this(),
-                    pl::_1, pl::_2, buffers));
+          [self=shared_from_this(), ctx](auto&& _1, auto&& _2) {
+            self->MaybeRetry(_1, _2, ctx);
+          });
     }
 
     void async_write_some(io::ConstBufferSequence buffers,
@@ -299,18 +316,26 @@ class StreamAsioClient::Impl {
     }
 
     void cancel() override {
-      parent_->lock_.remove(read_nonce_);
-      poll_timer_.cancel();
-      parent_->frame_stream_.cancel();
+      if (read_context_) {
+        read_context_->canceled = true;
+      }
 
-      if (read_handler_) {
+      // See if we have yet to be executed at all.
+      if (parent_->lock_.remove(read_nonce_)) {
+        read_nonce_ = {};
+        MJ_ASSERT(read_context_);
         boost::asio::post(
             get_executor(),
-            std::bind(std::move(read_handler_),
+            std::bind(std::move(read_context_->handler),
                       boost::asio::error::operation_aborted, 0));
       }
-      read_handler_ = {};
-      read_bytes_read_ = 0;
+
+      // Canceling the timer (or having its callback already enqueued
+      // with the context->canceled set), will result in our read
+      // handler being invoked with the 'operation_aborted' error
+      // code.
+      poll_timer_.cancel();
+      read_context_ = {};
 
       if (parent_->lock_.remove(write_nonce_)) {
         boost::asio::post(
@@ -326,23 +351,31 @@ class StreamAsioClient::Impl {
 
    private:
     void HandleRequestRead(const base::error_code& ec,
-                           io::MutableBufferSequence buffers,
-                           io::SizeCallback callback) {
+                           io::SizeCallback callback,
+                           std::shared_ptr<ReadContext> ctx) {
       base::FailIf(ec);
+
+      // If we have been canceled here, just keep going because we
+      // still expect to hear from our previous write.
 
       // Now we need to try and read the response.
       parent_->frame_stream_.AsyncRead(
           &parent_->rx_frame_,
           kDefaultTimeout,
-          [self=shared_from_this(), buffers,
-           callback = std::move(callback)](const auto& ec) mutable {
-            self->HandleRead(ec, buffers, std::move(callback));
+          [self=shared_from_this(), callback = std::move(callback), ctx](
+              const auto& ec) mutable {
+            self->HandleRead(ec, std::move(callback), ctx);
           });
     }
 
     void HandleRead(const base::error_code& ec,
-                    io::MutableBufferSequence buffers,
-                    io::SizeCallback callback) {
+                    io::SizeCallback callback,
+                    std::shared_ptr<ReadContext> ctx) {
+      if (ctx->canceled) {
+        callback(boost::asio::error::operation_aborted, 0u);
+        return;
+      }
+
       if (ec == boost::asio::error::operation_aborted) {
         // We got a timeout.  Just wait our polling period and try again.
         callback({}, 0u);
@@ -398,15 +431,16 @@ class StreamAsioClient::Impl {
 
       // OK, we've got something.
       boost::asio::buffer_copy(
-          buffers, boost::asio::buffer(&frame.payload[stream.offset()],
-                                       *maybe_size));
+          ctx->buffers,
+          boost::asio::buffer(&frame.payload[stream.offset()],
+                              *maybe_size));
 
-      read_bytes_read_ += *maybe_size;
+      ctx->bytes_read += *maybe_size;
 
       // See if there is more waiting to be flushed out, in which
       // case, get it all before relinquishing to our final callback.
       if (parent_->frame_stream_.read_data_queued() &&
-          *maybe_size < boost::asio::buffer_size(buffers)) {
+          *maybe_size < boost::asio::buffer_size(ctx->buffers)) {
         // Hmmm, we have more data available and room to put it.
         // This isn't possible unless either a slave was talking in
         // an unsolicited manner, or we actually got a response to a
@@ -415,15 +449,18 @@ class StreamAsioClient::Impl {
         // to keep reading this to flush any data still on the
         // stream.
 
-        auto offset_buffers = io::OffsetBufferSequence(buffers, *maybe_size);
+        auto offset_buffers =
+            io::OffsetBufferSequence(ctx->buffers, *maybe_size);
+
+        ctx->buffers = std::move(offset_buffers);
 
         HandleRequestRead(base::error_code(),
-                          offset_buffers,
-                          std::move(callback));
+                          std::move(callback),
+                          ctx);
         return;
       }
 
-      callback({}, read_bytes_read_);
+      callback({}, ctx->bytes_read);
     }
 
     void MakeFrame(io::ConstBufferSequence buffers, size_t size,
@@ -447,33 +484,46 @@ class StreamAsioClient::Impl {
     }
 
     void MaybeRetry(const base::error_code& ec, size_t,
-                    io::MutableBufferSequence buffers) {
-      base::FailIf(ec);
-      if (!read_handler_) {
+                    std::shared_ptr<ReadContext> ctx) {
+      if (ctx->canceled) {
+        boost::asio::post(
+            parent_->executor_,
+            std::bind(std::move(ctx->handler),
+                      boost::asio::error::operation_aborted, 0));
         return;
       }
 
-      if (read_bytes_read_ > 0) {
+      base::FailIf(ec);
+
+      if (ctx->bytes_read > 0) {
         // No need to retry, we're done.
         boost::asio::post(
             parent_->executor_,
-            std::bind(std::move(read_handler_),
-                      base::error_code(), read_bytes_read_));
-        read_handler_ = {};
-        read_bytes_read_ = 0;
+            std::bind(std::move(ctx->handler),
+                      base::error_code(), ctx->bytes_read));
+        read_context_ = {};
         return;
       }
 
       // Yep, we failed to get anything this time.  Wait our polling
       // period and try again.
       poll_timer_.expires_from_now(options_.poll_rate);
-      poll_timer_.async_wait([self = shared_from_this(), buffers](auto&& ec) {
-          if (ec == boost::asio::error::operation_aborted) { return; }
-          auto copy = std::move(self->read_handler_);
-          self->read_handler_ = {};
-          self->read_bytes_read_ = 0;
-          self->async_read_some(buffers, std::move(copy));
-        });
+      poll_timer_.async_wait(
+          [self = shared_from_this(), ctx](auto&& ec) {
+            if (ctx->canceled) {
+              boost::asio::post(
+                  self->get_executor(),
+                  std::bind(std::move(ctx->handler),
+                            boost::asio::error::operation_aborted, 0));
+              return;
+            }
+            base::FailIf(ec);
+
+            auto copy = std::move(ctx->handler);
+            auto buffers = std::move(ctx->buffers);
+            self->read_context_ = {};
+            self->async_read_some(std::move(buffers), std::move(copy));
+          });
     }
 
     Impl* const parent_;
@@ -487,8 +537,7 @@ class StreamAsioClient::Impl {
     io::ExclusiveCommand::Nonce read_nonce_;
     io::ExclusiveCommand::Nonce write_nonce_;
     io::WriteHandler write_handler_;
-    io::ReadHandler read_handler_;
-    std::size_t read_bytes_read_ = 0;
+    std::shared_ptr<ReadContext> read_context_;
   };
 
   class TunnelHolder : public io::AsyncStream {

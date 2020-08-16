@@ -146,16 +146,7 @@ class FdcanusbFrameStream::Impl {
   }
 
   void cancel() {
-    if (current_callback_) {
-      auto ec = base::error_code(boost::asio::error::operation_aborted);
-      boost::asio::post(
-          stream_->get_executor(),
-          std::bind(std::move(current_callback_), ec));
-      current_callback_ = {};
-      current_frame_ = nullptr;
-    }
-    // We won't bother canceling writes, as they are unlikely to take
-    // long anyways.
+    mjlib::base::Fail("do not call!");
   }
 
   bool read_data_queued() const {

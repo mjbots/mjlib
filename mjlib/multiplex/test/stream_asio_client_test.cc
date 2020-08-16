@@ -36,6 +36,11 @@ struct Fixture {
     context.reset();
   }
 
+  void PollOne() {
+    context.poll_one();
+    context.reset();
+  }
+
   void AsyncRegister(const mp::RegisterRequest& request_in) {
     request = {{2, request_in}};
     reply = {};
@@ -200,6 +205,8 @@ BOOST_FIXTURE_TEST_CASE(StreamAsioClientTunnelReadCancel, Fixture) {
              std::string("\x54\xab\x80\x02\x03\x40\x03\x00\x96\x38", 10));
 
   tunnel->cancel();
+  debug_service->SetTime(
+      debug_service->now() + boost::posix_time::milliseconds(100));
 
   Poll();
 
@@ -216,6 +223,61 @@ BOOST_FIXTURE_TEST_CASE(StreamAsioClientTunnelReadCancel, Fixture) {
   Poll();
 
   BOOST_TEST(read_done == 1);
+  BOOST_TEST(buf[0] == 0);
+}
+
+BOOST_FIXTURE_TEST_CASE(StreamAsioClientTunnelReadCancelRace, Fixture) {
+  auto tunnel = dut.MakeTunnel(2, 3);
+
+  char buf[10] = {};
+  int read_done = 0;
+  size_t size = 0;
+  tunnel->async_read_some(
+      boost::asio::buffer(buf),
+      [&](auto&&ec, size_t size_in) {
+        BOOST_TEST(!!ec);
+        read_done++;
+        size = size_in;
+      });
+
+  BOOST_TEST(read_done == 0);
+
+  // Poll until just when data appears... this means that not all
+  // callbacks will have been invoked internally.
+  while (server_reader.data().size() != 10) {
+    PollOne();
+  }
+
+  tunnel->cancel();
+
+  // We should be good and canceled, so should be safe to read again.
+  char buf2[10] = {};
+  int read_done2 = 0;
+  tunnel->async_read_some(
+      boost::asio::buffer(buf2),
+      [&](auto&& ec, size_t) {
+        BOOST_TEST(!!ec);
+        read_done2++;
+      });
+
+  // Now respond with some data.
+  boost::asio::async_write(
+      *server_side,
+      boost::asio::buffer("\x54\xab\x02\x00\x05\x41\x03\x02\x61\x62\xa8\x40", 12),
+      [&](auto&& ec, size_t) {
+        base::FailIf(ec);
+      });
+
+  Poll();
+
+  // It is undefined whether the new data gets into the new buffer or
+  // not.  But what definitely *shouldn't* happen is for the new data
+  // to get into the old buffer, since we canceled the read before the
+  // data was there.
+  BOOST_TEST(read_done == 1);
+  BOOST_TEST(buf[0] == 0);
+
+  BOOST_TEST(((read_done2 == 0) || (read_done2 == 1)));
 }
 
 BOOST_FIXTURE_TEST_CASE(StreamAsioClientTunnelReadFlush, Fixture) {
