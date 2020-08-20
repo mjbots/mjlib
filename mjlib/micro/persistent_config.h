@@ -30,15 +30,20 @@ class PersistentConfig {
   PersistentConfig(Pool&, CommandManager&, FlashInterface&);
   ~PersistentConfig();
 
+  struct RegisterOptions {
+    RegisterOptions() {}
+  };
+
   /// Associate the given serializable with the given name.
   ///
   /// Both @p name and @p serializable are aliased internally and must
   /// remain valid forever.
   template <typename Serializable>
   void Register(const std::string_view& name, Serializable* serializable,
-                base::inplace_function<void ()> updated) {
+                base::inplace_function<void ()> updated,
+                const RegisterOptions& options = RegisterOptions()) {
     PoolPtr<SerializableHandler<Serializable>> concrete(pool(), serializable);
-    RegisterDetail(name, concrete.get(), updated);
+    RegisterDetail(name, concrete.get(), updated, options);
   }
 
   /// Restore all registered configuration structures from Flash.
@@ -50,7 +55,8 @@ class PersistentConfig {
   /// This aliases Base, which must remain valid for the lifetime of
   /// the PersistentConfig.
   void RegisterDetail(const std::string_view& name, SerializableHandlerBase*,
-                      base::inplace_function<void ()> updated);
+                      base::inplace_function<void ()> updated,
+                      const RegisterOptions&);
 
   Pool* pool() const;
 

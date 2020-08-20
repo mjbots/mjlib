@@ -336,7 +336,8 @@ void PersistentConfig::Load() {
 
 void PersistentConfig::RegisterDetail(
     const std::string_view& name, SerializableHandlerBase* base,
-    base::inplace_function<void ()> updated) {
+    base::inplace_function<void ()> updated,
+    const RegisterOptions&) {
   Impl::Element element;
   element.serializable = base;
   element.updated = updated;
