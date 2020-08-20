@@ -267,8 +267,14 @@ struct ItemArchive : public mjlib::base::VisitArchive<Derived> {
   void VisitArray(const NameValuePair& pair) {
     base::Tokenizer tokenizer(remaining_key_, ".");
     const auto index_str = tokenizer.next();
-    const std::size_t index = std::strtol(index_str.data(), nullptr, 0);
-    if (index < 0 || index >= pair.value()->size()) {
+    char* str_end = nullptr;
+    const char* const actual_end = index_str.data() + index_str.size();
+
+    const std::size_t index = std::strtol(index_str.data(), &str_end, 0);
+    if (index < 0 ||
+        index >= pair.value()->size() ||
+        str_end == nullptr ||
+        str_end != actual_end) {
       found_ = false;
       return;
     }

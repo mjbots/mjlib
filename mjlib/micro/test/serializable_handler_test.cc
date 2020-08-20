@@ -178,6 +178,10 @@ BOOST_AUTO_TEST_CASE(BasicSerializableHandler) {
     const int result = dut.Set("array_struct.10.detailed", "10");
     BOOST_TEST(result != 0);
   }
+  {
+    const int result = dut.Set("array_struct.bing.detailed", "20");
+    BOOST_TEST(result != 0);
+  }
 
   auto test_read = [&](std::string_view key, std::string_view expected) {
     char buffer[100] = {};
