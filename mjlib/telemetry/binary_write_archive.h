@@ -166,12 +166,21 @@ class BinarySchemaArchive : public base::VisitArchive<BinarySchemaArchive> {
  public:
   using TF = Format;
 
-  BinarySchemaArchive(base::WriteStream& stream) : stream_(stream) {}
+  struct Options {
+    // Emit the "default" value associated with each item.
+    bool emit_default = true;
+
+    Options() {}
+  };
+
+  BinarySchemaArchive(base::WriteStream& stream, const Options& options = {})
+      : stream_(stream),
+        options_(options) {}
 
   template <typename Serializable>
-  static std::string schema() {
+  static std::string schema(const Options& options = {}) {
     base::FastOStringStream ostr;
-    BinarySchemaArchive archive(ostr);
+    BinarySchemaArchive archive(ostr, options);
     Serializable serializable;
     archive.Accept(&serializable);
     return ostr.str();
@@ -196,14 +205,14 @@ class BinarySchemaArchive : public base::VisitArchive<BinarySchemaArchive> {
   }
 
   template <typename ValueType>
-  static void Write(base::WriteStream& stream) {
-    BinarySchemaArchive(stream).template Value<ValueType>();
+  static void Write(base::WriteStream& stream, const Options& options = {}) {
+    BinarySchemaArchive(stream, options).template Value<ValueType>();
   }
 
   template <typename ValueType>
-  static std::string Write() {
+  static std::string Write(const Options& options = {}) {
     base::FastOStringStream ostr;
-    Write<ValueType>(ostr);
+    Write<ValueType>(ostr, options);
     return ostr.str();
   }
 
@@ -215,16 +224,20 @@ class BinarySchemaArchive : public base::VisitArchive<BinarySchemaArchive> {
 
     base::VisitArchive<BinarySchemaArchive>::Visit(nvp);
 
-    stream_.WriteVaruint(1);  // default value has data
+    if (options_.emit_default) {
+      stream_.WriteVaruint(1);  // default value has data
 
-    // Emit the default value.
-    BinaryWriteArchive data_archive(stream_.base());
-    data_archive.Visit(nvp);
+      // Emit the default value.
+      BinaryWriteArchive data_archive(stream_.base());
+      data_archive.Visit(nvp);
+    } else {
+      stream_.WriteVaruint(0);
+    }
   }
 
   template <typename NameValuePair>
   void VisitSerializable(const NameValuePair& nvp) {
-    BinarySchemaArchive sub_archive(stream_.base());
+    BinarySchemaArchive sub_archive(stream_.base(), options_);
     sub_archive.Accept(nvp.value());
   }
 
@@ -355,6 +368,7 @@ class BinarySchemaArchive : public base::VisitArchive<BinarySchemaArchive> {
   }
 
   WriteStream stream_;
+  Options options_;
 };
 
 }
