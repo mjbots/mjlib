@@ -30,6 +30,9 @@ struct Fixture : test::PersistentConfigFixture {
   int my_data_count = 0;
   int other_data_count = 0;
 
+  test::MyData non_enumerated;
+  int non_enumerated_count = 0;
+
   Fixture() {
     dut.Register("my_data", &my_data, [this]() {
         this->my_data_count++;
@@ -37,6 +40,12 @@ struct Fixture : test::PersistentConfigFixture {
     dut.Register("other_data", &other_data, [this]() {
         this->other_data_count++;
       });
+    PersistentConfig::RegisterOptions register_options;
+    register_options.enumerate = false;
+    dut.Register("non_enumerated", &non_enumerated, [this]() {
+        this->non_enumerated_count++;
+      },
+      register_options);
   }
 };
 }
@@ -56,6 +65,10 @@ BOOST_FIXTURE_TEST_CASE(PersistentConfigSet, Fixture) {
   Command("conf set my_data.value 39\n");
   ExpectResponse("OK\r\n");
   BOOST_TEST(my_data.value == 39);
+
+  Command("conf set non_enumerated.value 47\n");
+  ExpectResponse("OK\r\n");
+  BOOST_TEST(non_enumerated.value == 47);
 }
 
 BOOST_FIXTURE_TEST_CASE(PersistentConfigFlash, Fixture) {

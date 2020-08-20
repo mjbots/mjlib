@@ -95,6 +95,7 @@ class PersistentConfig::Impl {
   struct Element {
     SerializableHandlerBase* serializable = nullptr;
     base::inplace_function<void ()> updated;
+    bool enumerate = true;
   };
 
   using ElementMap = PoolMap<std::string_view, Element>;
@@ -112,20 +113,27 @@ class PersistentConfig::Impl {
       return;
     }
 
-    const auto element_it = elements_.begin() + current_enumerate_index_;
-    if (element_it == elements_.end()) {
-      WriteOK(current_response_);
+    while (true) {
+      const auto element_it = elements_.begin() + current_enumerate_index_;
+      if (element_it == elements_.end()) {
+        WriteOK(current_response_);
+        return;
+      }
+
+      current_enumerate_index_++;
+
+      if (!element_it->second.enumerate) {
+        continue;
+      }
+
+      element_it->second.serializable->Enumerate(
+          &this->enumerate_context_,
+          this->send_buffer_,
+          element_it->first,
+          *current_response_.stream,
+          [this](error_code err) { this->EnumerateCallback(err); });
       return;
     }
-
-    current_enumerate_index_++;
-
-    element_it->second.serializable->Enumerate(
-        &this->enumerate_context_,
-        this->send_buffer_,
-        element_it->first,
-        *current_response_.stream,
-        [this](error_code err) { this->EnumerateCallback(err); });
   }
 
   void Get(const std::string_view& field,
@@ -336,10 +344,11 @@ void PersistentConfig::Load() {
 void PersistentConfig::RegisterDetail(
     const std::string_view& name, SerializableHandlerBase* base,
     base::inplace_function<void ()> updated,
-    const RegisterOptions&) {
+    const RegisterOptions& options) {
   Impl::Element element;
   element.serializable = base;
   element.updated = updated;
+  element.enumerate = options.enumerate;
 
   const auto result = impl_->elements_.insert({name, element});
   // We do not allow duplicate names.

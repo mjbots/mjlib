@@ -31,6 +31,8 @@ class PersistentConfig {
   ~PersistentConfig();
 
   struct RegisterOptions {
+    bool enumerate = true;
+
     RegisterOptions() {}
   };
 
