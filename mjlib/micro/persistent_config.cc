@@ -16,9 +16,13 @@
 
 #include <cstring>
 
+#include <boost/crc.hpp>
+
 #include "mjlib/base/assert.h"
 #include "mjlib/base/buffer_stream.h"
 #include "mjlib/base/crc.h"
+#include "mjlib/base/crc_stream.h"
+#include "mjlib/base/null_stream.h"
 #include "mjlib/base/tokenizer.h"
 
 #include "mjlib/telemetry/format.h"
@@ -244,17 +248,12 @@ class PersistentConfig::Impl {
   }
 
   uint32_t CalculateSchemaCrc(SerializableHandlerBase* base) const {
-    char schema_buffer[2048] = {};
-    base::BufferWriteStream schema_stream(
-        {schema_buffer, sizeof(schema_buffer)});
-    base->WriteSchema(schema_stream);
+    base::NullWriteStream null;
+    base::CrcWriteStream<boost::crc_32_type> crc_stream(null);
 
-    // Calculate CRC of schema.
-    const uint32_t crc =
-        base::CalculateCrc(
-            std::string_view(schema_buffer, schema_stream.offset()));
+    base->WriteSchema(crc_stream);
 
-    return crc;
+    return crc_stream.checksum();
   }
 
   void Write(const CommandManager::Response& response) {

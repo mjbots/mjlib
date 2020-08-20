@@ -147,8 +147,10 @@ cc_library(
         "//mjlib/base:assert",
         "//mjlib/base:buffer_stream",
         "//mjlib/base:crc",
+        "//mjlib/base:crc_stream",
         "//mjlib/base:inplace_function",
         "//mjlib/base:noncopyable",
+        "//mjlib/base:null_stream",
         "//mjlib/base:tokenizer",
     ],
 )

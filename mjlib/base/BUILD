@@ -134,6 +134,12 @@ cc_library(
 )
 
 cc_library(
+    name = "null_stream",
+    hdrs = ["null_stream.h"],
+    deps = [":stream"],
+)
+
+cc_library(
     name = "string_span",
     hdrs = ["string_span.h"],
 )
@@ -418,6 +424,7 @@ cc_test(
         ":json5_read_archive",
         ":json5_write_archive",
         ":limit",
+        ":null_stream",
         ":pid",
         ":program_options_archive",
         ":string_span",
