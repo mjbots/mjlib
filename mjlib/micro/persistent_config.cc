@@ -77,6 +77,8 @@ class PersistentConfig::Impl {
     auto cmd = tokenizer.next();
     if (cmd == "enumerate") {
       Enumerate(response);
+    } else if (cmd == "list") {
+      List(response);
     } else if (cmd == "get") {
       Get(tokenizer.remaining(), response);
     } else if (cmd == "set") {
@@ -134,6 +136,46 @@ class PersistentConfig::Impl {
           [this](error_code err) { this->EnumerateCallback(err); });
       return;
     }
+  }
+
+  void List(const CommandManager::Response& response) {
+    current_response_ = response;
+    current_list_index_ = 0;
+    ListCallback({});
+  }
+
+  void ListCallback(error_code error) {
+    if (error) {
+      current_response_.callback(error);
+      return;
+    }
+
+    if (current_list_index_ >= elements_.size()) {
+      WriteOK(current_response_);
+      return;
+    }
+
+    auto element_it = elements_.begin() + current_list_index_;
+    if (element_it == elements_.end()) {
+      WriteOK(current_response_);
+      return;
+    }
+
+    const auto& name = element_it->first;
+    current_list_index_++;
+
+    char *ptr = &send_buffer_[0];
+    std::copy(name.begin(), name.end(), ptr);
+    ptr += name.size();
+    *ptr = '\r';
+    ptr++;
+    *ptr = '\n';
+    ptr++;
+    AsyncWrite(*current_response_.stream,
+               std::string_view(send_buffer_, ptr - send_buffer_),
+               [this](error_code ec) {
+                 ListCallback(ec);
+               });
   }
 
   void Get(const std::string_view& field,
@@ -323,6 +365,7 @@ class PersistentConfig::Impl {
   // have the same output stream, as only one should be writing at a
   // time anyways.
   char send_buffer_[256] = {};
+  std::size_t current_list_index_ = 0;
 
   CommandManager::Response current_response_;
   std::size_t current_enumerate_index_ = 0;
