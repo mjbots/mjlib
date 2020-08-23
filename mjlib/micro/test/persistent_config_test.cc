@@ -55,6 +55,21 @@ BOOST_FIXTURE_TEST_CASE(PersistentConfigEnumerate, Fixture) {
   ExpectResponse("my_data.value 0\r\nother_data.stuff 0\r\nOK\r\n");
 }
 
+BOOST_FIXTURE_TEST_CASE(PersistentConfigEnumerateGroup1, Fixture) {
+  Command("conf enumerate my_data\n");
+  ExpectResponse("my_data.value 0\r\nOK\r\n");
+}
+
+BOOST_FIXTURE_TEST_CASE(PersistentConfigEnumerateGroup2, Fixture) {
+  Command("conf enumerate other_data\n");
+  ExpectResponse("other_data.stuff 0\r\nOK\r\n");
+}
+
+BOOST_FIXTURE_TEST_CASE(PersistentConfigEnumerateGroupUnknown, Fixture) {
+  Command("conf enumerate notfound\n");
+  ExpectResponse("ERR unknown group\r\n");
+}
+
 BOOST_FIXTURE_TEST_CASE(PersistentConfigList, Fixture) {
   Command("conf list\n");
   ExpectResponse("my_data\r\nother_data\r\nnon_enumerated\r\nOK\r\n");

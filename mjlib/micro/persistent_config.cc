@@ -76,7 +76,7 @@ class PersistentConfig::Impl {
     base::Tokenizer tokenizer(command, " ");
     auto cmd = tokenizer.next();
     if (cmd == "enumerate") {
-      Enumerate(response);
+      Enumerate(tokenizer.remaining(), response);
     } else if (cmd == "list") {
       List(response);
     } else if (cmd == "get") {
@@ -102,9 +102,22 @@ class PersistentConfig::Impl {
 
   using ElementMap = PoolMap<std::string_view, Element>;
 
-  void Enumerate(const CommandManager::Response& response) {
+  void Enumerate(const std::string_view& maybe_field,
+                 const CommandManager::Response& response) {
     current_response_ = response;
-    current_enumerate_index_ = 0;
+    if (maybe_field.size()) {
+      // Look up this field.
+      const auto element_it = elements_.find(maybe_field);
+      if (element_it == elements_.end()) {
+        WriteMessage("ERR unknown group\r\n", response);
+        return;
+      }
+      current_enumerate_index_ = element_it - elements_.begin();
+      end_enumerate_index_ = current_enumerate_index_ + 1;
+    } else {
+      current_enumerate_index_ = 0;
+      end_enumerate_index_ = elements_.size();
+    }
 
     EnumerateCallback({});
   }
@@ -117,7 +130,8 @@ class PersistentConfig::Impl {
 
     while (true) {
       const auto element_it = elements_.begin() + current_enumerate_index_;
-      if (element_it == elements_.end()) {
+      if (current_enumerate_index_ >= end_enumerate_index_ ||
+          element_it == elements_.end()) {
         WriteOK(current_response_);
         return;
       }
@@ -369,6 +383,7 @@ class PersistentConfig::Impl {
 
   CommandManager::Response current_response_;
   std::size_t current_enumerate_index_ = 0;
+  std::size_t end_enumerate_index_ = 0;
   detail::EnumerateArchive::Context enumerate_context_;
 };
 
