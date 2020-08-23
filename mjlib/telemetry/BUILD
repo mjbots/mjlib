@@ -105,6 +105,7 @@ cc_library(
     deps = [
         ":binary_read_archive",
         ":binary_schema_parser",
+        ":binary_write_archive",
     ],
 )
 
