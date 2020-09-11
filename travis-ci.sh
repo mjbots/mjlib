@@ -2,8 +2,10 @@
 
 set -ev
 
-python3 -c "import snappy"
-if [ $? -ne 0 ]; then
+if python3 -c "import snappy"; then
+    # Nothing to do
+    echo "Already have snappy"
+else
     pip3 install snappy
 fi
 
