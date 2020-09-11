@@ -6,7 +6,7 @@ if python3 -c "import snappy"; then
     # Nothing to do
     echo "Already have snappy"
 else
-    pip3 install python-snappy
+    sudo apt install python3-snappy
 fi
 
 ./tools/bazel test --copt -Werror //...
