@@ -1,6 +1,8 @@
 script: ./travis-ci.sh
 dist: bionic
-language: cpp
+language: python
+python:
+  - "3.6"
 cache:
    directories:
     - $HOME/.cache/bazel/
