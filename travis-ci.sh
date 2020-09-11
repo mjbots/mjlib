@@ -6,7 +6,7 @@ if python3 -c "import snappy"; then
     # Nothing to do
     echo "Already have snappy"
 else
-    pip3 install snappy
+    pip3 install python-snappy
 fi
 
 ./tools/bazel test --copt -Werror //...
