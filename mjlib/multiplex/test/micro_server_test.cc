@@ -140,32 +140,37 @@ const uint8_t kClientToServerMultiple[] = {
 }
 
 BOOST_FIXTURE_TEST_CASE(MicroServerTest, Fixture) {
-  char read_buffer[100] = {};
-  int read_count = 0;
-  ssize_t read_size = 0;
-  tunnel->AsyncReadSome(read_buffer, [&](micro::error_code ec, ssize_t size) {
-      BOOST_TEST(!ec);
-      read_count++;
-      read_size = size;
-    });
+  auto run_test = [&]() {
+    char read_buffer[100] = {};
+    int read_count = 0;
+    ssize_t read_size = 0;
+    tunnel->AsyncReadSome(read_buffer, [&](micro::error_code ec, ssize_t size) {
+        BOOST_TEST(!ec);
+        read_count++;
+        read_size = size;
+      });
 
-  BOOST_TEST(read_count == 0);
-  event_queue.Poll();
-  BOOST_TEST(read_count == 0);
-
-  {
-    int write_count = 0;
-    AsyncWrite(*dut_stream.side_a(), str(kClientToServer),
-               [&](micro::error_code ec) {
-                 BOOST_TEST(!ec);
-                 write_count++;
-               });
+    BOOST_TEST(read_count == 0);
     event_queue.Poll();
-    BOOST_TEST(write_count == 1);
-    BOOST_TEST(read_count == 1);
-    BOOST_TEST(read_size == 8);
-    BOOST_TEST(std::string_view(read_buffer, 8) == "test and");
-  }
+    BOOST_TEST(read_count == 0);
+
+    {
+      int write_count = 0;
+      AsyncWrite(*dut_stream.side_a(), str(kClientToServer),
+                 [&](micro::error_code ec) {
+                   BOOST_TEST(!ec);
+                   write_count++;
+                 });
+      event_queue.Poll();
+      BOOST_TEST(write_count == 1);
+      BOOST_TEST(read_count == 1);
+      BOOST_TEST(read_size == 8);
+      BOOST_TEST(std::string_view(read_buffer, 8) == "test and");
+    }
+  };
+  run_test();
+  dut.config()->id = 0x81;  // The high bit should be ignored.
+  run_test();
 }
 
 BOOST_FIXTURE_TEST_CASE(ServerWrongId, Fixture) {

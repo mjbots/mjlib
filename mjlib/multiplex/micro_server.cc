@@ -168,7 +168,7 @@ class MicroServer::Impl {
   // Return true if more data might be available in the buffer.
   void ProcessFrame() __attribute__ ((optimize("O3"))) {
     if ((read_header_.destination == kBroadcastId) ||
-        (read_header_.destination != config_.id)) {
+        (read_header_.destination != (config_.id & 0x7f))) {
       stats_.wrong_id++;
 
       if (read_header_.destination != kBroadcastId) {
@@ -198,7 +198,7 @@ class MicroServer::Impl {
     MJ_ASSERT(!write_outstanding_);
 
     write_header_.size = response_size;
-    write_header_.source = config_.id;
+    write_header_.source = config_.id & 0x7f;
     write_header_.destination = client_id;
 
     write_outstanding_ = true;
