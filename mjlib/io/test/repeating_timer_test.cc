@@ -104,4 +104,8 @@ BOOST_AUTO_TEST_CASE(BasicRepeatingTimer) {
 
   BOOST_TEST(ms100_count == 6);
   BOOST_TEST(!ms100_ec);
+
+  dut.cancel();
+  dut.start(ms100, ms100_callback);
+  poll();
 }

@@ -66,7 +66,9 @@ void RepeatingTimer::StartInternal() {
 
 void RepeatingTimer::HandleTimer(const base::error_code& ec) {
   if (!callback_) { return; }
-  StartInternal();
+  if (ec != boost::asio::error::operation_aborted) {
+    StartInternal();
+  }
   boost::asio::post(executor_, std::bind(callback_, ec));
 }
 
