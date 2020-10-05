@@ -15,15 +15,41 @@
 #pragma once
 
 #include <cmath>
+#include <type_traits>
 
 namespace mjlib {
 namespace base {
 
+namespace detail {
+
 template <typename T>
-T Limit(T a, T min, T max) {
+T LimitIntegral(T a, T min, T max) {
+  if (a < min) { return min; }
+  if (a > max) { return max; }
+  return a;
+}
+
+template <typename T>
+T LimitFloat(T a, T min, T max) {
   if (!std::isnan(min) && a < min) { return min; }
   if (!std::isnan(max) && a > max) { return max; }
   return a;
+}
+
+template <typename T>
+T LimitDispatch(T a, T min, T max, const std::true_type&) {
+  return LimitFloat(a, min, max);
+}
+
+template <typename T>
+T LimitDispatch(T a, T min, T max, const std::false_type&) {
+  return LimitIntegral(a, min, max);
+}
+}  // namespace detail
+
+template <typename T>
+T Limit(T a, T min, T max) {
+  return detail::LimitDispatch(a, min, max, std::is_floating_point<T>());
 }
 
 }
