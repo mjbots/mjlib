@@ -157,14 +157,18 @@ cc_test(
         "test/binary_schema_parser_test.cc",
         "test/binary_write_archive_test.cc",
         "test/emit_json_test.cc",
-        "test/file_reader_test.cc",
-        "test/file_writer_test.cc",
         "test/format_test.cc",
         "test/mapped_binary_reader_test.cc",
         "test/test_main.cc",
 
         "test/test_util.h",
-    ],
+    ] + select({
+        "@bazel_tools//src/conditions:windows": [],
+        "//conditions:default" : [
+            "test/file_reader_test.cc",
+            "test/file_writer_test.cc",
+        ],
+    }),
     deps = [
         ":binary_read_archive",
         ":binary_schema_parser",
@@ -173,19 +177,27 @@ cc_test(
         ":error",
         ":format",
         ":file_reader",
-        ":file_writer",
         ":mapped_binary_reader",
         "//mjlib/base:all_types_struct",
         "//mjlib/base:temporary_file",
         "@boost//:test",
         "@boost//:date_time",
         "@fmt",
-    ],
+    ] + select({
+        "@bazel_tools//src/conditions:windows" : [],
+        "//conditions:default" : [
+            ":file_writer",
+        ],
+    }),
     data = [
-        "//mjlib/telemetry/js",
-        # Just so it is built.
-        ":file_json_dump",
-    ],
+    ] + select({
+        "@bazel_tools//src/conditions:windows" : [],
+        "//conditions:default" : [
+            "//mjlib/telemetry/js",
+            # Just so it is built.
+            ":file_json_dump",
+        ],
+    }),
 )
 
 py_library(
