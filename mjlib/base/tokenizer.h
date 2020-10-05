@@ -34,22 +34,22 @@ class Tokenizer {
     if (position_ == source_.end()) { return std::string_view(); }
 
     const auto start = position_;
-    auto next = position_;
+    auto my_next = position_;
     bool found = false;
-    for (; next != source_.end(); ++next) {
-      if (std::strchr(delimiters_, *next) != nullptr) {
-        position_ = next;
+    for (; my_next != source_.end(); ++my_next) {
+      if (std::strchr(delimiters_, *my_next) != nullptr) {
+        position_ = my_next;
         ++position_;
         found = true;
         break;
       }
     }
-    if (!found) { position_ = next; }
-    return std::string_view(start, next - start);
+    if (!found) { position_ = my_next; }
+    return std::string_view(&*start, my_next - start);
   }
 
   std::string_view remaining() const {
-    return std::string_view(position_, source_.end() - position_);
+    return std::string_view(&*position_, source_.end() - position_);
   }
 
  private:
