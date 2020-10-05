@@ -16,6 +16,7 @@
 
 #include <cstring>
 #include <iostream>
+#include <optional>
 #include <sstream>
 #include <stdexcept>
 #include <vector>
