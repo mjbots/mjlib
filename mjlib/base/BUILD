@@ -400,12 +400,17 @@ cc_test(
         "test/pid_test.cc",
         "test/program_options_archive_test.cc",
         "test/string_span_test.cc",
-        "test/thread_writer_test.cc",
         "test/time_conversions_test.cc",
         "test/tokenizer_test.cc",
         "test/test_main.cc",
         "test/windowed_average_test.cc",
-    ],
+    ] + select({
+        "@bazel_tools//src/conditions:windows" : [],
+        "//conditions:default" : [
+            "test/thread_writer_test.cc",
+        ],
+    }),
+
     deps = [
         ":all_types_struct",
         ":args",
@@ -429,15 +434,22 @@ cc_test(
         ":program_options_archive",
         ":string_span",
         ":system_error",
-        ":system_fd",
         ":temporary_file",
-        ":thread_writer",
         ":time_conversions",
         ":tokenizer",
         ":windowed_average",
         "@boost//:test",
-    ],
-    data = [
-        ":aborting_posix_timer_manual_test",
-    ],
+    ] + select({
+        "@bazel_tools//src/conditions:windows" : [],
+        "//conditions:default" : [
+            ":system_fd",
+            ":thread_writer",
+        ]
+    }),
+    data = select({
+        "@bazel_tools//src/conditions:windows" : [],
+        "//conditions:default" : [
+            ":aborting_posix_timer_manual_test",
+        ],
+    }),
 )
