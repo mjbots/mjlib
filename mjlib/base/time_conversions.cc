@@ -128,8 +128,6 @@ int64_t ConvertPtimeToEpochMicroseconds(boost::posix_time::ptime time) {
     return std::numeric_limits<int64_t>::min() + 1;
   }
 
-  const boost::posix_time::ptime epoch(
-      boost::gregorian::date(1970, boost::gregorian::Jan, 1));
   return (time - kEpoch).total_microseconds();
 }
 
