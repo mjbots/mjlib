@@ -581,7 +581,7 @@ BOOST_AUTO_TEST_CASE(InplaceFunctionTest) {
   static_assert(std::is_assignable<IPF40&, IPF&&>::value, "");  // TODO: nothrow
   //static_assert(!std::is_assignable<IPF&, const IPF40&>::value, "");
   //static_assert(!std::is_assignable<IPF&, IPF40&&>::value, "");
-#if __cplusplus >= 201703L
+#if __cplusplus >= 201703L && !defined(_WIN32)
   static_assert(!std::is_swappable_with<IPF40&, IPF&>::value, "");
   static_assert(!std::is_swappable_with<IPF&, IPF40&>::value, "");
 #endif
