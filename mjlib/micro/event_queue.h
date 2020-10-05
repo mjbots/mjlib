@@ -14,6 +14,8 @@
 
 #pragma once
 
+#include <deque>
+
 #include "mjlib/micro/event.h"
 
 namespace mjlib {

@@ -14,6 +14,7 @@
 
 #pragma once
 
+#include <cstddef>
 #include <cstdlib>
 
 #include <boost/iterator/iterator_facade.hpp>
@@ -33,7 +34,7 @@ class StaticVector {
    public:
     iterator_base() : parent_(nullptr), index_(0) {}
     iterator_base(typename base::CopyConst<
-                  Value, StaticVector>::type* parent, ssize_t index)
+                  Value, StaticVector>::type* parent, std::ptrdiff_t index)
         : parent_(parent), index_(index) {}
     template <class OtherValue>
     iterator_base(const iterator_base<OtherValue>& other)
@@ -63,14 +64,14 @@ class StaticVector {
     }
 
     typename base::CopyConst<Value, StaticVector>::type* parent_;
-    ssize_t index_;
+    std::ptrdiff_t index_;
   };
 
   using iterator = iterator_base<T>;
   using const_iterator = iterator_base<const T>;
 
   StaticVector() {}
-  StaticVector(ssize_t count,
+  StaticVector(std::ptrdiff_t count,
                const T& value_in = T()) {
     size_ = count;
     for (auto& value : *this) { value = value_in; }
@@ -109,11 +110,11 @@ class StaticVector {
     return size_ == 0;
   }
 
-  ssize_t size() const {
+  std::ptrdiff_t size() const {
     return size_;
   }
 
-  ssize_t capacity() const {
+  std::ptrdiff_t capacity() const {
     return Capacity;
   }
 
@@ -128,11 +129,11 @@ class StaticVector {
   T* data() { return &data_[0]; }
   const T* data() const { return &data_[0]; }
 
-  T& operator[](ssize_t index) { return data_[index]; }
-  const T& operator[](ssize_t index) const { return data_[index]; }
+  T& operator[](std::ptrdiff_t index) { return data_[index]; }
+  const T& operator[](std::ptrdiff_t index) const { return data_[index]; }
 
  private:
-  ssize_t size_ = 0;
+  std::ptrdiff_t size_ = 0;
   T data_[Capacity] = {};
 };
 

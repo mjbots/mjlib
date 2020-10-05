@@ -14,6 +14,7 @@
 
 #pragma once
 
+#include <cstddef>
 #include <string_view>
 
 #include "mjlib/base/noncopyable.h"
@@ -59,14 +60,14 @@ class AsyncWriter {
   void StartWrite() {
     stream_->AsyncWriteSome(
         {data_.data() + written_, data_.size() - written_},
-        [this](const auto& ec, ssize_t size) {
+        [this](const auto& ec, std::ptrdiff_t size) {
         if (ec) {
           callback_(ec, 0);
           return;
         }
 
         written_ += size;
-        if (written_ == static_cast<ssize_t>(data_.size())) {
+        if (written_ == static_cast<std::ptrdiff_t>(data_.size())) {
           callback_(ec, written_);
           return;
         }
@@ -77,7 +78,7 @@ class AsyncWriter {
 
   AsyncWriteStream* stream_ = nullptr;
   std::string_view data_;
-  ssize_t written_ = 0;
+  std::ptrdiff_t written_ = 0;
 
   SizeCallback callback_;
 };
@@ -93,19 +94,19 @@ void AsyncWrite(Stream& stream, const std::string_view& data,
   auto continuation = [stream=&stream,
                        data,
                        cbk=callback.shrink<6 * sizeof(long)>()]
-      (error_code error, ssize_t size) {
+      (error_code error, std::ptrdiff_t size) {
     if (error) {
       cbk(error);
       return;
     }
 
-    if (static_cast<ssize_t>(data.size()) == size) {
+    if (static_cast<std::ptrdiff_t>(data.size()) == size) {
       cbk({});
       return;
     }
 
     AsyncWrite(*stream,
-               std::string_view(data.begin() + size, data.size() - size),
+               std::string_view(&*(data.begin() + size), data.size() - size),
                cbk);
   };
 
@@ -123,7 +124,7 @@ void AsyncRead(Stream& stream, const base::string_span& data,
   auto continuation = [stream=&stream,
                        data,
                        cbk=callback.shrink<6 * sizeof(long)>()]
-      (error_code error, ssize_t size) {
+      (error_code error, std::ptrdiff_t size) {
     if (error) {
       cbk(error);
       return;

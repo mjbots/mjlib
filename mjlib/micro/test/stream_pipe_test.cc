@@ -14,6 +14,7 @@
 
 #include "mjlib/micro/stream_pipe.h"
 
+#include <cstddef>
 #include <deque>
 
 #include <boost/test/auto_unit_test.hpp>
@@ -33,11 +34,11 @@ BOOST_AUTO_TEST_CASE(BasicStreamPipe) {
   char data_to_receive[4] = {};
 
   int write_complete = 0;
-  ssize_t write_size = 0;
+  std::ptrdiff_t write_size = 0;
 
   dut.side_a()->AsyncWriteSome(
       data_to_send,
-      [&](error_code ec, ssize_t size) {
+      [&](error_code ec, std::ptrdiff_t size) {
         BOOST_TEST(!ec);
         write_complete++;
         write_size = size;
@@ -47,11 +48,11 @@ BOOST_AUTO_TEST_CASE(BasicStreamPipe) {
   BOOST_TEST(event_queue.empty());
 
   int read_complete = 0;
-  ssize_t read_size = 0;
+  std::ptrdiff_t read_size = 0;
 
   dut.side_b()->AsyncReadSome(
       base::string_span(data_to_receive, 4),
-      [&](error_code ec, ssize_t size) {
+      [&](error_code ec, std::ptrdiff_t size) {
         BOOST_TEST(!ec);
         read_complete++;
         read_size = size;
@@ -78,14 +79,13 @@ class Writer {
   int count() const { return count_; }
 
  private:
-  void StartWrite(ssize_t size) {
+  void StartWrite(std::ptrdiff_t size) {
     count_++;
-    std::strncpy(buf_, fmt::format("{} bytes\n", size).c_str(),
-                 sizeof(buf_) - 1);
+    fmt::format_to_n(buf_, sizeof(buf_) - 1, "{} bytes\n", size);
 
     stream_->AsyncWriteSome(
         buf_,
-        [this](error_code ec, ssize_t size) {
+        [this](error_code ec, std::ptrdiff_t size) {
           BOOST_TEST(!ec);
           this->StartWrite(size);
         });
@@ -114,7 +114,7 @@ BOOST_AUTO_TEST_CASE(StreamPipeWriteEnqueue) {
   int receive_count = 0;
   dut.side_b()->AsyncReadSome(
       base::string_span(to_receive, sizeof(to_receive)),
-      [&](error_code ec, ssize_t size) {
+      [&](error_code ec, std::ptrdiff_t size) {
         BOOST_TEST(!ec);
         BOOST_TEST(size == 8);
         BOOST_TEST(std::string(to_receive, size) == "0 bytes\n");
@@ -127,7 +127,7 @@ BOOST_AUTO_TEST_CASE(StreamPipeWriteEnqueue) {
 
   dut.side_b()->AsyncReadSome(
       base::string_span(to_receive, 1),
-      [&](error_code ec, ssize_t size) {
+      [&](error_code ec, std::ptrdiff_t size) {
         BOOST_TEST(!ec);
         BOOST_TEST(size == 1);
         BOOST_TEST(std::string(to_receive, size) == "8");
@@ -141,7 +141,7 @@ BOOST_AUTO_TEST_CASE(StreamPipeWriteEnqueue) {
   // Finally, read another slightly larger piece.
   dut.side_b()->AsyncReadSome(
       base::string_span(to_receive, 3),
-      [&](error_code ec, ssize_t size) {
+      [&](error_code ec, std::ptrdiff_t size) {
         BOOST_TEST(!ec);
         BOOST_TEST(size == 3);
         BOOST_TEST(std::string(to_receive, size) == "1 b");

@@ -17,6 +17,7 @@
 #include <inttypes.h>
 
 #include <algorithm>
+#include <cstddef>
 #include <cstdio>
 #include <cstdlib>
 #include <type_traits>
@@ -178,7 +179,10 @@ struct EnumerateArchive : public mjlib::base::VisitArchive<EnumerateArchive> {
     if (ea->parent_) { FormatPrefix(current, end, ea->parent_); }
 
     // Would we overflow?
-    if (static_cast<ssize_t>(ea->prefix_.size() + 2) > std::distance(*current, *end)) { return 1; }
+    if (static_cast<std::ptrdiff_t>(ea->prefix_.size() + 2) >
+        std::distance(*current, *end)) {
+      return 1;
+    }
 
     for (auto it = ea->prefix_.begin(); it != ea->prefix_.end(); ++it) {
       **current = *it;
@@ -200,7 +204,7 @@ struct EnumerateArchive : public mjlib::base::VisitArchive<EnumerateArchive> {
     if (FormatPrefix(&it, &end, this)) {
       return std::string_view();
     }
-    if (static_cast<ssize_t>(name.size() + 3) > std::distance(it, end)) {
+    if (static_cast<std::ptrdiff_t>(name.size() + 3) > std::distance(it, end)) {
       return std::string_view();
     }
 

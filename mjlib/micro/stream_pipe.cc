@@ -12,9 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "mjlib/base/assert.h"
-
 #include "mjlib/micro/stream_pipe.h"
+
+#include <cstddef>
+
+#include "mjlib/base/assert.h"
 
 namespace mjlib {
 namespace micro {
@@ -25,7 +27,7 @@ void StreamPipe::Side::AsyncReadSome(
   // Does our other side have an outstanding write?  If so, satisfy
   // it.
   if (other_->outstanding_write_buffer_.size()) {
-    ssize_t to_copy = std::min<ssize_t>(
+    auto to_copy = std::min<std::ptrdiff_t>(
         buffer.size(), other_->outstanding_write_buffer_.size());
     std::memcpy(buffer.data(), other_->outstanding_write_buffer_.data(),
                 to_copy);
@@ -70,7 +72,7 @@ void StreamPipe::Side::AsyncWriteSome(
     const SizeCallback& callback) {
   // Does our other side have an outstanding read?
   if (other_->outstanding_read_buffer_.size()) {
-    ssize_t to_copy = std::min<ssize_t>(
+    auto to_copy = std::min<std::ptrdiff_t>(
         buffer.size(), other_->outstanding_read_buffer_.size());
     std::memcpy(other_->outstanding_read_buffer_.data(), buffer.data(),
                 to_copy);

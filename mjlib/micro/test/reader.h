@@ -14,6 +14,7 @@
 
 #pragma once
 
+#include <cstddef>
 #include <sstream>
 
 #include "mjlib/micro/async_stream.h"
@@ -45,7 +46,7 @@ class Reader {
     outstanding_ = true;
     stream_->AsyncReadSome(
         base::string_span(buffer_, buffer_ + sizeof(buffer_)),
-        [this](error_code ec, ssize_t size) {
+        [this](error_code ec, std::ptrdiff_t size) {
           BOOST_TEST(!ec);
           data_.write(buffer_, size);
           outstanding_ = false;

@@ -14,6 +14,8 @@
 
 #pragma once
 
+#include <cstddef>
+
 #include "mjlib/base/inplace_function.h"
 
 #include "mjlib/micro/error_code.h"
@@ -23,7 +25,7 @@ namespace micro {
 
 using VoidCallback = base::inplace_function<void (void)>;
 using ErrorCallback = base::inplace_function<void (const error_code&)>;
-using SizeCallback = base::inplace_function<void (const error_code&, ssize_t)>;
+using SizeCallback = base::inplace_function<void (const error_code&, std::ptrdiff_t)>;
 
 }
 }
