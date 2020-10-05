@@ -14,8 +14,10 @@
 
 #include "fail.h"
 
+#ifndef _WIN32
 #include <cxxabi.h>
 #include <execinfo.h>
+#endif  // _WIN32
 #include <string.h>
 
 #include <iostream>
@@ -30,6 +32,7 @@ void AssertNotReached() {
 }
 
 namespace {
+#ifndef _WIN32
 std::string FormatFrame(const std::string& frame) {
   size_t openparen = frame.find_first_of('(');
   if (openparen == std::string::npos) { return frame; }
@@ -61,9 +64,11 @@ std::string FormatFrame(const std::string& frame) {
   ::free(demangled);
   return result;
 }
+#endif  // _WIN32
 }
 
 void Fail(const std::string& message) {
+#ifndef _WIN32
   const int kMaxFrames = 100;
   void *buffer[kMaxFrames] = {};
   int frames = ::backtrace(buffer, kMaxFrames);
@@ -74,6 +79,7 @@ void Fail(const std::string& message) {
   for (int i = 0; i < frames; i++) {
     std::cerr << FormatFrame(strings[i]) << "\n";
   }
+#endif  // _WIN32
 
   std::cerr << "\n" << message << "\n\n";
 
