@@ -23,8 +23,14 @@ test_suite(
         "//mjlib/io:test",
         "//mjlib/micro:test",
         "//mjlib/multiplex:test",
-        "//mjlib/multiplex:py_test",
         "//mjlib/telemetry:test",
+    ],
+)
+
+test_suite(
+    name = "script_host",
+    tests = [
+        "//mjlib/multiplex:py_test",
         "//mjlib/telemetry:py_test",
         "//mjlib/telemetry/js:test",
     ],

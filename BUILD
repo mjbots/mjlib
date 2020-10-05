@@ -16,8 +16,17 @@
 
 package(default_visibility = ["//visibility:public"])
 
+
 test_suite(
     name = "host",
+    tests = [
+        "//mjlib:host",
+        "//mjlib:script_host",
+    ],
+)
+
+test_suite(
+    name = "host_windows",
     tests = [
         "//mjlib:host",
     ],
