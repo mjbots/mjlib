@@ -14,6 +14,7 @@
 
 #include "mjlib/multiplex/fdcanusb_frame_stream.h"
 
+#include <cstddef>
 #include <functional>
 #include <regex>
 
@@ -38,7 +39,7 @@ namespace multiplex {
 
 namespace {
 constexpr size_t kBlockSize = 4096;
-constexpr ssize_t kMaxLineLength = 512;
+constexpr std::ptrdiff_t kMaxLineLength = 512;
 
 size_t RoundUpDlc(size_t value) {
   if (value == 0) { return 0; }

@@ -211,16 +211,19 @@ cc_test(
         "test/fdcanusb_frame_stream_test.cc",
         "test/frame_test.cc",
         "test/rs485_frame_stream_test.cc",
-        "test/micro_server_test.cc",
-        "test/micro_stream_datagram_test.cc",
         "test/register_test.cc",
         "test/test_main.cc",
-    ],
+    ] + select({
+        "@bazel_tools//src/conditions:windows": [],
+        "//conditions:default": [
+            "test/micro_server_test.cc",
+            "test/micro_stream_datagram_test.cc",
+        ],
+    }),
     deps = [
         ":stream_asio_client",
         ":frame",
         ":frame_stream",
-        ":micro_server",
         ":micro_stream_datagram",
         ":register",
         "//mjlib/io:stream_factory",
@@ -228,7 +231,12 @@ cc_test(
         "//mjlib/micro:stream_pipe",
         "//mjlib/micro:test_fixtures",
         "@boost//:test",
-    ],
+    ] + select({
+        "@bazel_tools//src/conditions:windows": [],
+        "//conditions:default": [
+            ":micro_server",
+        ],
+    }),
     data = [
         ":multiplex_tool",
     ],

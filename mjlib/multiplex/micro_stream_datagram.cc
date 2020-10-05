@@ -14,6 +14,7 @@
 
 #include "mjlib/multiplex/micro_stream_datagram.h"
 
+#include <cstddef>
 #include <functional>
 
 #include <boost/crc.hpp>
@@ -224,7 +225,7 @@ class MicroStreamDatagram::Impl : public Format {
     const char* const payload_start = data.position();
     const auto data_we_have =
         &read_buffer_[read_start_] - data.position();
-    if (data_we_have < static_cast<ssize_t>(payload_size + 2)) {
+    if (data_we_have < static_cast<std::ptrdiff_t>(payload_size + 2)) {
       // We need more still.
       return false;
     }
@@ -254,7 +255,7 @@ class MicroStreamDatagram::Impl : public Format {
 
     // Great, we got something!
     const auto size_to_write =
-        std::min<ssize_t>(payload_size, current_read_data_.size());
+        std::min<std::ptrdiff_t>(payload_size, current_read_data_.size());
     std::memcpy(current_read_data_.data(), payload_start, size_to_write);
 
     current_read_header_->source = *maybe_source_id;
@@ -264,7 +265,7 @@ class MicroStreamDatagram::Impl : public Format {
     Consume(crc_location - read_buffer_ + 2);
 
     InvokeReadCallback(
-        (static_cast<ssize_t>(payload_size) > size_to_write) ?
+        (static_cast<std::ptrdiff_t>(payload_size) > size_to_write) ?
         micro::error_code(errc::kPayloadTruncated) :
         micro::error_code(),
         size_to_write);
@@ -279,7 +280,7 @@ class MicroStreamDatagram::Impl : public Format {
     read_start_ -= size;
   }
 
-  void InvokeReadCallback(const micro::error_code& ec, ssize_t size) {
+  void InvokeReadCallback(const micro::error_code& ec, std::ptrdiff_t size) {
     // We do a little dance here in case invoking the callback causes
     // another read to be made (which is almost a certainty).
     auto copy = current_read_callback_;
