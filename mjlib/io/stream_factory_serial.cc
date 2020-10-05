@@ -14,11 +14,13 @@
 
 #include "mjlib/io/stream_factory_serial.h"
 
+#ifndef _WIN32
 #include <linux/serial.h>
 #include <sys/ioctl.h>
 #include <termios.h>
 
 #include <fcntl.h>
+#endif  // _WIN32
 
 #include <boost/algorithm/string.hpp>
 #include <boost/asio/post.hpp>
@@ -53,6 +55,7 @@ class SerialStream : public AsyncStream {
     port_.set_option(
         boost::asio::serial_port_base::character_size(options_.serial_data_bits));
 
+#ifndef _WIN32
     {
       struct serial_struct serial;
       ioctl(port_.native_handle(), TIOCGSERIAL, &serial);
@@ -63,6 +66,7 @@ class SerialStream : public AsyncStream {
       }
       ioctl(port_.native_handle(), TIOCSSERIAL, &serial);
     }
+#endif  // _WIN32
 
     auto make_parity = [](std::string string) {
       boost::to_lower(string);

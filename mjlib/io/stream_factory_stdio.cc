@@ -19,6 +19,8 @@
 #include <boost/asio/posix/stream_descriptor.hpp>
 #include <boost/asio/post.hpp>
 
+#include "mjlib/base/fail.h"
+
 namespace mjlib {
 namespace io {
 namespace detail {
@@ -26,6 +28,7 @@ namespace detail {
 namespace {
 using namespace std::placeholders;
 
+#ifndef _WIN32
 class StdioStream : public AsyncStream {
  public:
   StdioStream(const boost::asio::any_io_executor& executor,
@@ -58,16 +61,24 @@ class StdioStream : public AsyncStream {
   boost::asio::posix::stream_descriptor stdin_;
   boost::asio::posix::stream_descriptor stdout_;
 };
+#endif  // _WIN32
 }
 
 void AsyncCreateStdio(
     const boost::asio::any_io_executor& executor,
     const StreamFactory::Options& options,
     StreamHandler handler) {
+#ifndef _WIN32      
   boost::asio::post(
       executor,
       std::bind(std::move(handler), base::error_code(),
                 std::make_shared<StdioStream>(executor, options)));
+#else  // _WIN32
+  (void) executor;
+  (void) options;
+  (void) handler;
+  base::Fail("not implemented");
+#endif         
 }
 
 }

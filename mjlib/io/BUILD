@@ -63,8 +63,9 @@ cc_library(
     ],
     deps = [
         ":async_stream",
-        "//mjlib/base:system_error",
         "//mjlib/base:args_visitor",
+        "//mjlib/base:fail",
+        "//mjlib/base:system_error",
         "@fmt",
     ],
 )
@@ -198,20 +199,23 @@ cc_test(
         "test/async_types_test.cc",
         "test/exclusive_command_test.cc",
         "test/offset_buffer_test.cc",
-        "test/realtime_executor_test.cc",
         "test/repeating_timer_test.cc",
         "test/selector_test.cc",
         "test/streambuf_read_stream_test.cc",
         "test/test_main.cc",
         "test/virtual_deadline_timer_test.cc",
-    ],
+    ] + select({
+        "@bazel_tools//src/conditions:windows": [],
+        "//conditions:default": [
+            "test/realtime_executor_test.cc",
+        ],
+    }),
     deps = [
         ":async_sequence",
         ":async_stream",
         ":debug_time",
         ":exclusive_command",
         ":offset_buffer",
-        ":realtime_executor",
         ":repeating_timer",
         ":selector",
         ":streambuf_read_stream",
@@ -219,9 +223,18 @@ cc_test(
         "//mjlib/base:clipp",
         "//mjlib/base:collapse_whitespace",
         "@boost//:test",
-    ],
+    ] + select({
+        "@bazel_tools//src/conditions:windows": [],
+        "//conditions:default": [
+            ":realtime_executor",
+        ],
+    }),
     data = [
-        ":realtime_executor_manual_test",
         ":stream_factory_manual_test",
-    ],
+    ] + select({
+        "@bazel_tools//src/conditions:windows": [],
+        "//conditions:default" : [
+            ":realtime_executor_manual_test",
+        ],
+    }),
 )
