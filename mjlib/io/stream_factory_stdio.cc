@@ -15,11 +15,16 @@
 #include "mjlib/io/stream_factory_stdio.h"
 
 #include <functional>
+#include <thread>
 
+#include <boost/asio/io_context.hpp>
 #include <boost/asio/posix/stream_descriptor.hpp>
 #include <boost/asio/post.hpp>
 
+#include "fmt/format.h"
+
 #include "mjlib/base/fail.h"
+#include "mjlib/base/system_error.h"
 
 namespace mjlib {
 namespace io {
@@ -61,24 +66,91 @@ class StdioStream : public AsyncStream {
   boost::asio::posix::stream_descriptor stdin_;
   boost::asio::posix::stream_descriptor stdout_;
 };
-#endif  // _WIN32
+#else // _WIN32
+class StdioStream : public AsyncStream {
+ public:
+  StdioStream(const boost::asio::any_io_executor& executor,
+              const StreamFactory::Options& options)
+     : executor_(executor),
+       thread_(std::bind(&StdioStream::Run, this)) {
+    BOOST_ASSERT(options.type == StreamFactory::Type::kStdio);
+    base::system_error::throw_if(stdin_ == nullptr);
+    base::system_error::throw_if(stdout_ == nullptr);
+  }
+
+  ~StdioStream() override {
+    child_context_.stop();
+    thread_.join();
+  }
+
+  boost::asio::any_io_executor get_executor() override { return executor_; }
+
+  void async_read_some(MutableBufferSequence buffers,
+                       ReadHandler handler) override {
+    boost::asio::post(
+      child_context_,
+      [this, buffers, handler=std::move(handler)]() mutable {
+        this->ChildRead(buffers, std::move(handler));
+      }
+    );
+  }
+
+  void async_write_some(ConstBufferSequence buffers,
+                        WriteHandler handler) override {
+    const auto& buffer = *buffers.begin();  
+    DWORD bytes_written = 0;
+    if (buffer.size() != 0) {
+      base::system_error::throw_if(
+        !WriteFile(stdout_, buffer.data(), buffer.size(), &bytes_written, nullptr));
+    }
+    boost::asio::post(
+      executor_,
+      std::bind(std::move(handler), base::error_code(), bytes_written)
+    );
+  }
+
+  void cancel() override {
+  }
+
+ private:
+  void Run() {
+    boost::asio::io_context::work work(child_context_);
+    child_context_.run();
+  }
+
+  void ChildRead(MutableBufferSequence buffers,
+                 ReadHandler handler) {
+    auto& buffer = *buffers.begin();
+    DWORD bytes_read = 0;
+    if (buffer.size() != 0) {
+      base::system_error::throw_if(
+        !ReadConsole(stdin_, buffer.data(), buffer.size(), &bytes_read, nullptr));
+    }
+
+    boost::asio::post(
+      executor_,
+      std::bind(std::move(handler), base::error_code(), bytes_read)
+    );
+  }
+
+  boost::asio::any_io_executor executor_;
+
+  std::thread thread_;
+  boost::asio::io_context child_context_;
+  HANDLE stdin_{GetStdHandle(STD_INPUT_HANDLE)};
+  HANDLE stdout_{GetStdHandle(STD_OUTPUT_HANDLE)};
+};
+#endif
 }
 
 void AsyncCreateStdio(
     const boost::asio::any_io_executor& executor,
     const StreamFactory::Options& options,
     StreamHandler handler) {
-#ifndef _WIN32      
   boost::asio::post(
       executor,
       std::bind(std::move(handler), base::error_code(),
                 std::make_shared<StdioStream>(executor, options)));
-#else  // _WIN32
-  (void) executor;
-  (void) options;
-  (void) handler;
-  base::Fail("not implemented");
-#endif         
 }
 
 }
