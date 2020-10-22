@@ -65,10 +65,12 @@ cc_library(
         "fdcanusb_frame_stream.h",
         "frame_stream.h",
         "rs485_frame_stream.h",
+        "socketcan_frame_stream.h",
     ],
     srcs = [
         "fdcanusb_frame_stream.cc",
         "rs485_frame_stream.cc",
+        "socketcan_frame_stream.cc",
     ],
     deps = [
         ":format",

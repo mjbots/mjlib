@@ -26,6 +26,7 @@
 #include "mjlib/multiplex/fdcanusb_frame_stream.h"
 #include "mjlib/multiplex/frame_stream.h"
 #include "mjlib/multiplex/rs485_frame_stream.h"
+#include "mjlib/multiplex/socketcan_frame_stream.h"
 
 namespace mjlib {
 namespace multiplex {
@@ -35,12 +36,14 @@ class StreamAsioClientBuilder : public AsioClient {
   struct Options {
     StreamAsioClient::Options client;
     io::StreamFactory::Options stream;
+    SocketcanFrameStream::Options can;
     std::string frame_type = "fdcanusb";
 
     template <typename Archive>
     void Serialize(Archive* a) {
       a->Visit(MJ_NVP(client));
       a->Visit(MJ_NVP(stream));
+      a->Visit(MJ_NVP(can));
       a->Visit(MJ_NVP(frame_type));
     }
   };
@@ -61,11 +64,19 @@ class StreamAsioClientBuilder : public AsioClient {
   }
 
   void AsyncStart(mjlib::io::ErrorCallback callback) {
-    factory_.AsyncCreate(
-        options_.stream, [this, callback = std::move(callback)](
-            auto&& _1, auto&& _2) mutable {
-          this->HandleStream(_1, _2, std::move(callback));
-        });
+    if (options_.frame_type == "socketcan") {
+      frame_stream_ = std::make_unique<SocketcanFrameStream>(executor_, options_.can);
+      client_.emplace(frame_stream_.get());
+      boost::asio::post(
+          executor_,
+          std::bind(std::move(callback), base::error_code()));
+    } else {
+      factory_.AsyncCreate(
+          options_.stream, [this, callback = std::move(callback)](
+              auto&& _1, auto&& _2) mutable {
+            this->HandleStream(_1, _2, std::move(callback));
+          });
+    }
   }
 
   void AsyncTransmit(const Request* request,
