@@ -50,6 +50,7 @@ struct Options {
 
   bool console = false;
   bool register_tool = false;
+  int poll_rate_ms = mp::AsioClient::TunnelOptions().poll_rate.total_milliseconds();
 };
 
 struct ValueFormatter {
@@ -129,7 +130,9 @@ class CommandRunner {
     // TODO(jpieper): Auto-discover if empty.
     BOOST_ASSERT(!options_.targets.empty());
 
-    tunnel_ = client_->MakeTunnel(options_.targets.at(0), 1);
+    mp::AsioClient::TunnelOptions tunnel_options;
+    tunnel_options.poll_rate = boost::posix_time::milliseconds(options_.poll_rate_ms);
+    tunnel_ = client_->MakeTunnel(options_.targets.at(0), 1, tunnel_options);
     copy_.emplace(executor_, tunnel_.get(), stdio_.get(),
                   std::bind(&CommandRunner::HandleDone, this, pl::_1));
   }
@@ -445,7 +448,8 @@ int multiplex_main(boost::asio::io_context& context,
           (clipp::option("t", "target") &
            clipp::integer("TGT", options.targets)) % "one or more target devices"),
       clipp::option("c", "console").set(options.console),
-      clipp::option("r", "register").set(options.register_tool)
+      clipp::option("r", "register").set(options.register_tool),
+      clipp::option("", "poll-rate-ms") & clipp::integer("MS", options.poll_rate_ms)
   );
   group.merge(clipp::with_prefix("client.", selector->program_options()));
 
