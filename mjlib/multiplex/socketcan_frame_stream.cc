@@ -14,6 +14,7 @@
 
 #include "mjlib/multiplex/socketcan_frame_stream.h"
 
+#ifndef _WIN32
 #include <net/if.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -21,6 +22,7 @@
 
 #include <linux/can.h>
 #include <linux/can/raw.h>
+#endif  // _WIN32
 
 #include <cstddef>
 #include <functional>
@@ -43,6 +45,7 @@ namespace pl = std::placeholders;
 namespace mjlib {
 namespace multiplex {
 
+#ifndef _WIN32
 namespace {
 
 size_t RoundUpDlc(size_t value) {
@@ -241,6 +244,42 @@ class SocketcanFrameStream::Impl {
   struct canfd_frame recv_frame_ = {};
 
 };
+
+#else // _WIN32
+
+class SocketcanFrameStream::Impl {
+ public:
+  Impl(const boost::asio::any_io_executor&, const Options&) {}
+
+  void AsyncWrite(const Frame* frame, io::ErrorCallback callback) {
+    base::Fail("not supported");
+  }
+
+  void AsyncWriteMultiple(const std::vector<const Frame*>&,
+                          io::ErrorCallback) {
+    base::Fail("not supported");
+  }
+
+  void AsyncRead(Frame*,
+                 boost::posix_time::time_duration,
+                 io::ErrorCallback) {
+    base::Fail("not supported");
+  }
+
+  void cancel() {
+    base::Fail("not supported");
+  }
+
+  bool read_data_queued() const {
+    return false;
+  }
+
+  boost::asio::any_io_executor get_executor() const {
+    base::Fail("not supported");
+  }
+};
+
+#endif
 
 SocketcanFrameStream::SocketcanFrameStream(
     const boost::asio::any_io_executor& executor, const Options& options)
