@@ -66,6 +66,13 @@ class SerialStream : public AsyncStream {
       }
       ioctl(port_.native_handle(), TIOCSSERIAL, &serial);
     }
+#else  // _WIN32
+    {
+      if (options_.serial_low_latency) {
+        COMMTIMEOUTS new_timeouts = {MAXDWORD, 0, 0, 0, 0};
+        SetCommTimeouts(port_.native_handle(), &new_timeouts);
+      }
+    }
 #endif  // _WIN32
 
     auto make_parity = [](std::string string) {
