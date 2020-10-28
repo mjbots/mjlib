@@ -2,7 +2,7 @@
 
 set -ev
 
-pkgs="mesa-common-dev libglu1-mesa-dev"
+pkgs="mesa-common-dev"
 
 if ! dpkg -s ${pkgs} >/dev/null 2>&1; then
     sudo apt install --yes ${pkgs}
