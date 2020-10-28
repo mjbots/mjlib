@@ -30,13 +30,25 @@ cc_library(
         "imstb_rectpack.h",
         "imstb_textedit.h",
         "imstb_truetype.h",
-        "examples/imgui_impl_glfw.h",
-        "examples/imgui_impl_glfw.cpp",
-        "examples/imgui_impl_opengl3.h",
-        "examples/imgui_impl_opengl3.cpp",
-    ],
+    ] + select({
+        "@bazel_tools//src/conditions:windows" : [
+        ],
+        "//conditions:default" : [
+            "examples/imgui_impl_glfw.h",
+            "examples/imgui_impl_glfw.cpp",
+            "examples/imgui_impl_opengl3.h",
+            "examples/imgui_impl_opengl3.cpp",
+        ],
+    }),
     includes = ["."],
-    deps = ["@glfw", "@gl3w"],
+    deps = select({
+        "@bazel_tools//src/conditions:windows" : [
+        ],
+        "//conditions:default" : [
+            "@glfw",
+            "@gl3w",
+        ],
+    }),
     defines = [
         "IMGUI_DISABLE_INCLUDE_IMCONFIG_H",
         'ImDrawIdx="unsigned int"',

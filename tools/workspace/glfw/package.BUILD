@@ -58,5 +58,11 @@ cc_library(
         "-Wno-missing-field-initializers",
     ],
     includes = ["include"],
-    deps = ["@libx11"],
+    deps = [
+        "@libx11",
+        "@libxi",
+        "@libxcursor",
+        "@libxrandr",
+        "@libxinerama",
+    ],
 )
