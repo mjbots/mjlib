@@ -2,6 +2,12 @@
 
 set -ev
 
+pkgs="mesa-common-dev libglu1-mesa-dev"
+
+if ! dpkg -s ${pkgs} >/dev/null 2>&1; then
+    sudo apt install --yes ${pkgs}
+fi
+
 if python3 -c "import snappy"; then
     # Nothing to do
     echo "Already have snappy"
