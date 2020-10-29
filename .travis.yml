@@ -3,6 +3,15 @@ dist: bionic
 language: python
 python:
   - "3.6"
+addons:
+  apt:
+    sources:
+    - sourceline: "deb http://archive.ubuntu.com/ubuntu/ bionic multiverse"
+    - sourceline: "deb http://archive.ubuntu.com/ubuntu/ bionic-backports universe"
+    packages:
+    - libsnappy-dev
+    - mesa-common-dev
+    - libgl1-mesa-dev
 cache:
    directories:
     - $HOME/.cache/bazel/
