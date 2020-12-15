@@ -99,6 +99,10 @@ class SocketcanFrameStream::Impl {
     send_frame_.can_id =
         ((frame->source_id | (frame->request_reply ? 0x80 : 0x00)) << 8) |
         frame->dest_id;
+    if (send_frame_.can_id > 0x7ff) {
+      send_frame_.can_id |= CAN_EFF_FLAG;
+    }
+
     const auto actual_size = RoundUpDlc(frame->payload.size());
     send_frame_.len = actual_size;
     std::memcpy(&send_frame_.data[0], &frame->payload[0], frame->payload.size());
