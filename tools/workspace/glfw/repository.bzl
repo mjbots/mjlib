@@ -20,7 +20,7 @@ def glfw_repository(name):
     github_archive(
         name = name,
         repo = "glfw/glfw",
-        commit = "44b5d06583cd21ac237eb8f6263db03faf1726c2",
-        sha256 = "d22c409c39513a99b2c264974a436953820919fa9ba29204ad61d8f92465833a",
+        commit = "0b9e48fa3df9c184ff1abfb2452fd1a4b696ecd8",
+        sha256 = "454148695e929bb6577b1c89eef193d52646e09c551d9d66993ddd0dee29d39d",
         build_file = Label("//tools/workspace/glfw:package.BUILD"),
     )
