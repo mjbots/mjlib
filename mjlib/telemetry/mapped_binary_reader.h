@@ -80,7 +80,8 @@ class MappedBinaryReader {
           base::error_code(
               errc::kTypeMismatch,
               fmt::format(
-                  "C++ {} has incorrect type for {}",
+                  "'{}' C++ type {} does not match serialized type {}",
+                  element->name,
                   typeid(ParentType).name(),
                   static_cast<int>(element->type))));
     }
