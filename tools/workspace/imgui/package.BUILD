@@ -51,6 +51,7 @@ cc_library(
     }),
     defines = [
         "IMGUI_DISABLE_INCLUDE_IMCONFIG_H",
+        "IMGUI_IMPL_OPENGL_LOADER_GL3W",
         'ImDrawIdx="unsigned int"',
     ],
 )
