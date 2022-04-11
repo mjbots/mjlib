@@ -1,4 +1,4 @@
-// Copyright 2015-2018 Josh Pieper, jjp@pobox.com.
+// Copyright 2015-2022 Josh Pieper, jjp@pobox.com.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -31,7 +31,8 @@ class TelemetryManager {
  public:
   TelemetryManager(Pool*,
                    CommandManager*,
-                   AsyncExclusive<AsyncWriteStream>* write_stream);
+                   AsyncExclusive<AsyncWriteStream>* write_stream,
+                   mjlib::base::string_span output_buffer);
   ~TelemetryManager();
 
   /// Associate the serializable with the given name.

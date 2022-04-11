@@ -1,4 +1,4 @@
-// Copyright 2018-2020 Josh Pieper, jjp@pobox.com.
+// Copyright 2018-2022 Josh Pieper, jjp@pobox.com.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -29,7 +29,8 @@ using test::str;
 
 namespace {
 struct Fixture : test::CommandManagerFixture {
-  TelemetryManager dut{&pool, &command_manager, &write_stream};
+  char output_buffer[2048] = {};
+  TelemetryManager dut{&pool, &command_manager, &write_stream, output_buffer};
 
   Fixture() {
     my_data_update = dut.Register("my_data", &my_data);

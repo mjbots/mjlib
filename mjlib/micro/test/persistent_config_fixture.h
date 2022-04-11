@@ -1,4 +1,4 @@
-// Copyright 2018 Josh Pieper, jjp@pobox.com.
+// Copyright 2018-2022 Josh Pieper, jjp@pobox.com.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -54,7 +54,10 @@ class StubFlash : public FlashInterface {
 
 struct PersistentConfigFixture : CommandManagerFixture {
   StubFlash flash;
-  PersistentConfig persistent_config{pool, command_manager, flash};
+  char output_buffer[4096] = {};
+  PersistentConfig persistent_config{
+    pool, command_manager, flash,
+    mjlib::base::string_span(output_buffer)};
 };
 
 }

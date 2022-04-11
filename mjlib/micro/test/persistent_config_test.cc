@@ -1,4 +1,4 @@
-// Copyright 2015-2018 Josh Pieper, jjp@pobox.com.
+// Copyright 2015-2022 Josh Pieper, jjp@pobox.com.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -73,6 +73,16 @@ BOOST_FIXTURE_TEST_CASE(PersistentConfigEnumerateGroupUnknown, Fixture) {
 BOOST_FIXTURE_TEST_CASE(PersistentConfigList, Fixture) {
   Command("conf list\n");
   ExpectResponse("my_data\r\nother_data\r\nnon_enumerated\r\nOK\r\n");
+}
+
+BOOST_FIXTURE_TEST_CASE(PersistentConfigSchema, Fixture) {
+  Command("conf schema my_data\n");
+  ExpectResponsePrefix("cschema my_data\r\n");
+}
+
+BOOST_FIXTURE_TEST_CASE(PersistentConfigData, Fixture) {
+  Command("conf data my_data\n");
+  ExpectResponsePrefix("cdata my_data\r\n");
 }
 
 BOOST_FIXTURE_TEST_CASE(PersistentConfigGet, Fixture) {

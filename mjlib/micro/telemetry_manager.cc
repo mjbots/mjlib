@@ -1,4 +1,4 @@
-// Copyright 2015-2020 Josh Pieper, jjp@pobox.com.
+// Copyright 2015-2022 Josh Pieper, jjp@pobox.com.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -50,10 +50,12 @@ class TelemetryManager::Impl {
   using ElementPool = PoolMap<std::string_view, Element>;
 
   Impl(Pool* pool, CommandManager* command_manager,
-       AsyncExclusive<AsyncWriteStream>* write_stream)
+       AsyncExclusive<AsyncWriteStream>* write_stream,
+       mjlib::base::string_span output_buffer)
       : pool_(pool),
         write_stream_(write_stream),
-        elements_(pool, kMaxElements) {
+        elements_(pool, kMaxElements),
+        output_buffer_(output_buffer) {
     command_manager->Register("tel", [this](auto&& name, auto&& response) {
         this->Command(name, response);
       });
@@ -160,7 +162,7 @@ class TelemetryManager::Impl {
 
     element->base->Enumerate(
         &enumerate_context_,
-        send_buffer_,
+        output_buffer_,
         element->name,
         *response.stream,
         [this](error_code) {
@@ -189,12 +191,12 @@ class TelemetryManager::Impl {
             Element* element,
             WorkFunction work,
             const CommandManager::Response& response) {
-    base::BufferWriteStream ostream{send_buffer_};
+    base::BufferWriteStream ostream{output_buffer_};
     ostream.write(prefix);
     ostream.write(element->name);
     ostream.write("\r\n");
 
-    char* const size_position = send_buffer_ + ostream.offset();
+    char* const size_position = output_buffer_.data() + ostream.offset();
     ostream.skip(sizeof(uint32_t));
 
     work(element, &ostream);
@@ -202,12 +204,12 @@ class TelemetryManager::Impl {
     base::BufferWriteStream size_stream({size_position, sizeof(uint32_t)});
     mjlib::telemetry::WriteStream tstream(size_stream);
     tstream.Write(static_cast<uint32_t>(
-                      ostream.offset() + send_buffer_ -
+                      ostream.offset() + output_buffer_.data() -
                       (size_position + sizeof(uint32_t))));
 
     AsyncWrite(
         *response.stream,
-        std::string_view(send_buffer_, ostream.offset()),
+        std::string_view(output_buffer_.data(), ostream.offset()),
         response.callback);
   }
 
@@ -237,7 +239,7 @@ class TelemetryManager::Impl {
     auto& element = element_it->second;
     current_list_index_++;
 
-    char *ptr = &send_buffer_[0];
+    char *ptr = &output_buffer_[0];
     std::copy(element.name.begin(), element.name.end(), ptr);
     ptr += element.name.size();
     *ptr = '\r';
@@ -245,7 +247,8 @@ class TelemetryManager::Impl {
     *ptr = '\n';
     ptr++;
     AsyncWrite(*current_response_.stream,
-               std::string_view(send_buffer_, ptr - send_buffer_),
+               std::string_view(output_buffer_.data(),
+                                ptr - output_buffer_.data()),
                [this](error_code ec) {
                  ListCallback(ec);
                });
@@ -362,7 +365,7 @@ class TelemetryManager::Impl {
   PoolMap<std::string_view, Element> elements_;
 
   CommandManager::Response current_response_;
-  char send_buffer_[2048] = {};
+  mjlib::base::string_span output_buffer_;
   std::size_t current_list_index_ = 0;
   detail::EnumerateArchive::Context enumerate_context_;
 
@@ -373,8 +376,9 @@ class TelemetryManager::Impl {
 
 TelemetryManager::TelemetryManager(
     Pool* pool, CommandManager* command_manager,
-    AsyncExclusive<AsyncWriteStream>* write_stream)
-    : impl_(pool, pool, command_manager, write_stream) {}
+    AsyncExclusive<AsyncWriteStream>* write_stream,
+    mjlib::base::string_span output_buffer)
+    : impl_(pool, pool, command_manager, write_stream, output_buffer) {}
 
 TelemetryManager::~TelemetryManager() {}
 

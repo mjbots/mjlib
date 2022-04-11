@@ -1,4 +1,4 @@
-// Copyright 2015-2019 Josh Pieper, jjp@pobox.com.
+// Copyright 2015-2022 Josh Pieper, jjp@pobox.com.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -64,8 +64,10 @@ class SizeCountingStream : public base::WriteStream {
 
 class PersistentConfig::Impl {
  public:
-  Impl(Pool& pool, CommandManager& command_manager, FlashInterface& flash)
-      : pool_(pool), flash_(flash), elements_(&pool, kMaxSize) {
+  Impl(Pool& pool, CommandManager& command_manager, FlashInterface& flash,
+       mjlib::base::string_span output_buffer)
+      : pool_(pool), flash_(flash), elements_(&pool, kMaxSize),
+        output_buffer_(output_buffer) {
     command_manager.Register("conf", [this](auto&& a, auto&& b) {
         this->Command(a, b);
       });
@@ -79,6 +81,10 @@ class PersistentConfig::Impl {
       Enumerate(tokenizer.remaining(), response);
     } else if (cmd == "list") {
       List(response);
+    } else if (cmd == "schema") {
+      Schema(tokenizer.remaining(), response);
+    } else if (cmd == "data") {
+      Data(tokenizer.remaining(), response);
     } else if (cmd == "get") {
       Get(tokenizer.remaining(), response);
     } else if (cmd == "set") {
@@ -144,7 +150,7 @@ class PersistentConfig::Impl {
 
       element_it->second.serializable->Enumerate(
           &this->enumerate_context_,
-          this->send_buffer_,
+          output_buffer_,
           element_it->first,
           *current_response_.stream,
           [this](error_code err) { this->EnumerateCallback(err); });
@@ -178,7 +184,7 @@ class PersistentConfig::Impl {
     const auto& name = element_it->first;
     current_list_index_++;
 
-    char *ptr = &send_buffer_[0];
+    char *ptr = output_buffer_.data();
     std::copy(name.begin(), name.end(), ptr);
     ptr += name.size();
     *ptr = '\r';
@@ -186,10 +192,75 @@ class PersistentConfig::Impl {
     *ptr = '\n';
     ptr++;
     AsyncWrite(*current_response_.stream,
-               std::string_view(send_buffer_, ptr - send_buffer_),
+               std::string_view(output_buffer_.data(),
+                                ptr - output_buffer_.data()),
                [this](error_code ec) {
                  ListCallback(ec);
                });
+  }
+
+  typedef base::inplace_function<void (Element*,
+                                       base::WriteStream*)> WorkFunction;
+  void Emit(const std::string_view& prefix,
+            const std::string_view& name,
+            Element* element,
+            WorkFunction work,
+            const CommandManager::Response& response) {
+    base::BufferWriteStream ostream{output_buffer_};
+    ostream.write(prefix);
+    ostream.write(name);
+    ostream.write("\r\n");
+
+    char* const size_position = output_buffer_.data() + ostream.offset();
+    ostream.skip(sizeof(uint32_t));
+
+    work(element, &ostream);
+
+    base::BufferWriteStream size_stream({size_position, sizeof(uint32_t)});
+    mjlib::telemetry::WriteStream tstream(size_stream);
+    tstream.Write(static_cast<uint32_t>(
+                      ostream.offset() + output_buffer_.data() -
+                      (size_position + sizeof(uint32_t))));
+
+    AsyncWrite(
+        *response.stream,
+        std::string_view(output_buffer_.data(), ostream.offset()),
+        response.callback);
+  }
+
+  void Schema(const std::string_view& name,
+              const CommandManager::Response& response) {
+    const auto element_it = elements_.find(name);
+    if (element_it == elements_.end()) {
+      WriteMessage("ERR unknown name\r\n", response);
+      return;
+    }
+
+    Emit(
+        "cschema ",
+        name,
+        &element_it->second,
+        [](Element* element, base::WriteStream* ostream) {
+          element->serializable->WriteSchema(*ostream);
+        },
+        response);
+  }
+
+  void Data(const std::string_view& name,
+            const CommandManager::Response& response) {
+    const auto it = elements_.find(name);
+    if (it == elements_.end()) {
+      WriteMessage(std::string_view("ERR unknown name\r\n"), response);
+      return;
+    }
+
+    Emit("cdata ",
+         name,
+         &it->second,
+         [](Element* element, base::WriteStream* stream) {
+           element->serializable->WriteBinary(*stream);
+         },
+         response);
   }
 
   void Get(const std::string_view& field,
@@ -205,7 +276,7 @@ class PersistentConfig::Impl {
       const int err =
           element.serializable->Read(
               tokenizer.remaining(),
-              send_buffer_,
+              output_buffer_,
               *current_response_.stream,
               [this](error_code error) {
                 if (error) {
@@ -375,10 +446,7 @@ class PersistentConfig::Impl {
 
   ElementMap elements_;
 
-  // TODO jpieper: This buffer could be shared with other things that
-  // have the same output stream, as only one should be writing at a
-  // time anyways.
-  char send_buffer_[256] = {};
+  mjlib::base::string_span output_buffer_;
   std::size_t current_list_index_ = 0;
 
   CommandManager::Response current_response_;
@@ -388,8 +456,9 @@ class PersistentConfig::Impl {
 };
 
 PersistentConfig::PersistentConfig(
-    Pool& pool, CommandManager& command_manager, FlashInterface& flash)
-    : impl_(&pool, pool, command_manager, flash) {
+    Pool& pool, CommandManager& command_manager, FlashInterface& flash,
+    mjlib::base::string_span output_buffer)
+    : impl_(&pool, pool, command_manager, flash, output_buffer) {
 }
 
 PersistentConfig::~PersistentConfig() {
