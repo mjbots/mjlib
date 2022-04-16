@@ -235,6 +235,7 @@ cc_library(
     deps = [
         ":event_queue",
         ":required_success",
+        ":stream_pipe",
     ],
 )
 
