@@ -18,8 +18,8 @@ load("//tools/workspace:github_archive.bzl", "github_archive")
 
 def _impl(repository_ctx):
     repo = "skaslev/gl3w"
-    commit = "7729692af8a2322cddb636b90393a42c130b1c85"
-    sha256 = "dd474ce985b8adaf8c5392bb56a8524e8b3ff43ad534419174ac7620c34585df"
+    commit = "5f8d7fd191ba22ff2b60c1106d7135bb9a335533"
+    sha256 = "e96a650a5fb9530b69a19d36ef931801762ce9cf5b51cb607ee116b908a380a6"
 
     repository_ctx.download_and_extract(
         url = ["https://github.com/{repo}/archive/{commit}.zip".format(
