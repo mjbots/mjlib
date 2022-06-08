@@ -436,7 +436,7 @@ class PersistentConfig::Impl {
     stream.Write(static_cast<uint32_t>(0));
 
     ::snprintf(output_buffer_.data(), output_buffer_.size(),
-               "%d\r\nOK\r\n", size_stream.size());
+               "%d\r\nOK\r\n", static_cast<int>(size_stream.size()));
     WriteMessage(output_buffer_.data(), response);
   }
 
