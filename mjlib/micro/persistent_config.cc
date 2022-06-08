@@ -93,6 +93,8 @@ class PersistentConfig::Impl {
       Load(response);
     } else if (cmd == "write") {
       Write(response);
+    } else if (cmd == "size") {
+      Size(response);
     } else if (cmd == "default") {
       Default(response);
     } else {
@@ -418,6 +420,24 @@ class PersistentConfig::Impl {
     flash_.Lock();
 
     WriteOK(response);
+  }
+
+  void Size(const CommandManager::Response& response) {
+    SizeCountingStream size_stream;
+    telemetry::WriteStream stream(size_stream);
+
+    for (const auto& item_pair : elements_) {
+      const auto& element = item_pair.second;
+      stream.WriteString(item_pair.first);
+      stream.Write(static_cast<uint32_t>(0));  // crc
+      stream.Write(static_cast<uint32_t>(0)); // size
+      element.serializable->WriteBinary(size_stream);
+    }
+    stream.Write(static_cast<uint32_t>(0));
+
+    ::snprintf(output_buffer_.data(), output_buffer_.size(),
+               "%d\r\nOK\r\n", size_stream.size());
+    WriteMessage(output_buffer_.data(), response);
   }
 
   void Default(const CommandManager::Response& response) {

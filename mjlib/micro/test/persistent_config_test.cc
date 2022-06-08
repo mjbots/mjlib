@@ -123,4 +123,7 @@ BOOST_FIXTURE_TEST_CASE(PersistentConfigFlash, Fixture) {
   BOOST_TEST(my_data_count == 1);
   BOOST_TEST(my_data.value == 76);
   BOOST_TEST(other_data.stuff == 23);
+
+  Command("conf size\n");
+  ExpectResponse("72\r\nOK\r\n");
 }
