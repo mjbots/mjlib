@@ -36,6 +36,7 @@ class MicroStreamDatagram : public MicroDatagramServer {
   void AsyncRead(Header*, const base::string_span&,
                  const micro::SizeCallback&) override;
   void AsyncWrite(const Header&, const std::string_view&,
+                  const Header&,
                   const micro::SizeCallback&) override;
   Properties properties() const override;
 

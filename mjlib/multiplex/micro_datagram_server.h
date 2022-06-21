@@ -31,12 +31,15 @@ class MicroDatagramServer {
     int source = 0;
     int destination = 0;
     int size = 0;
+    uint32_t flags = 0;
   };
 
   virtual void AsyncRead(Header*, const base::string_span&,
                          const micro::SizeCallback&) = 0;
 
-  virtual void AsyncWrite(const Header&, const std::string_view&,
+  virtual void AsyncWrite(const Header& tx_header,
+                          const std::string_view&,
+                          const Header& query_header,
                           const micro::SizeCallback&) = 0;
 
   struct Properties {

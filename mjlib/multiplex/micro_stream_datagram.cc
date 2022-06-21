@@ -63,7 +63,9 @@ class MicroStreamDatagram::Impl : public Format {
     StartReadFrame();
   }
 
-  void AsyncWrite(const Header& header, const std::string_view& data,
+  void AsyncWrite(const Header& header,
+                  const std::string_view& data,
+                  const Header& /* query_header */,
                   const micro::SizeCallback& callback) {
     MJ_ASSERT(!current_write_callback_);
     current_write_callback_ = callback;
@@ -324,8 +326,9 @@ void MicroStreamDatagram::AsyncRead(Header* header,
 
 void MicroStreamDatagram::AsyncWrite(const Header& header,
                                      const std::string_view& data,
+                                     const Header& query_header,
                                      const micro::SizeCallback& callback) {
-  impl_->AsyncWrite(header, data, callback);
+  impl_->AsyncWrite(header, data, query_header, callback);
 }
 
 MicroDatagramServer::Properties MicroStreamDatagram::properties() const {

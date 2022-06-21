@@ -205,6 +205,7 @@ class MicroServer::Impl {
     datagram_server_->AsyncWrite(
         write_header_,
         std::string_view(write_buffer_, response_size),
+        read_header_,
         std::bind(&Impl::HandleWrite, this, std::placeholders::_1));
   }
 
