@@ -37,6 +37,30 @@ load("//tools/workspace:npm_stage3.bzl", "setup_npm_stage3")
 setup_npm_stage3()
 
 
+# Now bazel-toolchain
+load("@com_github_mjbots_bazel_toolchain//toolchain:deps.bzl", "bazel_toolchain_dependencies")
+bazel_toolchain_dependencies()
+
+load("@com_github_mjbots_bazel_toolchain//toolchain:rules.bzl", "llvm_toolchain")
+llvm_toolchain(
+    name = "llvm_toolchain",
+    llvm_version = "10.0.0",
+    urls = {
+        "windows" : ["https://github.com/mjbots/bazel-toolchain/releases/download/0.5.6-mj20201011/LLVM-10.0.0-win64.tar.xz"],
+    },
+    sha256 = {
+        "windows" : "2851441d3993c032f98124a05e2aeb43010b7a85f0f7441103d36ae8d00afc18",
+    },
+    strip_prefix = {
+        "windows" : "LLVM",
+    }
+)
+
+load("@llvm_toolchain//:toolchains.bzl", "llvm_register_toolchains")
+llvm_register_toolchains()
+
+
+
 # Now rules_mbed
 load("@com_github_mjbots_rules_mbed//:rules.bzl", mbed_register = "mbed_register")
 load("@com_github_mjbots_rules_mbed//tools/workspace/mbed:repository.bzl", "mbed_repository")

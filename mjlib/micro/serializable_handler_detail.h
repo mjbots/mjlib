@@ -1,4 +1,4 @@
-// Copyright 2015-2020 Josh Pieper, jjp@pobox.com.
+// Copyright 2015-2022 Josh Pieper, jjp@pobox.com.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -158,7 +158,7 @@ struct EnumerateArchive : public mjlib::base::VisitArchive<EnumerateArchive> {
                    int) {
     auto value = pair.value();
     for (int i = 0; i < static_cast<int>(N); i++) {
-      char number[6] = {};
+      char number[13] = {};
       ::snprintf(number, sizeof(number), "%d", i);
       EnumerateArchive(
           context_, pair.name(), current_index_, done_, this).

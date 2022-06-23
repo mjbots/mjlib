@@ -9,5 +9,5 @@ else
     pip3 install python-snappy
 fi
 
-./tools/bazel test --copt -Werror //...
-./tools/bazel build --copt -Werror --copt -Wdouble-promotion --cpu=stm32f4 -c opt //:target
+./tools/bazel test --config=host //...
+./tools/bazel build --config=target -c opt //:target

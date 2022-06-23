@@ -356,6 +356,7 @@ cc_binary(
         ":aborting_posix_timer",
         "@boost//:program_options",
     ],
+    linkopts = ["-lrt"],
 )
 
 filegroup(

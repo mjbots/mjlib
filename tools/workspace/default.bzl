@@ -16,6 +16,7 @@
 
 load("//tools/workspace/bazel_deps:repository.bzl", "bazel_deps_repository")
 load("//tools/workspace/bazel:repository.bzl", "bazel_repository")
+load("//tools/workspace/bazel_toolchain:repository.bzl", "bazel_toolchain_repository")
 load("//tools/workspace/clipp:repository.bzl", "clipp_repository")
 load("//tools/workspace/function2:repository.bzl", "function2_repository")
 load("//tools/workspace/gl3w:repository.bzl", "gl3w_repository")
@@ -30,6 +31,8 @@ def add_default_repositories():
         rules_mbed_repository()
     if not native.existing_rule("bazel"):
         bazel_repository()
+    if not native.existing_rule("com_github_mjbots_bazel_toolchain"):
+        bazel_toolchain_repository()
     if not native.existing_rule("com_github_mjbots_bazel_deps"):
         bazel_deps_repository(name = "com_github_mjbots_bazel_deps")
     if not native.existing_rule("com_github_muellan_clipp"):

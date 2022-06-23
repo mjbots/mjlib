@@ -189,6 +189,7 @@ cc_binary(
         ":repeating_timer",
         "@boost//:program_options",
     ],
+    linkopts = ["-lrt"],
 )
 
 cc_test(
