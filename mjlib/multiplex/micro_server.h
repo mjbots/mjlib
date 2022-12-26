@@ -64,6 +64,8 @@ class MicroServer : public Format {
 
   void Start(Server*);
 
+  void Poll();
+
   // Exposed mostly for debugging and unit testing.
   struct Stats {
     uint32_t wrong_id = 0;

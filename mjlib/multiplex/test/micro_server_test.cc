@@ -86,6 +86,11 @@ struct Fixture : test::PersistentConfigFixture {
   Fixture() {
     dut.Start(&server);
   }
+
+  void Poll() {
+    event_queue.Poll();
+    dut.Poll();
+  }
 };
 
 // Now send in a valid frame that contains some data.
@@ -151,7 +156,7 @@ BOOST_FIXTURE_TEST_CASE(MicroServerTest, Fixture) {
       });
 
     BOOST_TEST(read_count == 0);
-    event_queue.Poll();
+    Poll();
     BOOST_TEST(read_count == 0);
 
     {
@@ -161,7 +166,7 @@ BOOST_FIXTURE_TEST_CASE(MicroServerTest, Fixture) {
                    BOOST_TEST(!ec);
                    write_count++;
                  });
-      event_queue.Poll();
+      Poll();
       BOOST_TEST(write_count == 1);
       BOOST_TEST(read_count == 1);
       BOOST_TEST(read_size == 8);
@@ -186,7 +191,7 @@ BOOST_FIXTURE_TEST_CASE(ServerWrongId, Fixture) {
                BOOST_TEST(!ec);
                write_count++;
              });
-  event_queue.Poll();
+  Poll();
   BOOST_TEST(write_count == 1);
   BOOST_TEST(read_count == 0);
   BOOST_TEST(dut.stats()->wrong_id == 1);
@@ -199,7 +204,7 @@ BOOST_FIXTURE_TEST_CASE(ServerTestReadSecond, Fixture) {
                BOOST_TEST(!ec);
                write_count++;
              });
-  event_queue.Poll();
+  Poll();
   BOOST_TEST(write_count == 1);
 
   char read_buffer[100] = {};
@@ -211,7 +216,7 @@ BOOST_FIXTURE_TEST_CASE(ServerTestReadSecond, Fixture) {
       read_size = size;
     });
 
-  event_queue.Poll();
+  Poll();
   BOOST_TEST(read_count == 1);
   BOOST_TEST(read_size == 8);
   BOOST_TEST(std::string_view(read_buffer, 8) == "test and");
@@ -232,7 +237,7 @@ BOOST_FIXTURE_TEST_CASE(ServerTestFragment, Fixture) {
         read_count++;
         read_size = size;
       });
-    event_queue.Poll();
+    Poll();
     BOOST_TEST(read_count == 1);
     BOOST_TEST(read_size == expected.size());
     BOOST_TEST(std::string_view(read_buffer, read_size) == expected);
@@ -252,14 +257,14 @@ BOOST_FIXTURE_TEST_CASE(ServerTestFragment, Fixture) {
       read_size = size;
     });
 
-  event_queue.Poll();
+  Poll();
   BOOST_TEST(read_count == 0);
 
   AsyncWrite(*dut_stream.side_a(), str(kClientToServer),
              [&](micro::error_code ec) {
                BOOST_TEST(!ec);
              });
-  event_queue.Poll();
+  Poll();
   BOOST_TEST(read_count == 1);
   BOOST_TEST(read_size == 3);
   BOOST_TEST(std::string_view(read_buffer, 3) == "tes");
@@ -290,7 +295,7 @@ BOOST_FIXTURE_TEST_CASE(ServerSendTest, Fixture) {
         write_size = size;
       });
 
-  event_queue.Poll();
+  Poll();
   BOOST_TEST(write_count == 0);
 
   char receive_buffer[256] = {};
@@ -303,14 +308,14 @@ BOOST_FIXTURE_TEST_CASE(ServerSendTest, Fixture) {
         read_size = size;
       });
 
-  event_queue.Poll();
+  Poll();
   BOOST_TEST(write_count == 0);
   BOOST_TEST(read_count == 0);
 
   AsyncWrite(*dut_stream.side_a(), str(kClientToServerEmpty),
              [](micro::error_code ec) { BOOST_TEST(!ec); });
 
-  event_queue.Poll();
+  Poll();
 
   BOOST_TEST(write_count == 1);
   BOOST_TEST(read_count == 1);
@@ -357,7 +362,7 @@ BOOST_FIXTURE_TEST_CASE(ServerSendPollTest, Fixture) {
         write_size = size;
       });
 
-  event_queue.Poll();
+  Poll();
   BOOST_TEST(write_count == 0);
 
   char receive_buffer[256] = {};
@@ -370,14 +375,14 @@ BOOST_FIXTURE_TEST_CASE(ServerSendPollTest, Fixture) {
         read_size = size;
       });
 
-  event_queue.Poll();
+  Poll();
   BOOST_TEST(write_count == 0);
   BOOST_TEST(read_count == 0);
 
   AsyncWrite(*dut_stream.side_a(), str(kClientToServerPoll),
              [](micro::error_code ec) { BOOST_TEST(!ec); });
 
-  event_queue.Poll();
+  Poll();
 
   BOOST_TEST(write_count == 1);
   BOOST_TEST(read_count == 1);
@@ -421,7 +426,7 @@ BOOST_FIXTURE_TEST_CASE(WriteSingleTest, Fixture) {
                write_count++;
              });
 
-  event_queue.Poll();
+  Poll();
   BOOST_TEST(write_count == 1);
 
   BOOST_TEST(server.writes_.size() == 1);
@@ -451,7 +456,7 @@ BOOST_FIXTURE_TEST_CASE(WriteSingleBroadcast, Fixture) {
                write_count++;
              });
 
-  event_queue.Poll();
+  Poll();
   BOOST_TEST(write_count == 1);
 
   BOOST_TEST(server.writes_.size() == 1);
@@ -483,7 +488,7 @@ BOOST_FIXTURE_TEST_CASE(WriteMultipleTest, Fixture) {
                write_count++;
              });
 
-  event_queue.Poll();
+  Poll();
   BOOST_TEST(write_count == 1);
 
   BOOST_TEST(server.writes_.size() == 3);
@@ -508,7 +513,7 @@ BOOST_FIXTURE_TEST_CASE(WriteErrorTest, Fixture) {
         read_size = size;
       });
 
-  event_queue.Poll();
+  Poll();
   BOOST_TEST(read_count == 0);
 
 
@@ -521,7 +526,7 @@ BOOST_FIXTURE_TEST_CASE(WriteErrorTest, Fixture) {
                write_count++;
              });
 
-  event_queue.Poll();
+  Poll();
   BOOST_TEST(write_count == 1);
   BOOST_TEST(read_count == 1);
 
@@ -567,7 +572,7 @@ BOOST_FIXTURE_TEST_CASE(ReadSingleTest, Fixture) {
         read_size = size;
       });
 
-  event_queue.Poll();
+  Poll();
 
   int write_count = 0;
   AsyncWrite(*dut_stream.side_a(), str(kReadSingle),
@@ -576,7 +581,7 @@ BOOST_FIXTURE_TEST_CASE(ReadSingleTest, Fixture) {
                write_count++;
              });
 
-  event_queue.Poll();
+  Poll();
   BOOST_TEST(write_count == 1);
   BOOST_TEST(read_count == 1);
 
@@ -623,7 +628,7 @@ BOOST_FIXTURE_TEST_CASE(ReadMultipleTest, Fixture) {
         read_size = size;
       });
 
-  event_queue.Poll();
+  Poll();
 
   int write_count = 0;
   AsyncWrite(*dut_stream.side_a(), str(kReadMultiple),
@@ -632,7 +637,7 @@ BOOST_FIXTURE_TEST_CASE(ReadMultipleTest, Fixture) {
                write_count++;
              });
 
-  event_queue.Poll();
+  Poll();
   BOOST_TEST(write_count == 1);
   BOOST_TEST(read_count == 1);
 
@@ -664,7 +669,7 @@ BOOST_FIXTURE_TEST_CASE(ReadMultipleInt8s, Fixture) {
         read_size = size;
       });
 
-  event_queue.Poll();
+  Poll();
   const uint8_t kReadMultiple[] = {
     0x54, 0xab,  // header
     0x82,  // source id
@@ -684,7 +689,7 @@ BOOST_FIXTURE_TEST_CASE(ReadMultipleInt8s, Fixture) {
                write_count++;
              });
 
-  event_queue.Poll();
+  Poll();
   BOOST_TEST(write_count == 1);
   BOOST_TEST(read_count == 1);
 
@@ -725,7 +730,7 @@ BOOST_FIXTURE_TEST_CASE(NopTest, Fixture) {
                write_count++;
              });
 
-  event_queue.Poll();
+  Poll();
   BOOST_TEST(write_count == 1);
 
   // Nothing bad should have happened.

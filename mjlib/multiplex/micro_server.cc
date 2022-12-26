@@ -1,4 +1,4 @@
-// Copyright 2018-2019 Josh Pieper, jjp@pobox.com.
+// Copyright 2018-2022 Josh Pieper, jjp@pobox.com.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -51,10 +51,9 @@ class MicroServer::Impl {
       read_buffer_ = buffer;
       read_callback_ = callback;
 
-      // TODO: Return immediately for size 0 reads (may need an event
-      // queue).
-
-      DoReadTransfer();
+      // We could invoke the callback here by calling
+      // `DoReadTransfer`, however that could result in very nested
+      // stack frames.  Instead, we just let a top level call do it.
     }
 
     void AsyncWriteSome(const std::string_view& buffer,
@@ -63,8 +62,10 @@ class MicroServer::Impl {
       write_buffer_ = buffer;
       write_callback_ = callback;
 
-      // TODO: Return immediately for size 0 writes (may need an event
-      // queue).
+
+      // We could nominally invoke the callback (for 0 sized reads),
+      // however, that could result in a very nested stack frames.
+      // Instead, we just let a top level call invoke it.
     }
 
     void DoReadTransfer() {
@@ -133,6 +134,12 @@ class MicroServer::Impl {
   void Start(Server* server) {
     server_ = server;
     MaybeStartReadFrame();
+  }
+
+  void Poll() {
+    for (auto& tunnel : tunnels_) {
+      tunnel.DoReadTransfer();
+    }
   }
 
   const Stats* stats() const { return &stats_; }
@@ -581,6 +588,10 @@ micro::AsyncStream* MicroServer::MakeTunnel(uint32_t id) {
 
 void MicroServer::Start(Server* server) {
   impl_->Start(server);
+}
+
+void MicroServer::Poll() {
+  impl_->Poll();
 }
 
 const MicroServer::Stats* MicroServer::stats() const {
