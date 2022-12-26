@@ -22,6 +22,8 @@
 #include "mjlib/base/buffer_stream.h"
 #include "mjlib/base/visitor.h"
 
+#include "mjlib/micro/pool_array.h"
+
 #include "mjlib/multiplex/stream.h"
 
 namespace mjlib {
@@ -110,7 +112,8 @@ class MicroServer::Impl {
         read_buffer_(static_cast<char*>(
                          pool->Allocate(options.buffer_size, 1))),
         write_buffer_(static_cast<char*>(
-                          pool->Allocate(options.buffer_size, 1))) {
+                          pool->Allocate(options.buffer_size, 1))),
+        tunnels_(pool, static_cast<size_t>(options.max_tunnel_streams)) {
     config_.id = options.default_id;
     for (auto& tunnel : tunnels_) {
       tunnel.set_parent(this);
@@ -568,7 +571,7 @@ class MicroServer::Impl {
   char* const write_buffer_ = {};
   bool write_outstanding_ = false;
 
-  TunnelStream tunnels_[1];
+  micro::PoolArray<TunnelStream> tunnels_;
   Stats stats_;
 
   micro::AsyncWriter async_writer_;

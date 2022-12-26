@@ -103,6 +103,12 @@ cc_library(
 )
 
 cc_library(
+    name = "pool_array",
+    hdrs = ["pool_array.h"],
+    deps = [":pool_ptr"],
+)
+
+cc_library(
     name = "command_manager",
     hdrs = ["command_manager.h"],
     srcs = ["command_manager.cc"],

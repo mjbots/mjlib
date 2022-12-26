@@ -175,6 +175,7 @@ cc_library(
         "//mjlib/base:visitor",
         "//mjlib/micro:async_stream",
         "//mjlib/micro:persistent_config",
+        "//mjlib/micro:pool_array",
         "//mjlib/micro:pool_ptr",
         "@boost",
     ],
