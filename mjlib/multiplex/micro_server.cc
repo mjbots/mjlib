@@ -53,6 +53,11 @@ class MicroServer::Impl {
       read_buffer_ = buffer;
       read_callback_ = callback;
 
+      if (!read_buffer_.empty() &&
+          read_data_size_) {
+        parent_->anything_to_do_ = true;
+      }
+
       // We could invoke the callback here by calling
       // `DoReadTransfer`, however that could result in very nested
       // stack frames.  Instead, we just let a top level call do it.
@@ -70,10 +75,13 @@ class MicroServer::Impl {
       // Instead, we just let a top level call invoke it.
     }
 
-    void DoReadTransfer() {
-      if (read_buffer_.empty() ||
-          read_data_size_ == 0) {
-        return;
+    bool DoReadTransfer() {
+      if (read_data_size_ == 0) {
+        return false;
+      }
+
+      if (read_buffer_.empty()) {
+        return false;
       }
 
       const auto to_copy = std::min<std::streamsize>(
@@ -88,6 +96,8 @@ class MicroServer::Impl {
       read_callback_ = {};
 
       callback({}, to_copy);
+
+      return true;
     }
 
     Impl* parent_ = nullptr;
@@ -140,8 +150,16 @@ class MicroServer::Impl {
   }
 
   void Poll() {
+    if (!anything_to_do_) { return; }
+
+    bool all_done = true;
+
     for (auto& tunnel : tunnels_) {
-      tunnel.DoReadTransfer();
+      if (tunnel.DoReadTransfer()) { all_done = false; }
+    }
+
+    if (all_done) {
+      anything_to_do_ = false;
     }
   }
 
@@ -333,6 +351,8 @@ class MicroServer::Impl {
     }
 
     tunnel.DoReadTransfer();
+
+    anything_to_do_ = true;
 
     // Send our response if necessary.
     if (response_stream) {
@@ -570,6 +590,8 @@ class MicroServer::Impl {
   MicroDatagramServer::Header write_header_;
   char* const write_buffer_ = {};
   bool write_outstanding_ = false;
+
+  bool anything_to_do_ = false;
 
   micro::PoolArray<TunnelStream> tunnels_;
   Stats stats_;
