@@ -444,6 +444,12 @@ class PersistentConfig::Impl {
     for (auto& item_pair : elements_) {
       item_pair.second.serializable->SetDefault();
     }
+
+    // Notify everyone that they have changed.
+    for (auto& element: elements_) {
+      element.second.updated();
+    }
+
     WriteOK(response);
   }
 
