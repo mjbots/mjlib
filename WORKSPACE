@@ -14,8 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-BAZEL_VERSION = "4.0.0"
-BAZEL_VERSION_SHA = "7bee349a626281fc8b8d04a7a0b0358492712377400ab12533aeb39c2eb2b901"
+BAZEL_VERSION = "5.4.1"
+BAZEL_VERSION_SHA = "5d90515f84b5ee1fd6ec22ee9e83103e77ed1a907ee5eec198fef3a5b45abf13"
 
 load("//tools/workspace:default.bzl", "add_default_repositories")
 
