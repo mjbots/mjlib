@@ -193,7 +193,6 @@ cc_test(
     ] + select({
         "@bazel_tools//src/conditions:windows" : [],
         "//conditions:default" : [
-            "//mjlib/telemetry/js",
             # Just so it is built.
             ":file_json_dump",
         ],

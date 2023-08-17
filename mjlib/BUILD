@@ -32,6 +32,5 @@ test_suite(
     tests = [
         "//mjlib/multiplex:py_test",
         "//mjlib/telemetry:py_test",
-        "//mjlib/telemetry/js:test",
     ],
 )

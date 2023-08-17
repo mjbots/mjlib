@@ -24,7 +24,6 @@ load("//tools/workspace/glfw:repository.bzl", "glfw_repository")
 load("//tools/workspace/imgui:repository.bzl", "imgui_repository")
 load("//tools/workspace/implot:repository.bzl", "implot_repository")
 load("//tools/workspace/rules_mbed:repository.bzl", "rules_mbed_repository")
-load("//tools/workspace/rules_nodejs:repository.bzl", "rules_nodejs_repository")
 
 def add_default_repositories():
     if not native.existing_rule("com_github_mjbots_rules_mbed"):
@@ -37,8 +36,6 @@ def add_default_repositories():
         bazel_deps_repository(name = "com_github_mjbots_bazel_deps")
     if not native.existing_rule("com_github_muellan_clipp"):
         clipp_repository(name = "com_github_muellan_clipp")
-    if not native.existing_rule("build_bazel_rules_nodejs"):
-        rules_nodejs_repository()
     if not native.existing_rule("function2"):
         function2_repository()
     if not native.existing_rule("gl3w"):
