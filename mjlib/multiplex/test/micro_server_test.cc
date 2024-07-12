@@ -31,14 +31,20 @@ namespace test = micro::test;
 namespace {
 class Server : public MicroServer::Server {
  public:
+  void StartFrame() override {
+    start_called_ = true;
+  }
+
   uint32_t Write(MicroServer::Register reg,
                  const MicroServer::Value& value) override {
+    BOOST_TEST(start_called_ == true);
     writes_.push_back({reg, value});
     return next_write_error_;
   }
 
   MicroServer::ReadResult Read(
       MicroServer::Register reg, size_t type_index) const override {
+    BOOST_TEST(start_called_ == true);
     if (type_index == 0) {
       return MicroServer::Value(int8_values.at(reg));
     } else if (type_index == 2) {
@@ -47,6 +53,12 @@ class Server : public MicroServer::Server {
       return MicroServer::Value(float_values.at(reg));
     }
     return static_cast<uint32_t>(1);
+  }
+
+  Action CompleteFrame() override {
+    BOOST_TEST(start_called_ == true);
+    start_called_ = false;
+    return action_;
   }
 
   struct WriteValue {
@@ -69,6 +81,9 @@ class Server : public MicroServer::Server {
     { 10, 1.0f },
     { 11, 2.0f },
   };
+
+  bool start_called_ = false;
+  Action action_ = kAccept;
 };
 
 struct Fixture : test::PersistentConfigFixture {
@@ -735,4 +750,44 @@ BOOST_FIXTURE_TEST_CASE(NopTest, Fixture) {
 
   // Nothing bad should have happened.
   BOOST_TEST(dut.stats()->unknown_subframe == 0);
+}
+
+BOOST_FIXTURE_TEST_CASE(DiscardTest, Fixture) {
+  int write_count = 0;
+  ssize_t write_size = 0;
+  tunnel->AsyncWriteSome(
+      "stuff to test",
+      [&](micro::error_code ec, ssize_t size) {
+        BOOST_TEST(!ec);
+        write_count++;
+        write_size = size;
+      });
+
+  Poll();
+  BOOST_TEST(write_count == 0);
+
+  char receive_buffer[256] = {};
+  int read_count = 0;
+  ssize_t read_size = 0;
+  dut_stream.side_a()->AsyncReadSome(
+      receive_buffer, [&](micro::error_code ec, ssize_t size) {
+        BOOST_TEST(!ec);
+        read_count++;
+        read_size = size;
+      });
+
+  Poll();
+  BOOST_TEST(write_count == 0);
+  BOOST_TEST(read_count == 0);
+
+  server.action_ = Server::kDiscard;
+
+  AsyncWrite(*dut_stream.side_a(), str(kClientToServerPoll),
+             [](micro::error_code ec) { BOOST_TEST(!ec); });
+
+  Poll();
+
+  BOOST_TEST(write_count == 1);
+  BOOST_TEST(read_count == 0);
+  BOOST_TEST(dut.stats()->discards == 1);
 }

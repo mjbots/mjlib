@@ -211,13 +211,19 @@ class MicroServer::Impl {
         ((read_header_.source) & 0x80) != 0 &&
         !write_outstanding_;
 
+    server_->StartFrame();
+
     // Everything checked out.  Now we we can process our subframes.
     ProcessSubframes(
         std::string_view(read_buffer_, read_header_.size),
         &buffer_write_stream,
         need_response ? &write_stream : nullptr);
 
-    if (need_response) {
+    const auto action = server_->CompleteFrame();
+
+    if (action == Server::kDiscard) {
+      stats_.discards++;
+    } else if (need_response && action == Server::kAccept) {
       WriteResponse(read_header_.source & 0x7f, buffer_write_stream.offset());
     }
   }
