@@ -14,8 +14,12 @@
 
 #pragma once
 
+#include <boost/asio/any_io_executor.hpp>
+#include <boost/asio/defer.hpp>
+#include <boost/asio/dispatch.hpp>
+#include <boost/asio/execution/execute.hpp>
 #include <boost/asio/execution_context.hpp>
-#include <boost/asio/io_context.hpp>
+#include <boost/asio/post.hpp>
 
 #include "mjlib/base/assert.h"
 #include "mjlib/base/aborting_posix_timer.h"
@@ -32,7 +36,7 @@ namespace io {
 /// It wraps an existing executor.
 class RealtimeExecutor {
  public:
-  using Base = boost::asio::io_context::executor_type;
+  using Base = boost::asio::any_io_executor;
 
   RealtimeExecutor(const Base& base) noexcept : base_(base) {}
 
@@ -50,54 +54,50 @@ class RealtimeExecutor {
     int64_t idle_timeout_ns = 0;
   };
 
-  // boost::asio::execution_context& context() { return base_.context(); }
+  const boost::asio::any_io_executor& base() const { return base_; }
 
-  const boost::asio::io_context::executor_type& base() const {
-    return base_;
-  }
-
-  // TODO(jpieper): I'm not fully comfortable with the property
-  // mechanism.  However, this seems to work result in the desired
-  // wrapping behavior, so I'm leaving it for now.
   template <typename T>
-  RealtimeExecutor require(
-      T value, typename std::add_pointer<
-        decltype(std::declval<Base>().require(value))>::type = 0) const {
-    return *this;
+  RealtimeExecutor require(T value,
+                           typename std::add_pointer<decltype(boost::asio::require(
+                               std::declval<Base>(), value))>::type = 0) const {
+    return RealtimeExecutor(boost::asio::require(base_, value));
   }
 
   template <typename T>
-  auto query(T value) const -> decltype(this->base().query(value)) {
-    return base_.query(value);
+  auto query(T value) const -> decltype(boost::asio::query(this->base(), value)) {
+    return boost::asio::query(base_, value);
   }
 
   template <typename Callback>
   void execute(Callback&& callback) const {
     Service& s = const_cast<Service&>(service());
     s.StartWork();
-    base_.execute(Wrap<typename std::decay<Callback>::type>(
-                      &s, std::move(callback)));
+    boost::asio::execution::execute(
+        base_, Wrap<typename std::decay<Callback>::type>(&s, std::move(callback)));
   }
 
   template <typename Callback, typename Allocator>
   void dispatch(Callback&& callback, const Allocator& a) {
     service().StartWork();
-    base_.dispatch(Wrap<typename std::decay<Callback>::type>(
-                       &service(), std::move(callback)), a);
+    boost::asio::dispatch(
+        base_,
+        Wrap<typename std::decay<Callback>::type>(&service(), std::move(callback)), a);
   }
 
   template <typename Callback, typename Allocator>
   void post(Callback callback, const Allocator& a) {
     service().StartWork();
-    base_.post(Wrap<typename std::decay<Callback>::type>(
-                   &service(), std::move(callback)), a);
+    boost::asio::post(
+        base_,
+        Wrap<typename std::decay<Callback>::type>(&service(), std::move(callback)), a);
   }
 
   template <typename Callback, typename Allocator>
   void defer(Callback callback, const Allocator& a) {
     service().StartWork();
-    base_.defer(Wrap<typename std::decay<Callback>::type>(
-                    &service(), std::move(callback)), a);
+    boost::asio::defer(
+        base_,
+        Wrap<typename std::decay<Callback>::type>(&service(), std::move(callback)), a);
   }
 
   void set_options(const Options& options) {
@@ -114,14 +114,6 @@ class RealtimeExecutor {
   }
 
  private:
-  void on_work_started() {
-    base_.on_work_started();
-  }
-
-  void on_work_finished() {
-    base_.on_work_finished();
-  }
-
   // We make this a templated class solely so that the static 'id'
   // member does not need a dedicated translation unit.
   template <typename Ignored>
