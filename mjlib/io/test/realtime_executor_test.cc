@@ -26,6 +26,7 @@ BOOST_AUTO_TEST_CASE(RealtimeExecutorTest) {
   RealtimeExecutor dut{context.get_executor()};
   boost::asio::any_io_executor executor{dut};
 
+  // Executor never executes a nested callback
   BOOST_TEST((
       boost::asio::query(
           boost::asio::require(executor, boost::asio::execution::blocking.never),
@@ -52,4 +53,12 @@ BOOST_AUTO_TEST_CASE(RealtimeExecutorTest) {
   context.restart();
   BOOST_TEST(cb1_called);
   BOOST_TEST(cb2_called);
+
+  // Executor tracks outstanding work appropriately (context.run() wouldn't return
+  // early).
+  BOOST_TEST((boost::asio::query(
+                  boost::asio::prefer(executor,
+                                      boost::asio::execution::outstanding_work.tracked),
+                  boost::asio::execution::outstanding_work) ==
+              boost::asio::execution::outstanding_work.tracked));
 }

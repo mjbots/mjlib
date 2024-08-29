@@ -64,6 +64,13 @@ class RealtimeExecutor {
   }
 
   template <typename T>
+  RealtimeExecutor prefer(T value,
+                          typename std::add_pointer<decltype(boost::asio::prefer(
+                              std::declval<Base>(), value))>::type = 0) const {
+    return RealtimeExecutor(boost::asio::prefer(base_, value));
+  }
+
+  template <typename T>
   auto query(T value) const -> decltype(boost::asio::query(this->base(), value)) {
     return boost::asio::query(base_, value);
   }
