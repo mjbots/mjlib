@@ -9,5 +9,5 @@ else
     pip3 install python-snappy
 fi
 
-./tools/bazel test --config=host //...
+./tools/bazel test --config=host //:host
 ./tools/bazel build --config=target -c opt //:target
