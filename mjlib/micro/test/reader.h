@@ -20,6 +20,8 @@
 #include "mjlib/micro/async_stream.h"
 #include "mjlib/micro/error_code.h"
 
+#include <boost/test/auto_unit_test.hpp>
+
 namespace mjlib {
 namespace micro {
 namespace test {
