@@ -14,6 +14,8 @@
 
 #pragma once
 
+#include <cstdint>
+
 #include "mjlib/base/noncopyable.h"
 #include "mjlib/base/stream.h"
 
