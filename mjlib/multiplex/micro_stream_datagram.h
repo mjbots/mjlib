@@ -14,6 +14,8 @@
 
 #pragma once
 
+#include <cstdint>
+
 #include "mjlib/base/visitor.h"
 
 #include "mjlib/micro/async_stream.h"
