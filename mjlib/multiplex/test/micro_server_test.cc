@@ -35,7 +35,7 @@ class Server : public MicroServer::Server {
     start_called_ = true;
   }
 
-  uint32_t Write(MicroServer::Register reg,
+  WriteAction Write(MicroServer::Register reg,
                  const MicroServer::Value& value) override {
     BOOST_TEST(start_called_ == true);
     writes_.push_back({reg, value});
@@ -67,7 +67,7 @@ class Server : public MicroServer::Server {
   };
 
   std::vector<WriteValue> writes_;
-  uint32_t next_write_error_ = 0;
+  WriteAction next_write_error_ = MicroServer::Server::kSuccess;
 
   std::map<uint32_t, int8_t> int8_values = {
     { 0, 3 },
@@ -532,7 +532,7 @@ BOOST_FIXTURE_TEST_CASE(WriteErrorTest, Fixture) {
   BOOST_TEST(read_count == 0);
 
 
-  server.next_write_error_ = 0x76;
+  server.next_write_error_ = MicroServer::Server::kUnknownRegister;
 
   int write_count = 0;
   AsyncWrite(*dut_stream.side_a(), str(kWriteSingle),
@@ -552,8 +552,8 @@ BOOST_FIXTURE_TEST_CASE(WriteErrorTest, Fixture) {
     0x03,  // payload size
      0x30,  // write error
       0x02,  // register
-      0x76,  // error
-    0x7e, 0x5c,  // CRC
+      0x01,  // error
+    0x0e, 0x52,  // CRC
     0x00,  // null terminator
   };
 
@@ -752,6 +752,23 @@ BOOST_FIXTURE_TEST_CASE(NopTest, Fixture) {
   BOOST_TEST(dut.stats()->unknown_subframe == 0);
 }
 
+namespace {
+const uint8_t kClientToServerPollWithWrite[] = {
+  0x54, 0xab,  // header
+  0x82,  // source id
+  0x01,  // destination id
+  0x06,  // payload size
+    0x01,  // write 1 register
+      0x00,  // register 0
+      0x00,  // value 0
+    0x42,  // client->server data
+      0x09,  // channel 9
+      0x05,  // data len
+  0x6e, 0xf1,  // CRC
+  0x00,  // null terminator
+};
+}
+
 BOOST_FIXTURE_TEST_CASE(DiscardTest, Fixture) {
   int write_count = 0;
   ssize_t write_size = 0;
@@ -780,14 +797,43 @@ BOOST_FIXTURE_TEST_CASE(DiscardTest, Fixture) {
   BOOST_TEST(write_count == 0);
   BOOST_TEST(read_count == 0);
 
+  server.next_write_error_ = MicroServer::Server::kDiscardRemaining;
   server.action_ = Server::kDiscard;
 
-  AsyncWrite(*dut_stream.side_a(), str(kClientToServerPoll),
+  AsyncWrite(*dut_stream.side_a(), str(kClientToServerPollWithWrite),
+             [](micro::error_code ec) { BOOST_TEST(!ec); });
+
+  Poll();
+
+  BOOST_TEST(write_count == 0);
+  BOOST_TEST(read_count == 0);
+  BOOST_TEST(dut.stats()->discards == 2);
+
+  server.next_write_error_ = MicroServer::Server::kSuccess;
+  server.action_ = Server::kAccept;
+
+  AsyncWrite(*dut_stream.side_a(), str(kClientToServerPollWithWrite),
              [](micro::error_code ec) { BOOST_TEST(!ec); });
 
   Poll();
 
   BOOST_TEST(write_count == 1);
-  BOOST_TEST(read_count == 0);
-  BOOST_TEST(dut.stats()->discards == 1);
+  BOOST_TEST(read_count == 1);
+  BOOST_TEST(dut.stats()->discards == 2);
+
+  const uint8_t kExpectedResponse[] = {
+    0x54, 0xab,
+    0x01,  // source id
+    0x02,  // dest id
+    0x08,  // payload size
+     0x41,  // server->client
+      0x09,  // channel 9
+      0x05,  // N bytes of data
+      's', 't', 'u', 'f', 'f',
+    0xc5, 0xa8,  // CRC
+    0x00,  // null terminator
+  };
+
+  BOOST_TEST(std::string_view(receive_buffer, read_size) ==
+             str(kExpectedResponse));
 }

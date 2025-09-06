@@ -44,8 +44,22 @@ class MicroServer : public Format {
     /// Called at the beginning of a frame.
     virtual void StartFrame() = 0;
 
+    enum WriteAction {
+      // Writing was a success.
+      kSuccess,
+
+      // The written register was unknown.
+      kUnknownRegister,
+
+      // The written register was known, but is not writeable.
+      kNotWriteable,
+
+      // Do not process any further data from this frame.
+      kDiscardRemaining,
+    };
+
     /// Attempt to store the given value.
-    virtual uint32_t Write(Register, const Value&) = 0;
+    virtual WriteAction Write(Register, const Value&) = 0;
 
     /// @param type_index is an index into the Value variant
     /// describing what type to return.

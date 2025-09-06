@@ -297,10 +297,20 @@ class MicroServer::Impl {
 
       if (subframe_type >= u8(Subframe::kWriteBase) &&
           subframe_type < u8(Subframe::kWriteBase) + 16) {
-        if (ProcessSubframeWrite(subframe_type - u8(Subframe::kWriteBase),
-                                 str, response_stream)) {
-          stats_.malformed_subframe++;
-          return;
+        const auto write_action =
+            ProcessSubframeWrite(subframe_type - u8(Subframe::kWriteBase),
+                                 str, response_stream);
+        switch (write_action) {
+          case kMalformed: {
+            stats_.malformed_subframe++;
+            return;
+          }
+          case kDiscard: {
+            return;
+          }
+          case kContinue: {
+            break;
+          }
         }
 
         continue;
@@ -458,36 +468,56 @@ class MicroServer::Impl {
     response->WriteVaruint(error);
   }
 
-  bool ProcessSubframeWrite(uint8_t type_length,
-                            BufferReadStream& str,
-                            BufferWriteStream* response)
+  enum WriteAction {
+    kContinue,
+    kMalformed,
+    kDiscard,
+  };
+
+  WriteAction ProcessSubframeWrite(uint8_t type_length,
+                                   BufferReadStream& str,
+                                   BufferWriteStream* response)
       __attribute__ ((optimize("O3"))) {
     const auto encoded_length = type_length % 4;
     const auto type = type_length / 4;
 
     const auto num_registers = (encoded_length == 0) ? str.ReadVaruint()
         : std::make_optional<uint32_t>(encoded_length);
-    if (!num_registers) { return true; }
+    if (!num_registers) { return kMalformed; }
 
     const auto start_register = str.ReadVaruint();
-    if (!start_register) { return true; }
+    if (!start_register) { return kMalformed; }
 
     auto current_register = *start_register;
 
     for (size_t i = 0; i < *num_registers; i++) {
       const auto maybe_value = ReadValue(type, str);
-      if (!maybe_value) { return true; }
+      if (!maybe_value) { return kMalformed; }
 
       if (server_) {
-        const auto error = server_->Write(current_register, *maybe_value);
-        if (error) {
-          EmitWriteError(response, current_register, error);
+        const auto write_action = server_->Write(current_register, *maybe_value);
+        switch (write_action) {
+          case Server::kUnknownRegister: {
+            EmitWriteError(response, current_register, 1);
+            break;
+          }
+          case Server::kNotWriteable: {
+            EmitWriteError(response, current_register, 2);
+            break;
+          }
+          case Server::kDiscardRemaining: {
+            stats_.discards++;
+            return kDiscard;
+          }
+          case Server::kSuccess: {
+            break;
+          }
         }
       }
       current_register++;
     }
 
-    return false;
+    return kContinue;
   }
 
   void EmitReadResult(BufferWriteStream* response,
