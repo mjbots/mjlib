@@ -14,6 +14,7 @@
 
 #pragma once
 
+#include <cstring>
 #include <limits>
 #include <optional>
 
@@ -122,9 +123,10 @@ ReadStream<base::BufferReadStream>::ReadScalar() {
   if (istr_.remaining() < static_cast<std::streamsize>(sizeof(T))) {
     return {};
   }
-  const T* const position = reinterpret_cast<const T*>(istr_.position());
+  T result;
+  std::memcpy(&result, istr_.position(), sizeof(T));
   istr_.fast_ignore(sizeof(T));
-  return *position;
+  return result;
 }
 
 template <typename Base = base::WriteStream>
@@ -176,8 +178,7 @@ template <>
 template <typename T>
 inline void
 WriteStream<base::BufferWriteStream>::WriteScalar(T value) {
-  T* position = reinterpret_cast<T*>(ostr_.position());
-  *position = value;
+  std::memcpy(ostr_.position(), &value, sizeof(T));
   ostr_.skip(sizeof(T));
 }
 
