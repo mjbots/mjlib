@@ -54,11 +54,20 @@ class ProgramOptionsArchiveValue : public boost::program_options::value_semantic
   NameValuePair nvp_;
 };
 
-template <typename NameValuePair>
+template <typename NameValuePair, typename NameMapGetter>
 class ProgramOptionsEnumArchiveValue
     : public boost::program_options::value_semantic {
  public:
-  ProgramOptionsEnumArchiveValue(const NameValuePair& nvp) : nvp_(nvp) {}
+  // The map is std::map<EnumT, const char*>; pull the enum type back
+  // out so notify() can any_cast through it. NameValuePair has no
+  // such typedef, which is why earlier code that reached for
+  // typename NameValuePair::Base failed to compile.
+  using EnumT = std::decay_t<decltype(
+      std::declval<NameMapGetter>()().begin()->first)>;
+
+  ProgramOptionsEnumArchiveValue(const NameValuePair& nvp,
+                                 NameMapGetter mapper)
+      : nvp_(nvp), mapper_(mapper) {}
   ~ProgramOptionsEnumArchiveValue() override {}
 
   std::string name() const override { return ""; }
@@ -70,7 +79,7 @@ class ProgramOptionsEnumArchiveValue
              const std::vector<std::string>& new_tokens,
              bool /* utf8 */) const override {
     const std::string value = new_tokens.at(0);
-    for (const auto& pair : nvp_.enumeration_mapper()) {
+    for (const auto& pair : mapper_()) {
       if (value == pair.second) {
         value_store = pair.first;
         return;
@@ -79,7 +88,7 @@ class ProgramOptionsEnumArchiveValue
 
     auto format_enum_types = [&]() {
       std::string result;
-      for (const auto& pair : nvp_.enumeration_mapper()) {
+      for (const auto& pair : mapper_()) {
         if (!result.empty()) { result += ","; }
         result += pair.second;
       }
@@ -95,12 +104,12 @@ class ProgramOptionsEnumArchiveValue
 
   void notify(const boost::any& value_store) const override {
     if (value_store.empty()) { return; }
-    nvp_.set_value(static_cast<uint32_t>(
-                       boost::any_cast<typename NameValuePair::Base>(value_store)));
+    nvp_.set_value(boost::any_cast<EnumT>(value_store));
   }
 
  private:
   NameValuePair nvp_;
+  NameMapGetter mapper_;
 };
 
 }

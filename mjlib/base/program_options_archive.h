@@ -37,11 +37,13 @@ class ProgramOptionsArchive : public VisitArchive<ProgramOptionsArchive> {
     sub.Accept(pair.value());
   }
 
-  template <typename NameValuePair>
-  void VisitEnumeration(const NameValuePair& pair) {
+  template <typename NameValuePair, typename NameMapGetter>
+  void VisitEnumeration(const NameValuePair& pair,
+                        NameMapGetter enumeration_mapper) {
     (*description_).add_options()(
         (prefix_ + pair.name()).c_str(),
-        new detail::ProgramOptionsEnumArchiveValue<NameValuePair>(pair));
+        new detail::ProgramOptionsEnumArchiveValue<NameValuePair, NameMapGetter>(
+            pair, enumeration_mapper));
   }
 
   template <typename NameValuePair>
