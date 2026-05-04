@@ -50,8 +50,9 @@ class DeadlineTimer {
 
   std::size_t cancel() {
     boost::system::error_code ec;
-    return make_delegate()->cancel(ec);
+    auto result = make_delegate()->cancel(ec);
     if (ec) { throw mjlib::base::system_error(ec); }
+    return result;
   }
 
   std::size_t cancel(boost::system::error_code& ec) {
@@ -60,8 +61,9 @@ class DeadlineTimer {
 
   std::size_t cancel_one() {
     boost::system::error_code ec;
-    return make_delegate()->cancel_one(ec);
+    auto result = make_delegate()->cancel_one(ec);
     if (ec) { throw mjlib::base::system_error(ec); }
+    return result;
   }
 
   std::size_t cancel_one(boost::system::error_code& ec) {
