@@ -101,3 +101,54 @@ BOOST_AUTO_TEST_CASE(BasicCommandManager) {
   BOOST_TEST(cmd1_count == 3);
   BOOST_TEST(reader.data_.str() == "size: 6\nsize: 1\n");
 }
+
+BOOST_AUTO_TEST_CASE(SyncResponseCallback) {
+  // A command handler that invokes response.callback synchronously
+  // (e.g. by AsyncWriting an empty payload, which short-circuits to
+  // an inline callback) used to trip a double-read: the response
+  // path and HandleRead's tail call both issued AsyncReadSome on
+  // the same stream, breaking the single-outstanding-read invariant.
+  SizedPool<> pool;
+  std::deque<VoidCallback> events;
+  auto poster = [&](VoidCallback cbk) { events.push_back(cbk); };
+  auto poll = [&]() {
+    while (!events.empty()) {
+      auto copy = events;
+      events.clear();
+      for (auto& item : copy) { item(); }
+    }
+  };
+
+  StreamPipe pipe{poster};
+  Reader reader{pipe.side_b()};
+
+  AsyncExclusive<AsyncWriteStream> writer(pipe.side_a());
+
+  CommandManager dut(&pool, pipe.side_a(), &writer);
+
+  int cmd_count = 0;
+  dut.Register(
+      "sync",
+      [&](const std::string_view&,
+          const CommandManager::Response& response) {
+        cmd_count++;
+        // Empty AsyncWrite invokes response.callback inline, on the
+        // same stack that called the handler.
+        AsyncWrite(*response.stream, std::string_view(""), response.callback);
+      });
+
+  dut.AsyncStart();
+  poll();
+
+  AsyncWrite(*pipe.side_b(), std::string_view("sync\n"),
+             [&](error_code) {});
+  poll();
+  BOOST_TEST(cmd_count == 1);
+
+  // A second sync command must also dispatch successfully -- this
+  // checks that the read loop stayed alive after the first one.
+  AsyncWrite(*pipe.side_b(), std::string_view("sync\n"),
+             [&](error_code) {});
+  poll();
+  BOOST_TEST(cmd_count == 2);
+}

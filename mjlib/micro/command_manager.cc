@@ -43,6 +43,15 @@ class CommandManager::Impl {
 
   void MaybeStartRead() {
     if (write_outstanding_) { return; }
+    // Idempotent against being called twice while a read is already
+    // in flight. A command handler that completes synchronously
+    // (e.g. by calling its response.callback inline) reaches
+    // MaybeStartRead from within the response-completion path AND
+    // again from the trailing call at the end of HandleRead; without
+    // this guard the second call issues a concurrent AsyncReadSome
+    // and trips the underlying stream's single-outstanding-read
+    // invariant.
+    if (read_outstanding_) { return; }
 
     read_until_context_.stream = read_stream_;
     read_until_context_.streambuf = &read_streambuf_;
@@ -51,9 +60,11 @@ class CommandManager::Impl {
     read_until_context_.delimiters = "\r\n";
     read_until_context_.callback =
         [this](error_code error, int size) {
+      this->read_outstanding_ = false;
       this->HandleRead(error, size);
     };
 
+    read_outstanding_ = true;
     AsyncReadUntil(read_until_context_);
   }
 
@@ -70,8 +81,10 @@ class CommandManager::Impl {
           base::string_span(line_buffer_, options_.max_line_length);
       read_until_context_.delimiters = "\r\n";
       read_until_context_.callback = [this](error_code, int) {
+        this->read_outstanding_ = false;
         this->MaybeStartRead();
       };
+      read_outstanding_ = true;
       AsyncIgnoreUntil(read_until_context_);
       return;
     }
@@ -158,6 +171,7 @@ class CommandManager::Impl {
   using Registry = PoolMap<std::string_view, Item>;
   Registry registry_;
   bool write_outstanding_ = false;
+  bool read_outstanding_ = false;
 
   char* const line_buffer_;
   char* const arguments_;
