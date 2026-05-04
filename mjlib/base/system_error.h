@@ -47,10 +47,15 @@ class system_error : public std::runtime_error {
     }
   }
 
-  virtual ~system_error() throw() {}
+  virtual ~system_error() noexcept {}
 
-  const char* what() const throw() {
-    if (message_.empty()) { message_ = ec_.message(); }
+  const char* what() const noexcept override {
+    // Recompute every call: code() returns a non-const reference and
+    // is documented to support layered context (error_code::Append),
+    // so any caller may have enriched the underlying error since the
+    // last what() invocation. The cache is just a buffer to keep the
+    // returned c_str() pointer valid until the next call.
+    message_ = ec_.message();
     return message_.c_str();
   }
   error_code& code() { return ec_; }

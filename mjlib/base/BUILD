@@ -404,6 +404,7 @@ cc_test(
         "test/program_options_archive_test.cc",
         "test/recording_stream_test.cc",
         "test/string_span_test.cc",
+        "test/system_error_test.cc",
         "test/system_fd_test.cc",
         "test/system_file_test.cc",
         "test/time_conversions_test.cc",
