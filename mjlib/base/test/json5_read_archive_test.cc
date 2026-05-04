@@ -59,6 +59,16 @@ BOOST_AUTO_TEST_CASE(Json5ReadValidNumbers) {
   BOOST_TEST(DUT::Read<int>("-0o10") == -8);
   BOOST_TEST(DUT::Read<int>("0b10") == 2);
   BOOST_TEST(DUT::Read<int>("-0b10") == -2);
+
+  // Single-digit non-decimal literals previously failed because the
+  // ostringstream("0b"/"0o"/"0x") seed left the put cursor at zero,
+  // and a single subsequent put() overwrote the prefix character
+  // rather than appending.
+  BOOST_TEST(DUT::Read<int>("0b1") == 1);
+  BOOST_TEST(DUT::Read<int>("0o5") == 5);
+  BOOST_TEST(DUT::Read<int>("0xA") == 10);
+  BOOST_TEST(DUT::Read<int>("0xa") == 10);
+  BOOST_TEST(DUT::Read<int>("-0xA") == -10);
   BOOST_TEST(!std::isfinite(
                  DUT::Read<double>(
                      "null", DUT::Options().set_permissive_nan(true))));
@@ -248,6 +258,20 @@ BOOST_AUTO_TEST_CASE(Json5ErrorMessage) {
       DUT::Read<AllTypesTest>("{\"value_u8\": null}"),
       mjlib::base::system_error,
       make_predicate("Error parsing integer"));
+
+  // Non-decimal prefix with no digit produces a descriptive error.
+  BOOST_CHECK_EXCEPTION(
+      DUT::Read<int>("0b"),
+      mjlib::base::system_error,
+      make_predicate("Expected at least one binary digit"));
+  BOOST_CHECK_EXCEPTION(
+      DUT::Read<int>("0o"),
+      mjlib::base::system_error,
+      make_predicate("Expected at least one octal digit"));
+  BOOST_CHECK_EXCEPTION(
+      DUT::Read<int>("0x"),
+      mjlib::base::system_error,
+      make_predicate("Expected at least one hex digit"));
 }
 
 BOOST_AUTO_TEST_CASE(Json5ReadIntoExisting) {

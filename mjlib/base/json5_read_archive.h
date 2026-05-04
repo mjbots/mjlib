@@ -594,35 +594,57 @@ class Json5ReadArchive : public VisitArchive<Json5ReadArchive> {
     return Read_DecimalDigits();
   }
 
+  // Read just the digit text. The "0b"/"0o"/"0x" prefix has already
+  // been consumed by Read_NumericLiteral, and the std::stoll / stoull
+  // calls downstream are passed the explicit base, so the prefix is
+  // not needed (and was previously inserted via ostringstream(string)
+  // in default `out` mode, which leaves the put cursor at position 0
+  // and overwrote the prefix character-by-character -- breaking
+  // single-digit literals like 0b1, 0o5, and 0xA).
   std::string Read_BinaryIntegerLiteral() {
-    std::ostringstream ostr("0b");
+    std::ostringstream ostr;
     while (true) {
       const auto c = Peek();
-      if (c != '0' && c != '1') { return ostr.str(); }
+      if (c != '0' && c != '1') { break; }
       ostr.put(Get());
     }
+    auto result = ostr.str();
+    if (result.empty()) {
+      Error("Expected at least one binary digit after 0b");
+    }
+    return result;
   }
 
   std::string Read_OctalIntegerLiteral() {
-    std::ostringstream ostr("0o");
+    std::ostringstream ostr;
     while (true) {
       const auto c = Peek();
-      if (c < '0' || c > '7') { return ostr.str(); }
+      if (c < '0' || c > '7') { break; }
       ostr.put(Get());
     }
+    auto result = ostr.str();
+    if (result.empty()) {
+      Error("Expected at least one octal digit after 0o");
+    }
+    return result;
   }
 
   std::string Read_HexIntegerLiteral() {
-    std::ostringstream ostr("0x");
+    std::ostringstream ostr;
     while (true) {
       const auto c = Peek();
       if (!((c >= '0' && c <= '9') ||
             (c >= 'a' && c <= 'f') ||
             (c >= 'A' && c <= 'F'))) {
-        return ostr.str();
+        break;
       }
       ostr.put(Get());
     }
+    auto result = ostr.str();
+    if (result.empty()) {
+      Error("Expected at least one hex digit after 0x");
+    }
+    return result;
   }
 
   void ReadLiteral(const char* literal) {
