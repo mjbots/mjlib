@@ -210,6 +210,7 @@ cc_test(
         "@bazel_tools//src/conditions:windows": [],
         "//conditions:default": [
             "test/realtime_executor_test.cc",
+            "test/realtime_executor_exception_test.cc",
         ],
     }),
     deps = [

@@ -171,16 +171,31 @@ class RealtimeExecutor {
         : service_(service), callback_(std::move(callback)) {}
 
     void operator()() {
-      if (service_->options_.event_timeout_ns) {
+      // Cache the event-timer decision before invoking callback_(),
+      // since the callback can call set_options() and would otherwise
+      // create a Start-without-Stop or Stop-without-Start mismatch.
+      const bool event_timer_active = service_->options_.event_timeout_ns != 0;
+      if (event_timer_active) {
         service_->event_timer_.Start(service_->options_.event_timeout_ns);
       }
 
-      callback_();
+      // Scope guard so that if callback_() throws, we still disarm
+      // event_timer_ and decrement outstanding_work_. Without this,
+      // an exception leaks outstanding_work_ permanently and leaves
+      // the idle_timer armed, killing the process via
+      // AbortingPosixTimer's abort() ~idle_timeout_ns later -- even
+      // though the user has already caught the exception and drained
+      // the io_context.
+      struct Cleanup {
+        Service* service;
+        bool event_timer_active;
+        ~Cleanup() {
+          if (event_timer_active) { service->event_timer_.Stop(); }
+          service->StopWork();
+        }
+      } cleanup{service_, event_timer_active};
 
-      if (service_->options_.event_timeout_ns) {
-        service_->event_timer_.Stop();
-      }
-      service_->StopWork();
+      callback_();
     }
 
     Service* service_ = nullptr;
