@@ -62,13 +62,24 @@ class AsyncWriter {
         {data_.data() + written_, data_.size() - written_},
         [this](const auto& ec, std::ptrdiff_t size) {
         if (ec) {
-          callback_(ec, 0);
+          // Move the callback to a local before invoking it.
+          // callback_ is an inplace_function whose storage is reused
+          // in place by operator=. If the user lambda calls Write()
+          // again from inside its own body (a normal "kick off the
+          // next operation" pattern), that re-entrant Write would
+          // overwrite the still-executing lambda's bytes. Holding it
+          // in a stack local keeps it alive until it returns.
+          auto cb = std::move(callback_);
+          callback_ = {};
+          cb(ec, 0);
           return;
         }
 
         written_ += size;
         if (written_ == static_cast<std::ptrdiff_t>(data_.size())) {
-          callback_(ec, written_);
+          auto cb = std::move(callback_);
+          callback_ = {};
+          cb(ec, written_);
           return;
         }
 

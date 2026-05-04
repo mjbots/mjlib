@@ -87,3 +87,51 @@ BOOST_AUTO_TEST_CASE(BasicAsyncStream) {
     BOOST_TEST(std::strcmp(buffer_to_read_into, "hi 1") == 0);
   }
 }
+
+BOOST_AUTO_TEST_CASE(AsyncWriterReentrantWriteFromCallback) {
+  // Previously, calling AsyncWriter::Write from inside the callback
+  // of a previous Write would destroy and overwrite the storage of
+  // the still-executing lambda (callback_ is an inplace_function whose
+  // operator= reuses the same byte buffer in place). Any captured
+  // value in the outer lambda read after the recursive Write call
+  // returned would observe bytes from the inner lambda. The fix is
+  // to move callback_ to a stack local before invoking it.
+  DutStream dut_stream;
+  AsyncWriter writer;
+
+  // Choose a large lambda for the inner write so that, pre-fix, its
+  // bytes would clearly clobber the outer lambda's smaller capture.
+  bool inner_completed = false;
+  bool outer_capture_intact = false;
+
+  const uint64_t kSentinel = 0xDEADBEEFCAFEBABEull;
+
+  auto outer = [&dut_stream, &writer, &inner_completed,
+                &outer_capture_intact,
+                magic = kSentinel](error_code, std::ptrdiff_t) mutable {
+    writer.Write(
+        dut_stream, std::string_view("b"),
+        [arr = std::array<uint64_t, 5>{0xAAAA1111ull, 0xBBBB2222ull,
+                                       0xCCCC3333ull, 0xDDDD4444ull,
+                                       0xEEEE5555ull},
+         &inner_completed](error_code, std::ptrdiff_t) {
+          (void)arr;
+          inner_completed = true;
+        });
+
+    // After the recursive Write, the outer lambda's `magic` capture
+    // must still read back as kSentinel. Pre-fix it would contain
+    // bytes of the inner lambda's `arr`.
+    outer_capture_intact = (magic == kSentinel);
+  };
+
+  writer.Write(dut_stream, std::string_view("a"), outer);
+
+  // Drive the outer write completion; this invokes outer().
+  dut_stream.write_cbk_({}, 1);
+  // Drive the inner write completion to keep the chain symmetric.
+  if (dut_stream.write_cbk_) { dut_stream.write_cbk_({}, 1); }
+
+  BOOST_TEST(outer_capture_intact);
+  BOOST_TEST(inner_completed);
+}
