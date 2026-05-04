@@ -128,13 +128,19 @@ cc_library(
 cc_library(
     name = "event",
     hdrs = ["event.h"],
-    deps = ["//mjlib/base:inplace_function"],
+    deps = [
+        ":async_types",
+        "//mjlib/base:inplace_function",
+    ],
 )
 
 cc_library(
     name = "event_queue",
     hdrs = ["event_queue.h"],
-    deps = ["event"],
+    deps = [
+        ":async_types",
+        ":event",
+    ],
 )
 
 cc_library(
@@ -275,6 +281,7 @@ cc_test(
         "test/atomic_event_queue_test.cc",
         "test/callback_table_test.cc",
         "test/error_code_test.cc",
+        "test/event_self_contained_test.cc",
         "test/pool_map_test.cc",
         "test/pool_ptr_test.cc",
         "test/static_ptr_test.cc",

@@ -16,6 +16,7 @@
 
 #include <deque>
 
+#include "mjlib/micro/async_types.h"
 #include "mjlib/micro/event.h"
 
 namespace mjlib {

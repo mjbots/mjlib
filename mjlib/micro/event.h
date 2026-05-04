@@ -16,6 +16,8 @@
 
 #include "mjlib/base/inplace_function.h"
 
+#include "mjlib/micro/async_types.h"
+
 namespace mjlib {
 namespace micro {
 
