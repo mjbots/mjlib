@@ -23,16 +23,12 @@ class SystemFd {
   SystemFd() : fd_(-1) {}
   SystemFd(int fd) : fd_(fd) {}
 
-  SystemFd(SystemFd&& rhs) {
+  SystemFd(SystemFd&& rhs) noexcept {
     fd_ = rhs.fd_;
     rhs.fd_ = -1;
   }
 
-  SystemFd& operator=(SystemFd&& rhs) {
-    fd_ = rhs.fd_;
-    rhs.fd_ = -1;
-    return *this;
-  }
+  SystemFd& operator=(SystemFd&& rhs) noexcept;
 
   ~SystemFd();
 

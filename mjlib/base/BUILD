@@ -401,6 +401,7 @@ cc_test(
         "test/pid_test.cc",
         "test/program_options_archive_test.cc",
         "test/string_span_test.cc",
+        "test/system_fd_test.cc",
         "test/system_file_test.cc",
         "test/time_conversions_test.cc",
         "test/tokenizer_test.cc",

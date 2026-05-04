@@ -19,10 +19,19 @@
 namespace mjlib {
 namespace base {
 
-// We have this in a .cc file merely to keep unistd.h out of the
+// We have these in a .cc file merely to keep unistd.h out of the
 // header.
 SystemFd::~SystemFd() {
   if (fd_ >= 0) ::close(fd_);
+}
+
+SystemFd& SystemFd::operator=(SystemFd&& rhs) noexcept {
+  if (this != &rhs) {
+    if (fd_ >= 0) ::close(fd_);
+    fd_ = rhs.fd_;
+    rhs.fd_ = -1;
+  }
+  return *this;
 }
 
 }
