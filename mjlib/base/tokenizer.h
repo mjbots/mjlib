@@ -23,6 +23,13 @@ namespace base {
 /// A simple gsl::string_span based tokenizer.  It can split on
 /// multiple delimiters, and reports multiple consecutive delimiters
 /// as empty tokens.
+///
+/// Precondition: @p source must not contain any '\0' bytes. The
+/// implementation tests delimiter membership with std::strchr, which
+/// also matches the haystack's terminating NUL, so an embedded '\0'
+/// in @p source would silently be treated as a delimiter regardless
+/// of @p delimiters. The current callers all tokenize line-oriented
+/// text input where this is naturally satisfied.
 class Tokenizer {
  public:
   Tokenizer(const std::string_view& source, const char* delimiters)
