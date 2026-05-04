@@ -15,6 +15,9 @@ build:host --platforms=@local_config_platform//:host
 build:host --linkopt=-lrt
 build:host --copt=-Werror
 build:host --copt=-Wno-parentheses-equality
+# Catch the `return X(); if (...) ...` family at compile time. clang
+# only -- gcc's -Wunreachable-code has been a no-op since 4.4.
+build:host --copt=-Wunreachable-code
 
 # UBSan build, layered on top of host. vptr and function checks are
 # disabled because the vendored llvm_toolchain ships only libc++'s
