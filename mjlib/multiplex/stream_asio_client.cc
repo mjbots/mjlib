@@ -473,8 +473,9 @@ class StreamAsioClient::Impl {
 
       writer.WriteVaruint(size);
       temp_data_.resize(size);
-      boost::asio::buffer_copy(boost::asio::buffer(&temp_data_[0], size), buffers);
-      stream.write(std::string_view(&temp_data_[0], size));
+      boost::asio::buffer_copy(boost::asio::buffer(temp_data_.data(), size),
+                               buffers);
+      stream.write(std::string_view(temp_data_.data(), size));
 
       Frame& frame = parent_->tx_frame_;
       frame.source_id = parent_->options_.source_id;
