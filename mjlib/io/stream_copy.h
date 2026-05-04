@@ -14,6 +14,8 @@
 
 #pragma once
 
+#include <memory>
+
 #include <boost/asio/any_io_executor.hpp>
 #include <boost/asio/post.hpp>
 #include <boost/asio/write.hpp>
@@ -41,8 +43,11 @@ class StreamCopy {
   void StartRead() {
     read_stream_->async_read_some(
         boost::asio::buffer(buffer_),
-        std::bind(&StreamCopy::HandleRead, this,
-                  std::placeholders::_1, std::placeholders::_2));
+        [this, alive = std::weak_ptr<bool>{alive_}]
+        (const base::error_code& ec, size_t size) {
+          if (alive.expired()) { return; }
+          HandleRead(ec, size);
+        });
   }
 
   void HandleRead(const base::error_code& ec, size_t size) {
@@ -58,8 +63,11 @@ class StreamCopy {
     boost::asio::async_write(
         *write_stream_,
         boost::asio::buffer(buffer_, size),
-        std::bind(&StreamCopy::HandleWrite, this,
-                  std::placeholders::_1, std::placeholders::_2));
+        [this, alive = std::weak_ptr<bool>{alive_}]
+        (const base::error_code& ec_inner, size_t size_inner) {
+          if (alive.expired()) { return; }
+          HandleWrite(ec_inner, size_inner);
+        });
   }
 
   void HandleWrite(const base::error_code& ec, size_t) {
@@ -80,6 +88,12 @@ class StreamCopy {
   AsyncWriteStream* const write_stream_;
   char buffer_[4096] = {};
   ErrorCallback done_callback_;
+  // Lifetime guard: every async handler captures a weak_ptr to this.
+  // When *this is destroyed, the shared_ptr drops and the captured
+  // weak_ptr expires, so any handler that fires later (because the
+  // underlying stream still had it pending) becomes a no-op rather
+  // than dereferencing a dangling `this`.
+  std::shared_ptr<bool> alive_ = std::make_shared<bool>(true);
 };
 
 class BidirectionalStreamCopy {
