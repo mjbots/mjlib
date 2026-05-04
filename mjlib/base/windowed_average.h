@@ -18,6 +18,8 @@
 #include <cstdint>
 #include <cstdlib>
 
+#include "mjlib/base/assert.h"
+
 namespace mjlib {
 namespace base {
 
@@ -25,8 +27,13 @@ template <typename T, size_t MaxCapacity,  typename AccumType>
 class WindowedAverage {
  public:
   WindowedAverage(size_t capacity = MaxCapacity)
-      : capacity_(std::min<size_t>(MaxCapacity, capacity)) {}
+      : capacity_(std::min<size_t>(MaxCapacity, capacity)) {
+    // capacity_ == 0 would cause Add() to compute (pos_ + 1) % 0,
+    // which is UB and on x86_64 raises SIGFPE.
+    MJ_ASSERT(capacity > 0);
+  }
 
+  static_assert(MaxCapacity > 0, "MaxCapacity must be at least 1");
   static_assert(
       std::is_integral_v<T>,
       "this will not function with floating point rounding error");

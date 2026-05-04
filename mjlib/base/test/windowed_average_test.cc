@@ -74,6 +74,20 @@ BOOST_AUTO_TEST_CASE(WindowedAverageCapacityTest) {
   BOOST_TEST(dut.size() == 2);
 }
 
+BOOST_AUTO_TEST_CASE(WindowedAverageCapacityOne) {
+  // Smallest valid capacity. Previously, if a caller passed 0 the
+  // (pos_ + 1) % capacity_ in Add() would divide by zero (UB,
+  // SIGFPE on x86_64); the constructor now asserts capacity > 0.
+  // This test verifies that the boundary value capacity == 1 works.
+  WindowedAverage<int16_t, 4, int32_t> dut{1};
+  dut.Add(7);
+  BOOST_TEST(dut.average() == 7);
+  BOOST_TEST(dut.size() == 1);
+  dut.Add(11);
+  BOOST_TEST(dut.average() == 11);
+  BOOST_TEST(dut.size() == 1);
+}
+
 BOOST_AUTO_TEST_CASE(BiggerTest) {
   WindowedAverage<int16_t, 256, int32_t> dut;
   for (int i = 0; i < 1024; i++) {

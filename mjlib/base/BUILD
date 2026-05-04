@@ -204,6 +204,7 @@ cc_library(
 cc_library(
     name = "windowed_average",
     hdrs = ["windowed_average.h"],
+    deps = [":assert"],
 )
 
 cc_library(
