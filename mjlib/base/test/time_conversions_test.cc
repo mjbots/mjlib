@@ -26,6 +26,20 @@ BOOST_AUTO_TEST_CASE(ConvertSecondsToDuration) {
   BOOST_TEST(base::ConvertSecondsToDuration(std::numeric_limits<double>::signaling_NaN()).is_not_a_date_time());
   BOOST_TEST(base::ConvertSecondsToDuration(-std::numeric_limits<double>::infinity()).is_neg_infinity());
   BOOST_TEST(base::ConvertSecondsToDuration(std::numeric_limits<double>::infinity()).is_pos_infinity());
+
+  // Inputs whose magnitude exceeds INT_MAX (~2.147e9 s) previously
+  // truncated through static_cast<int>(time_s) and silently produced
+  // INT_MIN-saturated nonsense. The intermediate int64_t was already
+  // available in the function body but unused by the seconds(...)
+  // call.
+  BOOST_TEST(base::ConvertSecondsToDuration(3.0e9).total_seconds() ==
+             3000000000LL);
+  BOOST_TEST(base::ConvertSecondsToDuration(-3.0e9).total_seconds() ==
+             -3000000000LL);
+  // Just past INT_MAX with a fractional part: seconds + counts must
+  // both end up positive and consistent.
+  BOOST_TEST(base::ConvertSecondsToDuration(2147483648.5).total_microseconds() ==
+             2147483648500000LL);
 }
 
 BOOST_AUTO_TEST_CASE(ConvertMicrosecondsToDuration) {

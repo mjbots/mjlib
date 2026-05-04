@@ -35,7 +35,11 @@ boost::posix_time::time_duration ConvertSecondsToDuration(double time_s) {
       static_cast<int64_t>(
           (time_s - static_cast<double>(int_time)) *
           boost::posix_time::time_duration::ticks_per_second());
-  return boost::posix_time::seconds(static_cast<int>(time_s)) +
+  // Use the already-computed int64_t int_time rather than re-casting
+  // time_s to int. Casting a double whose magnitude exceeds INT_MAX
+  // (~2.147e9 s, ~68 years) is UB and produces INT_MIN on x86-64,
+  // silently corrupting otherwise-representable durations.
+  return boost::posix_time::seconds(int_time) +
       boost::posix_time::time_duration(0, 0, 0, counts);
 }
 
