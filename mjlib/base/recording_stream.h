@@ -33,11 +33,15 @@ class RecordingStream : public ReadStream {
   }
 
   void ignore(std::streamsize size) override {
+    // Early-out: a zero-length ignore on a freshly constructed
+    // RecordingStream would otherwise form &ignore_buffer_[0] on an
+    // empty std::vector, which is UB.
+    if (size <= 0) { return; }
     if (static_cast<std::streamsize>(ignore_buffer_.size()) < size) {
       ignore_buffer_.resize(size);
     }
-    istr_.read({&ignore_buffer_[0], size});
-    ostr_.write(std::string_view(&ignore_buffer_[0], istr_.gcount()));
+    istr_.read({ignore_buffer_.data(), size});
+    ostr_.write(std::string_view(ignore_buffer_.data(), istr_.gcount()));
   }
 
   std::streamsize gcount() const override {
