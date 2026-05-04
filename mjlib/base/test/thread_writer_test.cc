@@ -46,3 +46,36 @@ BOOST_AUTO_TEST_CASE(BasicThreadWriterTest) {
   ostr << inf.rdbuf();
   BOOST_TEST(ostr.str() == "testmore");
 }
+
+BOOST_AUTO_TEST_CASE(EmptyBufferDoesNotAbort) {
+  // Previously, queuing an OStream with size() == 0 caused the
+  // background writer thread to invoke fwrite(_, 0, 1, fd) which
+  // returns 0 by spec, and that 0 was treated as a fatal error,
+  // aborting the process from the worker. Just running this test to
+  // completion proves the regression is fixed; we also verify the
+  // surrounding non-empty payloads make it to disk intact.
+  mjlib::base::TemporaryFile temp;
+  {
+    ThreadWriter dut{temp.native()};
+    {
+      auto buf = std::make_unique<ThreadWriter::OStream>();
+      buf->write("test");
+      dut.Write(std::move(buf));
+    }
+    {
+      // Empty payload, never written to.
+      auto buf = std::make_unique<ThreadWriter::OStream>();
+      dut.Write(std::move(buf));
+    }
+    {
+      auto buf = std::make_unique<ThreadWriter::OStream>();
+      buf->write("more");
+      dut.Write(std::move(buf));
+    }
+  }
+
+  std::ifstream inf(temp.native());
+  std::ostringstream ostr;
+  ostr << inf.rdbuf();
+  BOOST_TEST(ostr.str() == "testmore");
+}

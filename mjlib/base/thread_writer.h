@@ -340,12 +340,18 @@ class ThreadWriter : boost::noncopyable {
 
     const OStream& stream = *buffer;
 
-    const char* ptr = &(*stream.data())[stream.start()];
-    size_t size = stream.size();
-    size_t result = ::fwrite(ptr, size, 1, fd_);
-    mjlib::base::FailIfErrno(result == 0);
-
-    child_offset_ += size;
+    const size_t size = stream.size();
+    if (size > 0) {
+      // fwrite with nmemb=1 returns 0 both on error and when size==0,
+      // so we have to skip the call when there is nothing to write
+      // (otherwise the result==0 check below would treat the empty
+      // buffer as a fatal error). Use the byte-count form so the
+      // error check is unambiguous.
+      const char* ptr = stream.data()->data() + stream.start();
+      const size_t result = ::fwrite(ptr, 1, size, fd_);
+      mjlib::base::FailIfErrno(result != size);
+      child_offset_ += size;
+    }
     if (options_.reclaimer) {
       options_.reclaimer->Reclaim(std::move(buffer));
     }
