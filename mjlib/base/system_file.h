@@ -37,7 +37,10 @@ class SystemFile {
   }
 
   ~SystemFile() {
-    ::fclose(fd_);
+    // fclose(NULL) is undefined behavior; on glibc it segfaults.
+    // fd_ is null after default construction or after the source of
+    // a move.
+    if (fd_) { ::fclose(fd_); }
   }
 
   SystemFile(const SystemFile&) = delete;
