@@ -29,11 +29,15 @@ class FastOStringStream : public WriteStream {
   void write(const std::string_view& data) override {
     std::size_t old_size = data_.size();
     data_.resize(data_.size() + data.size());
-    std::memcpy(&data_[old_size], data.data(), data.size());
+    if (data.size() > 0) {
+      std::memcpy(&data_[old_size], data.data(), data.size());
+    }
   }
 
-  std::string str() const { return std::string(&data_[0], data_.size()); }
-  std::string_view view() const { return std::string_view(&data_[0], data_.size()); }
+  std::string str() const { return std::string(data_.data(), data_.size()); }
+  std::string_view view() const {
+    return std::string_view(data_.data(), data_.size());
+  }
 
   void clear() { data_.clear(); }
 
