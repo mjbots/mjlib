@@ -25,14 +25,19 @@ class SystemFile {
   SystemFile() : fd_(nullptr) {}
   SystemFile(FILE* file) : fd_(file) {}
 
-  SystemFile(SystemFile&& rhs) {
+  SystemFile(SystemFile&& rhs) noexcept {
     fd_ = rhs.fd_;
     rhs.fd_ = nullptr;
   }
 
-  SystemFile& operator=(SystemFile&& rhs) {
-    fd_ = rhs.fd_;
-    rhs.fd_ = nullptr;
+  SystemFile& operator=(SystemFile&& rhs) noexcept {
+    if (this != &rhs) {
+      // Release the FILE* this currently owns before adopting the
+      // source's. Without this the previous file (and its fd) leaked.
+      if (fd_) { ::fclose(fd_); }
+      fd_ = rhs.fd_;
+      rhs.fd_ = nullptr;
+    }
     return *this;
   }
 
