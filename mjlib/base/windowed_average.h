@@ -55,7 +55,11 @@ class WindowedAverage {
 
   T average() const {
     if (size_ == 0) { return T(); }
-    return total_ / static_cast<T>(size_);
+    // Divide in the accumulator type so size_ is not narrowed to T
+    // (e.g. T = int16_t with a window of 40000 wrapped the divisor
+    // to a negative value, producing wrong-signed results). The
+    // quotient fits in T whenever the inputs to Add() fit in T.
+    return total_ / static_cast<AccumType>(size_);
   }
 
   AccumType total() const { return total_; }

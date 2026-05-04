@@ -97,3 +97,18 @@ BOOST_AUTO_TEST_CASE(BiggerTest) {
   BOOST_TEST(dut.total() == 1000 * 256);
   BOOST_TEST(dut.size() == 256);
 }
+
+BOOST_AUTO_TEST_CASE(WindowedAverageNarrowSizeT) {
+  // Previously, average() cast size_ to T before dividing. With T =
+  // int16_t and size_ = 40000, the cast wrapped to -25536, so
+  // 40000/-25536 == -1 was returned instead of 1. The accumulator
+  // (int32_t) carried the right sum either way; the divisor was the
+  // bug.
+  WindowedAverage<int16_t, 40000, int32_t> dut;
+  for (int i = 0; i < 40000; ++i) {
+    dut.Add(1);
+  }
+  BOOST_TEST(dut.size() == 40000u);
+  BOOST_TEST(dut.total() == 40000);
+  BOOST_TEST(dut.average() == 1);
+}
