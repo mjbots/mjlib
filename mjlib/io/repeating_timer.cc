@@ -38,7 +38,12 @@ void RepeatingTimer::start(boost::posix_time::time_duration period,
 
 std::size_t RepeatingTimer::cancel() {
   callback_ = {};
-  return timer_.cancel();
+  const auto result = timer_.cancel();
+  // Clear the stored expiry so a subsequent start() takes the
+  // fresh-start branch in StartInternal() rather than treating the
+  // gap between cancel() and start() as missed cycles.
+  timer_.expires_at(boost::posix_time::ptime());
+  return result;
 }
 
 void RepeatingTimer::StartInternal() {

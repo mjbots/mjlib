@@ -109,3 +109,57 @@ BOOST_AUTO_TEST_CASE(BasicRepeatingTimer) {
   dut.start(ms100, ms100_callback);
   poll();
 }
+
+BOOST_AUTO_TEST_CASE(CancelThenLaterStart) {
+  boost::asio::io_context context;
+  auto poll = [&]() {
+    context.poll();
+    context.reset();
+  };
+  auto* const debug_time = DebugDeadlineService::Install(context);
+  auto now = boost::posix_time::ptime(
+      boost::gregorian::date(2000, boost::gregorian::Jan, 1));
+  debug_time->SetTime(now);
+
+  RepeatingTimer dut(context.get_executor());
+
+  const auto ms100 = boost::posix_time::milliseconds(100);
+
+  int callback_count = 0;
+  mjlib::base::error_code last_error_ec;
+  mjlib::base::error_code last_ec;
+
+  auto callback = [&](const mjlib::base::error_code& ec) mutable {
+    callback_count++;
+    if (ec) { last_error_ec = ec; }
+    last_ec = ec;
+  };
+
+  // Start, fire once, then cancel.
+  dut.start(ms100, callback);
+  now += ms100;
+  debug_time->SetTime(now);
+  poll();
+  BOOST_TEST(callback_count == 1);
+  BOOST_TEST(!last_ec);
+
+  dut.cancel();
+  poll();
+
+  const int count_after_cancel = callback_count;
+
+  // Wait a long time during which the timer should be doing nothing.
+  now += boost::posix_time::seconds(10);
+  debug_time->SetTime(now);
+  poll();
+
+  BOOST_TEST(callback_count == count_after_cancel);
+
+  // Now start again.  Since the timer is freshly started, we should
+  // not immediately see an operation_aborted.
+  dut.start(ms100, callback);
+  poll();
+
+  BOOST_TEST(callback_count == count_after_cancel);
+  BOOST_TEST(!last_error_ec);
+}
