@@ -53,7 +53,7 @@ BOOST_AUTO_TEST_CASE(ConvertDurationToMicroseconds) {
   BOOST_TEST(base::ConvertDurationToMicroseconds(boost::posix_time::seconds(0)) == 0);
   BOOST_TEST(base::ConvertDurationToMicroseconds(boost::posix_time::seconds(-1)) == -1000000);
   BOOST_TEST(base::ConvertDurationToMicroseconds(boost::posix_time::neg_infin) ==
-             -std::numeric_limits<int64_t>::min());
+             std::numeric_limits<int64_t>::min());
   BOOST_TEST(base::ConvertDurationToMicroseconds(boost::posix_time::pos_infin) ==
              std::numeric_limits<int64_t>::max());
   BOOST_TEST(base::ConvertDurationToMicroseconds(boost::posix_time::not_a_date_time) ==
