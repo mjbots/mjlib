@@ -389,6 +389,7 @@ cc_test(
         "test/buffer_stream_test.cc",
         "test/clipp_test.cc",
         "test/clipp_archive_test.cc",
+        "test/collapse_whitespace_test.cc",
         "test/crc_stream_test.cc",
         "test/eigen_test.cc",
         "test/error_code_test.cc",

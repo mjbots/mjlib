@@ -16,13 +16,13 @@
 
 #include <cctype>
 
-#include <ostream>
+#include <sstream>
 #include <string>
 
 namespace mjlib {
 namespace base {
 
-std::string CollapseWhitespace(const std::string& str) {
+inline std::string CollapseWhitespace(const std::string& str) {
   std::ostringstream ostr;
   bool was_whitespace = true;
   for (char c : str) {
