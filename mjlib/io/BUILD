@@ -212,6 +212,7 @@ cc_test(
         "//conditions:default": [
             "test/realtime_executor_test.cc",
             "test/realtime_executor_exception_test.cc",
+            "test/serial_factory_parity_test.cc",
         ],
     }),
     deps = [

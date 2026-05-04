@@ -121,7 +121,16 @@ void AsyncCreateSerial(
     StreamHandler handler) {
   auto stream = std::make_shared<SerialStream>(executor, options);
   base::error_code ec;
-  stream->Open(&ec);
+  // SerialStream::Open uses the throwing set_option / parity-parsing
+  // path for several configuration steps. The contract of
+  // StreamFactory::AsyncCreate is that errors are delivered through
+  // the handler, so funnel any exception into ec instead of letting
+  // it escape synchronously past AsyncCreate.
+  try {
+    stream->Open(&ec);
+  } catch (const std::exception& e) {
+    ec = base::error_code::einval(e.what());
+  }
 
   if (ec) {
     ec.Append("When opening: '" + options.serial_port + "'");
