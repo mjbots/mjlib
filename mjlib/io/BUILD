@@ -198,6 +198,7 @@ cc_test(
         "test/async_sequence_test.cc",
         "test/async_stream_test.cc",
         "test/async_types_test.cc",
+        "test/debug_deadline_service_test.cc",
         "test/exclusive_command_test.cc",
         "test/offset_buffer_test.cc",
         "test/repeating_timer_test.cc",

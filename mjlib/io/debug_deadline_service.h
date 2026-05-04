@@ -75,7 +75,15 @@ class DebugDeadlineService {
         : debug_service_(debug_service),
           executor_(executor),
           position_(debug_service->queue_.end()) {}
-    ~Timer() override {}
+    ~Timer() override {
+      // Mirror boost::asio::basic_deadline_timer's documented
+      // destructor contract: cancel any outstanding async_wait so its
+      // handler is invoked with operation_aborted, rather than
+      // leaving a dangling Timer* in DebugDeadlineService::queue_
+      // that SetTime would later dereference.
+      boost::system::error_code ec;
+      cancel(ec);
+    }
 
     std::size_t cancel(boost::system::error_code& ec) override {
       ec = {};
