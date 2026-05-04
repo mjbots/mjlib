@@ -414,6 +414,19 @@ BOOST_AUTO_TEST_CASE(TestConvertibilityWithLambdas) {
   static_assert(std::is_convertible<int(), base::inplace_function<const int&()>>::value, "");
   static_assert(std::is_convertible<int(*)(), base::inplace_function<const int&()>>::value, "");
 
+  // Default-construct, move, and bool-test instantiate the empty
+  // vtable's invoke lambda body, which previously contained
+  // `return R();` -- ill-formed for reference returns. Just compiling
+  // these is the regression check.
+  base::inplace_function<const int&()> ref_return_default;
+  BOOST_TEST(!bool(ref_return_default));
+  base::inplace_function<const int&()> ref_return_moved =
+      std::move(ref_return_default);
+  BOOST_TEST(!bool(ref_return_moved));
+
+  base::inplace_function<NoDefaultCtor()> nondefault_return_default;
+  BOOST_TEST(!bool(nondefault_return_default));
+
   // Same as a, but not const.
   auto e = []() -> int { return 3; };
   static_assert(std::is_convertible<decltype(e), base::inplace_function<int()>>::value, "");

@@ -98,7 +98,12 @@ template<class R, class... Args> struct vtable
     explicit constexpr vtable() noexcept :
         invoke_ptr{ [](storage_ptr_t, Args&&...) -> R {
             MJ_ASSERT(false);
-            return R();
+            // Unreachable. Avoid "return R()" which is ill-formed for
+            // reference and non-default-constructible R. __builtin_trap
+            // is [[noreturn]] so the compiler accepts the missing
+            // return path, and emits a single trap instruction (udf on
+            // Cortex-M) with no dependency on a libc abort().
+            __builtin_trap();
           }
         },
         copy_ptr{ [](storage_ptr_t, storage_ptr_t) -> void { } },
