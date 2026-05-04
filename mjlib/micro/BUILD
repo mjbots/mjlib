@@ -96,6 +96,18 @@ cc_library(
     deps = ["//mjlib/base:assert"],
 )
 
+# Compile-only regression check: pool_ptr.h must be self-contained.
+# The boost test driver pulls in <new> transitively, so a normal
+# cc_test source masks the missing-include bug. This library has a
+# single source that includes ONLY pool_ptr.h; if the header is not
+# self-sufficient the build fails.
+cc_library(
+    name = "pool_ptr_self_contained_check",
+    srcs = ["test/pool_ptr_self_contained_check.cc"],
+    deps = [":pool_ptr"],
+    testonly = True,
+)
+
 cc_library(
     name = "pool_map",
     hdrs = ["pool_map.h"],
@@ -308,6 +320,7 @@ cc_test(
         ":event_queue",
         ":pool_map",
         ":pool_ptr",
+        ":pool_ptr_self_contained_check",
         ":required_success",
         ":serializable_handler",
         ":static_ptr",

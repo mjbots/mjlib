@@ -15,6 +15,7 @@
 #pragma once
 
 #include <cstddef>
+#include <new>
 #include <utility>
 
 #include "mjlib/base/assert.h"
