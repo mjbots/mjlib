@@ -14,6 +14,7 @@
 
 #include "mjlib/base/escape_json_string.h"
 
+#include <cstdio>
 #include <sstream>
 
 namespace mjlib {
@@ -51,12 +52,19 @@ std::string EscapeJsonString(const std::string& in) {
         out << "\\t";
         break;
       }
-      case 0: {
-        out << "\\u0000";
-        break;
-      }
       default: {
-        out << c;
+        const auto u = static_cast<unsigned char>(c);
+        if (u < 0x20) {
+          // RFC 8259 sec 7 requires every control character in
+          // U+0000..U+001F to be escaped. Anything not covered above
+          // (NUL, VT, ESC, DEL-region controls, etc.) gets the
+          // generic \u00xx form.
+          char buf[7];
+          std::snprintf(buf, sizeof(buf), "\\u%04x", u);
+          out << buf;
+        } else {
+          out << c;
+        }
         break;
       }
     }
