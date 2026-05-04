@@ -468,13 +468,19 @@ class Json5ReadArchive : public VisitArchive<Json5ReadArchive> {
   uint64_t Read_JSON5UnsignedInteger() {
     const auto number = Read_JSON5Number();
     std::size_t pos = 0;
-    const auto result = std::stoull(number.text, &pos, number.base);
+    try {
+      const auto result = std::stoull(number.text, &pos, number.base);
 
-    if (pos != number.text.size()) {
-      Error(fmt::format("Could not interpret '{}' as an integer",
-                        number.text));
+      if (pos != number.text.size()) {
+        Error(fmt::format("Could not interpret '{}' as an integer",
+                          number.text));
+      }
+      return result;
+    } catch (std::invalid_argument& e) {
+      Error(fmt::format("Error parsing integer: {}", e.what()));
+    } catch (std::out_of_range& e) {
+      Error(fmt::format("Integer out of range: {}", e.what()));
     }
-    return result;
   }
 
   struct Number {

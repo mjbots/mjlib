@@ -235,6 +235,19 @@ BOOST_AUTO_TEST_CASE(Json5ErrorMessage) {
       DUT::Read<AllTypesTest>("{\"value_i8\": 100000000000000000000}"),
       mjlib::base::system_error,
       make_predicate("Integer out of range"));
+
+  // Unsigned side previously did not catch std::out_of_range or
+  // std::invalid_argument from std::stoull, leaking raw STL
+  // exceptions instead of converting them to system_error like the
+  // signed path does.
+  BOOST_CHECK_EXCEPTION(
+      DUT::Read<AllTypesTest>("{\"value_u64\": 999999999999999999999999}"),
+      mjlib::base::system_error,
+      make_predicate("Integer out of range"));
+  BOOST_CHECK_EXCEPTION(
+      DUT::Read<AllTypesTest>("{\"value_u8\": null}"),
+      mjlib::base::system_error,
+      make_predicate("Error parsing integer"));
 }
 
 BOOST_AUTO_TEST_CASE(Json5ReadIntoExisting) {
