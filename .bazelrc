@@ -16,6 +16,19 @@ build:host --linkopt=-lrt
 build:host --copt=-Werror
 build:host --copt=-Wno-parentheses-equality
 
+# UBSan build, layered on top of host. vptr and function checks are
+# disabled because the vendored llvm_toolchain ships only libc++'s
+# inline namespace and no libc++abi, so the typeinfo machinery those
+# checks rely on does not link. alignment is disabled because snappy
+# intentionally performs unaligned loads on x86; mjlib's own
+# unaligned access has been replaced with memcpy.
+build:host_ubsan --config=host
+build:host_ubsan --copt=-fsanitize=undefined
+build:host_ubsan --copt=-fno-sanitize=vptr,function,alignment
+build:host_ubsan --linkopt=-fsanitize=undefined
+build:host_ubsan --linkopt=-fno-sanitize=vptr,function,alignment
+test:host_ubsan --test_env=UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1
+
 build:target --platforms=@com_github_mjbots_rules_mbed//:stm32g4
 
 build:target --copt=-Werror

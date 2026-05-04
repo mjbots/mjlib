@@ -10,4 +10,5 @@ else
 fi
 
 ./tools/bazel test --config=host //:host
+./tools/bazel test --config=host_ubsan //:host
 ./tools/bazel build --config=target -c opt //:target
