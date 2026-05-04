@@ -14,6 +14,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+load(
+    "//tools/build_rules:cc_self_contained.bzl",
+    "cc_library",
+    "self_contained_check_aggregate",
+)
+
 package(default_visibility = ["//visibility:public"])
 
 cc_library(
@@ -82,6 +88,7 @@ cc_library(
     ],
     deps = [
         ":async_types",
+        "//mjlib/base:assert",
         "//mjlib/base:fail",
         "//mjlib/base:system_error",
     ],
@@ -115,7 +122,10 @@ cc_library(
 cc_library(
     name = "exclusive_command",
     hdrs = ["exclusive_command.h"],
-    deps = ["@boost",],
+    deps = [
+        "//mjlib/base:assert",
+        "@boost",
+    ],
 )
 
 cc_library(
@@ -223,6 +233,7 @@ cc_test(
         ":offset_buffer",
         ":repeating_timer",
         ":selector",
+        ":self_contained_check",
         ":stream_copy",
         ":streambuf_read_stream",
         ":stream_factory",
@@ -244,3 +255,5 @@ cc_test(
         ],
     }),
 )
+
+self_contained_check_aggregate()

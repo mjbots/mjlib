@@ -20,6 +20,7 @@
 #include <string>
 #include <vector>
 
+#include "mjlib/base/visitor.h"
 #include "mjlib/telemetry/format.h"
 
 namespace mjlib {

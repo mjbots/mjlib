@@ -14,6 +14,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+load(
+    "//tools/build_rules:cc_self_contained.bzl",
+    "cc_library",
+    "self_contained_check_aggregate",
+)
+
 package(default_visibility = ["//visibility:public"])
 
 cc_library(
@@ -94,18 +100,6 @@ cc_library(
     hdrs = ["pool_ptr.h"],
     srcs = ["pool_ptr.cc"],
     deps = ["//mjlib/base:assert"],
-)
-
-# Compile-only regression check: pool_ptr.h must be self-contained.
-# The boost test driver pulls in <new> transitively, so a normal
-# cc_test source masks the missing-include bug. This library has a
-# single source that includes ONLY pool_ptr.h; if the header is not
-# self-sufficient the build fails.
-cc_library(
-    name = "pool_ptr_self_contained_check",
-    srcs = ["test/pool_ptr_self_contained_check.cc"],
-    deps = [":pool_ptr"],
-    testonly = True,
 )
 
 cc_library(
@@ -258,10 +252,17 @@ cc_library(
         "test/async_stream_helper.h",
     ],
     deps = [
+        ":async_exclusive",
+        ":command_manager",
         ":event_queue",
+        ":persistent_config",
+        ":pool_ptr",
         ":required_success",
         ":stream_pipe",
+        "//mjlib/base:visitor",
+        "@boost//:test",
     ],
+    testonly = True,
 )
 
 filegroup(
@@ -293,7 +294,6 @@ cc_test(
         "test/atomic_event_queue_test.cc",
         "test/callback_table_test.cc",
         "test/error_code_test.cc",
-        "test/event_self_contained_test.cc",
         "test/pool_map_test.cc",
         "test/pool_ptr_test.cc",
         "test/static_ptr_test.cc",
@@ -303,7 +303,6 @@ cc_test(
         "@bazel_tools//src/conditions:windows" : [],
         "//conditions:default" : [
             "test/async_read_test.cc",
-            "test/async_read_link_test.cc",
             "test/async_stream_test.cc",
             "test/command_manager_test.cc",
             "test/persistent_config_test.cc",
@@ -320,8 +319,8 @@ cc_test(
         ":event_queue",
         ":pool_map",
         ":pool_ptr",
-        ":pool_ptr_self_contained_check",
         ":required_success",
+        ":self_contained_check",
         ":serializable_handler",
         ":static_ptr",
         ":static_vector",
@@ -339,3 +338,5 @@ cc_test(
         ],
     }),
 )
+
+self_contained_check_aggregate()

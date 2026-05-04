@@ -14,6 +14,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+load(
+    "//tools/build_rules:cc_self_contained.bzl",
+    "cc_library",
+    "self_contained_check_aggregate",
+)
+
 package(default_visibility = ["//visibility:public"])
 
 cc_library(
@@ -130,7 +136,10 @@ cc_library(
 cc_library(
     name = "file_stream",
     hdrs = ["file_stream.h"],
-    deps = [":stream"],
+    deps = [
+        ":stream",
+        ":system_error",
+    ],
 )
 
 cc_library(
@@ -333,6 +342,9 @@ cc_library(
     name = "thread_writer",
     hdrs = ["thread_writer.h"],
     deps = [
+        ":fail",
+        ":fast_stream",
+        ":system_error",
         ":system_fd",
         ":system_file",
         "@boost",
@@ -383,6 +395,8 @@ filegroup(
         ":time_conversions",
     ],
 )
+
+self_contained_check_aggregate()
 
 cc_test(
     name = "test",
@@ -442,6 +456,7 @@ cc_test(
         ":pid",
         ":program_options_archive",
         ":recording_stream",
+        ":self_contained_check",
         ":string_span",
         ":system_error",
         ":system_file",

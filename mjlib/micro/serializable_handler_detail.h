@@ -20,6 +20,7 @@
 #include <cstddef>
 #include <cstdio>
 #include <cstdlib>
+#include <optional>
 #include <type_traits>
 
 #include "mjlib/base/inplace_function.h"

@@ -12,19 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// This include is intentionally first and alone, as the regression
-// check for "header is not self-contained": the header must compile
-// without relying on other test-driver headers having pulled <sstream>
-// in transitively.
 #include "mjlib/base/collapse_whitespace.h"
 
 #include <boost/test/auto_unit_test.hpp>
-
-// `clipp_archive_test.cc` (already in this binary) also includes
-// collapse_whitespace.h. By having a second TU here that does the
-// same, we force the linker to deduplicate definitions across TUs --
-// pre-fix the function had external linkage and a multiple-definition
-// error would surface here.
 
 namespace base = mjlib::base;
 

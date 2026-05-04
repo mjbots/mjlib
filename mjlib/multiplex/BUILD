@@ -14,6 +14,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+load(
+    "//tools/build_rules:cc_self_contained.bzl",
+    "cc_library",
+    "self_contained_check_aggregate",
+)
+
 package(default_visibility = ["//visibility:public"])
 
 cc_library(
@@ -229,6 +235,7 @@ cc_test(
         ":frame_stream",
         ":micro_stream_datagram",
         ":register",
+        ":self_contained_check",
         "//mjlib/io:stream_factory",
         "//mjlib/io:test_reader",
         "//mjlib/micro:stream_pipe",
@@ -298,3 +305,5 @@ test_suite(
         "py_multiplex_protocol_test",
     ],
 )
+
+self_contained_check_aggregate()

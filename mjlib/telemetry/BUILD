@@ -14,6 +14,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+load(
+    "//tools/build_rules:cc_self_contained.bzl",
+    "cc_library",
+    "self_contained_check_aggregate",
+)
+
 package(default_visibility = ["//visibility:public"])
 
 cc_library(
@@ -106,6 +112,7 @@ cc_library(
         ":binary_read_archive",
         ":binary_schema_parser",
         ":binary_write_archive",
+        "//mjlib/base:visitor",
     ],
 )
 
@@ -178,6 +185,7 @@ cc_test(
         ":format",
         ":file_reader",
         ":mapped_binary_reader",
+        ":self_contained_check",
         "//mjlib/base:all_types_struct",
         "//mjlib/base:temporary_file",
         "@boost//:test",
@@ -229,3 +237,5 @@ test_suite(
         "py_file_reader_test",
     ],
 )
+
+self_contained_check_aggregate()

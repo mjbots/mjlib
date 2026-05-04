@@ -14,6 +14,8 @@
 
 #pragma once
 
+#include <string_view>
+
 namespace mjlib {
 namespace micro {
 namespace test {
