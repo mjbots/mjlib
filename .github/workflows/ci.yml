@@ -19,5 +19,10 @@ jobs:
       run: |
         sudo apt update
         sudo apt install -y libsnappy-dev mesa-common-dev libgl1-mesa-dev python3-snappy
+        # The vendored LLVM toolchain links against libtinfo.so.5,
+        # which Ubuntu 24.04 dropped from its repos. Pull the .deb
+        # from the universe pocket directly, the same way moteus does.
+        wget http://security.ubuntu.com/ubuntu/pool/universe/n/ncurses/libtinfo5_6.3-2ubuntu0.1_amd64.deb
+        sudo apt install -y ./libtinfo5_6.3-2ubuntu0.1_amd64.deb
     - name: test
       run: ./travis-ci.sh
