@@ -33,6 +33,11 @@ namespace base {
 /// used for diagnostics or real time assurance.
 class AbortingPosixTimer {
  public:
+  AbortingPosixTimer(const AbortingPosixTimer&) = delete;
+  AbortingPosixTimer& operator=(const AbortingPosixTimer&) = delete;
+  AbortingPosixTimer(AbortingPosixTimer&&) = delete;
+  AbortingPosixTimer& operator=(AbortingPosixTimer&&) = delete;
+
   AbortingPosixTimer(std::string_view message)
       : context_(MakeContext()) {
     struct sigevent se = {};
