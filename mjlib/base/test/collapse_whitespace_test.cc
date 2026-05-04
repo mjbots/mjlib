@@ -40,4 +40,10 @@ BOOST_AUTO_TEST_CASE(CollapseWhitespaceBasic) {
   // a trailing run is preserved.
   BOOST_TEST(base::CollapseWhitespace("  foo bar") == "foo bar");
   BOOST_TEST(base::CollapseWhitespace("foo bar  ") == "foo bar ");
+
+  // Non-ASCII (high-bit) bytes must pass through unchanged. char is
+  // signed on most platforms, so calling std::isspace with these
+  // bytes without first casting to unsigned char is undefined.
+  BOOST_TEST(base::CollapseWhitespace("\xc3\xa9") == "\xc3\xa9");      // "é"
+  BOOST_TEST(base::CollapseWhitespace("a\xc3\xa9 b") == "a\xc3\xa9 b");
 }

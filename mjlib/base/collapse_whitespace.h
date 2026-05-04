@@ -26,10 +26,14 @@ inline std::string CollapseWhitespace(const std::string& str) {
   std::ostringstream ostr;
   bool was_whitespace = true;
   for (char c : str) {
-    if (!was_whitespace || !std::isspace(c)) {
+    // std::isspace is UB for char arguments outside 0..UCHAR_MAX (i.e.
+    // negative values when char is signed) -- the C library expects
+    // either an unsigned char value or EOF. Cast first.
+    const bool is_ws = std::isspace(static_cast<unsigned char>(c));
+    if (!was_whitespace || !is_ws) {
       ostr.put(c);
     }
-    was_whitespace = std::isspace(c);
+    was_whitespace = is_ws;
   }
   return ostr.str();
 }
