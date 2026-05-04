@@ -256,3 +256,42 @@ BOOST_FIXTURE_TEST_CASE(IgnoreUntilBasic, Fixture) {
   BOOST_TEST(callback_count == 2);
   BOOST_TEST(std::string(result_buffer, another_line.size()) == another_line);
 }
+
+BOOST_FIXTURE_TEST_CASE(ReadUntilLineLongerThanResultIsCapped, Fixture) {
+  // The fixture deliberately uses streambuf.size() = 64 and
+  // result.size() = 32. Previously, a line longer than the result
+  // span (but no longer than streambuf) ran an unbounded memcpy past
+  // the end of result_buffer; now the copy is capped at
+  // result.size() and the callback reports that capped size.
+  static_assert(sizeof(result_buffer) == 32);
+  // 49 'X' + delimiter '\n', total 50 bytes -- comfortably exceeds
+  // 32 and fits in the 64-byte streambuf.
+  const std::string response(49, 'X');
+  const std::string line = response + "\n";
+
+  // Sentinel just past result_buffer; pre-fix this would have been
+  // overwritten by the memcpy.
+  char canary = 0x55;
+  (void)&canary;  // address-taken so the compiler can't merge it away
+
+  int callback_count = 0;
+  size_t reported_size = 0;
+  auto dut_callback = [&](error_code ec, std::size_t size) {
+    BOOST_TEST(!ec);
+    reported_size = size;
+    ++callback_count;
+  };
+  dut_context.callback = dut_callback;
+
+  AsyncReadUntil(dut_context);
+
+  BOOST_TEST(test_stream.read_data_.size() > 32);
+  std::memcpy(test_stream.read_data_.data(), line.data(), line.size());
+  callback({}, line.size());
+
+  BOOST_TEST(callback_count == 1);
+  BOOST_TEST(reported_size == sizeof(result_buffer));
+  BOOST_TEST(canary == 0x55);
+  BOOST_TEST(std::string(result_buffer, sizeof(result_buffer)) ==
+             std::string(sizeof(result_buffer), 'X'));
+}

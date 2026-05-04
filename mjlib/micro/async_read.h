@@ -14,6 +14,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <cstdint>
 #include <cstring>
 #include <limits>
@@ -55,15 +56,22 @@ inline bool AsyncReadUntilCheck(AsyncReadUntilContext* ctx) {
 
   for (uint16_t i = 0; i < ctx->streambuf->size; i++) {
     if (std::strchr(ctx->delimiters, sbd[i]) != nullptr) {
-      // Copy to the result storage.
-      std::memcpy(ctx->result.data(), sbd, i + 1);
-      // Remove data from our streambuf.
+      // Copy to the result storage. Cap at the result span size:
+      // streambuf and result may be sized independently by the
+      // caller, and a line longer than result would otherwise
+      // overflow.
+      const size_t copy_size = std::min(
+          static_cast<size_t>(i + 1),
+          static_cast<size_t>(ctx->result.size()));
+      std::memcpy(ctx->result.data(), sbd, copy_size);
+      // Remove data from our streambuf, including the delimiter,
+      // even if part of the line was dropped above.
       const auto new_streambuf_size =
           ctx->streambuf->size - i - 1;
       std::memmove(sbd, sbd + i + 1, new_streambuf_size);
       ctx->streambuf->size = new_streambuf_size;
 
-      ctx->callback({}, i + 1);
+      ctx->callback({}, copy_size);
       return true;
     }
   }
