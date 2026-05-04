@@ -119,7 +119,7 @@ inline void AsyncReadUntil(AsyncReadUntilContext& context) {
 }
 
 namespace detail {
-bool AsyncIgnoreUntilCheck(AsyncReadUntilContext* ctx) {
+inline bool AsyncIgnoreUntilCheck(AsyncReadUntilContext* ctx) {
   // Is there a delimeter already in our streambuf?  If so, delete
   // everything until then and return true.  If there isn't, then
   // delete everything entirely in the streambuf and return false.

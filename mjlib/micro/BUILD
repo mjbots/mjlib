@@ -284,6 +284,7 @@ cc_test(
         "@bazel_tools//src/conditions:windows" : [],
         "//conditions:default" : [
             "test/async_read_test.cc",
+            "test/async_read_link_test.cc",
             "test/async_stream_test.cc",
             "test/command_manager_test.cc",
             "test/persistent_config_test.cc",
