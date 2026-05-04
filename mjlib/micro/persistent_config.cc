@@ -208,6 +208,19 @@ class PersistentConfig::Impl {
             Element* element,
             WorkFunction work,
             const CommandManager::Response& response) {
+    // The prefix+name+CRLF write below cannot itself overflow because
+    // BufferWriteStream::write asserts. But we must also make sure
+    // there's room for the four-byte size placeholder we reserve via
+    // skip() and for whatever work() chooses to emit. Bail with an
+    // error response if not -- this used to silently corrupt memory
+    // past output_buffer_ when prefix+name+CRLF filled the buffer
+    // within < 4 bytes of the end and work() wrote zero bytes.
+    if (prefix.size() + name.size() + 2 + sizeof(uint32_t) >
+        static_cast<size_t>(output_buffer_.size())) {
+      WriteMessage("ERR name too long\r\n", response);
+      return;
+    }
+
     base::BufferWriteStream ostream{output_buffer_};
     ostream.write(prefix);
     ostream.write(name);

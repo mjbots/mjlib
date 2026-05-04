@@ -35,8 +35,8 @@ class BufferWriteStream : public WriteStream {
   }
 
   void skip(std::streamsize amount) {
-    // MJ_ASSERT((offset_ + amount) <=
-    //           static_cast<std::streamsize>(buffer_.size()));
+    MJ_ASSERT((offset_ + amount) <=
+              static_cast<std::streamsize>(buffer_.size()));
     offset_ += amount;
   }
 

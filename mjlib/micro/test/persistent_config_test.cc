@@ -55,6 +55,39 @@ BOOST_FIXTURE_TEST_CASE(PersistentConfigEnumerate, Fixture) {
   ExpectResponse("my_data.value 0\r\nother_data.stuff 0\r\nOK\r\n");
 }
 
+namespace {
+struct EmptyStruct {
+  template <typename Archive>
+  void Serialize(Archive*) {}
+};
+
+// Tight-buffer fixture: prefix+name+CRLF exactly fills the output
+// buffer. Pre-fix this caused Emit to skip the 4-byte size
+// placeholder past the buffer end, then write the (zero-byte)
+// length there, corrupting whatever lived after the buffer.
+// Post-fix it returns "ERR name too long" via WriteMessage, and
+// the re-enabled skip() assert in BufferWriteStream catches any
+// remaining future violation immediately.
+struct TightBufferFixture : test::CommandManagerFixture {
+  test::StubFlash flash;
+  // 16 bytes is exactly the size of "cdata " + "abcdefgh" + "\r\n".
+  char output_buffer[16] = {};
+  PersistentConfig persistent_config{
+    pool, command_manager, flash,
+    mjlib::base::string_span(output_buffer)};
+  EmptyStruct empty;
+
+  TightBufferFixture() {
+    persistent_config.Register("abcdefgh", &empty, []() {});
+  }
+};
+}
+
+BOOST_FIXTURE_TEST_CASE(PersistentConfigEmitNameTooLong, TightBufferFixture) {
+  Command("conf data abcdefgh\n");
+  ExpectResponse("ERR name too long\r\n");
+}
+
 BOOST_FIXTURE_TEST_CASE(PersistentConfigEnumerateGroup1, Fixture) {
   Command("conf enumerate my_data\n");
   ExpectResponse("my_data.value 0\r\nOK\r\n");
