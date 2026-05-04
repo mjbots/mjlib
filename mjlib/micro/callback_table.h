@@ -14,6 +14,8 @@
 
 #pragma once
 
+#include <utility>
+
 #include "mjlib/base/inplace_function.h"
 
 namespace mjlib {
@@ -44,9 +46,16 @@ class CallbackTable {
     }
 
     Callback& operator=(Callback&& rhs) {
-      raw_function = rhs.raw_function;
-      rhs.raw_function = nullptr;
+      // Release the slot *this currently holds before adopting rhs's.
+      // Without this, the previously-bound slot in g_callbacks would
+      // leak: only ~Callback frees a slot, and absent this swap the
+      // destructor would only ever run for whatever slot is sitting
+      // in *this at end of scope.
+      Callback temp(std::move(rhs));
+      std::swap(raw_function, temp.raw_function);
       return *this;
+      // temp's destructor now runs and clears the slot that *this
+      // previously owned.
     }
 
     RawFunction raw_function = nullptr;
