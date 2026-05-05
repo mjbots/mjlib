@@ -22,6 +22,7 @@
 
 #include "mjlib/base/buffer_stream.h"
 #include "mjlib/base/fail.h"
+#include "mjlib/base/system_error.h"
 #include "mjlib/base/test/all_types_struct.h"
 #include "mjlib/telemetry/binary_write_archive.h"
 
@@ -241,4 +242,25 @@ BOOST_AUTO_TEST_CASE(BinarySchemaParserData) {
     dut.root()->Ignore(data_stream);
     BOOST_TEST(data_stream.remaining() == 0);
   }
+}
+
+BOOST_AUTO_TEST_CASE(BinarySchemaParserUnionIndexOutOfBounds) {
+  // Schema: Union(Null, Boolean) — children.size() == 2.
+  const std::string schema = {
+    static_cast<char>(0x15),
+    static_cast<char>(0x01),
+    static_cast<char>(0x02),
+    static_cast<char>(0x00),
+  };
+
+  DUT dut{schema, "test"};
+  BOOST_TEST_REQUIRE(dut.root()->children.size() == 2u);
+
+  // Discriminant index 2 is exactly children.size(); the bounds check
+  // used `>` instead of `>=`, so it slipped past validation and into
+  // an OOB children[2] dereference.
+  const std::string data = {static_cast<char>(0x02)};
+
+  base::BufferReadStream data_stream{data};
+  BOOST_CHECK_THROW(dut.root()->Ignore(data_stream), base::system_error);
 }

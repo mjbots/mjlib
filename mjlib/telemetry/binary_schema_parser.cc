@@ -315,7 +315,7 @@ void BinarySchemaParser::Element::Ignore(base::ReadStream& base_stream) const {
     }
     case FT::kUnion: {
       const auto index = stream.ReadVaruint().value();
-      if (index > children.size()) {
+      if (index >= children.size()) {
         throw base::system_error(
             {errc::kInvalidUnionIndex,
                   fmt::format("Unknown union index {}", index)});
