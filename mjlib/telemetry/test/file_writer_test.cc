@@ -15,6 +15,7 @@
 #include "mjlib/telemetry/file_writer.h"
 
 #include <chrono>
+#include <fstream>
 #include <sstream>
 #include <string>
 #include <thread>

@@ -14,6 +14,7 @@
 
 #include "mjlib/base/thread_writer.h"
 
+#include <fstream>
 #include <sstream>
 
 #include <boost/filesystem.hpp>
