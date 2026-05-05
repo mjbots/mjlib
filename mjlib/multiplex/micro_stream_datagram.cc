@@ -184,10 +184,12 @@ class MicroStreamDatagram::Impl : public Format {
 
     if (static_cast<uint8_t>(read_buffer_[1]) != ((kHeader >> 8) & 0xff)) {
       // We had the first byte of a header, but not the second byte.
-
-      // Move out this false start and try again.
-      Consume(2);
-      return true;
+      // Drop only the false-start byte (the second byte may itself
+      // be the start of a real header) and re-scan; previously this
+      // returned true without emitting a frame, stalling the read
+      // pipeline forever.
+      Consume(1);
+      return TryEmitOneFrame();
     }
 
     // We need at least 7 bytes to have a minimal frame.

@@ -73,3 +73,36 @@ BOOST_FIXTURE_TEST_CASE(MicroStreamDatagramTest, Fixture) {
   BOOST_TEST(read_size == 11);
   BOOST_TEST(!read_ec);
 }
+
+BOOST_FIXTURE_TEST_CASE(MicroStreamDatagramFalseStartTest, Fixture) {
+  // A false-start byte 0x54 followed by a non-0xab byte previously
+  // consumed two bytes and returned true without emitting a frame —
+  // halting the read pipeline forever.  And if that next byte was
+  // itself 0x54, the start of a real header was lost.
+  std::vector<uint8_t> noisy;
+  noisy.push_back(0x54);  // false-start
+  noisy.push_back(0x54);  // would-be real header low byte
+  noisy.insert(noisy.end(), std::begin(kClientToServer),
+               std::end(kClientToServer) - 1);  // drop the trailing NUL
+
+  char read_buffer[100] = {};
+  multiplex::MicroDatagramServer::Header read_header;
+  int read_done = 0;
+  micro::error_code read_ec;
+  int read_size = 0;
+  dut.AsyncRead(&read_header, read_buffer, [&](auto ec, auto bytes) {
+      read_done++;
+      read_ec = ec;
+      read_size = bytes;
+    });
+
+  AsyncWrite(*dut_stream.side_a(),
+             std::string_view(reinterpret_cast<const char*>(noisy.data()),
+                              noisy.size()),
+             [&](micro::error_code ec) { BOOST_TEST(!ec); });
+
+  event_queue.Poll();
+  BOOST_TEST(read_done == 1);
+  BOOST_TEST(read_size == 11);
+  BOOST_TEST(!read_ec);
+}
