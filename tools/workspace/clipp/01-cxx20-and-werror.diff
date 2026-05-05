@@ -1,0 +1,31 @@
+diff --git a/include/clipp.h b/include/clipp.h
+--- a/include/clipp.h
++++ b/include/clipp.h
+@@ -160,7 +160,7 @@ constexpr auto
+ check_is_callable(int) -> decltype(
+     std::declval<Fn>()(std::declval<Args>()...),
+     std::integral_constant<bool,
+-        std::is_same<Ret,typename std::result_of<Fn(Args...)>::type>::value>{} );
++        std::is_same<Ret,std::invoke_result_t<Fn,Args...>>::value>{} );
+
+ template<class,class,class...>
+ constexpr auto
+@@ -171,7 +171,7 @@ constexpr auto
+ check_is_callable_without_arg(int) -> decltype(
+     std::declval<Fn>()(),
+     std::integral_constant<bool,
+-        std::is_same<Ret,typename std::result_of<Fn()>::type>::value>{} );
++        std::is_same<Ret,std::invoke_result_t<Fn>>::value>{} );
+
+ template<class,class>
+ constexpr auto
+@@ -1406,9 +1406,7 @@ public:
+     //---------------------------------------------------------------
+     /** @brief executes all argument actions */
+     void execute_actions(const arg_string& arg) const {
+-        int i = 0;
+         for(const auto& a : argActions_) {
+-            ++i;
+             a(arg.c_str());
+         }
+     }

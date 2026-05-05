@@ -23,4 +23,11 @@ def clipp_repository(name):
         commit = "2c32b2f1f7cc530b1ec1f62c92f698643bb368db",
         sha256 = "9ee5f3b5ab23c6c05dfd6905317d2aab31eaa507a45d50cd8c318ecd32682861",
         build_file = Label("//tools/workspace/clipp:package.BUILD"),
+        patches = [
+            # clipp uses std::result_of (removed in C++20) and has an
+            # unused-but-set local variable that trips -Werror under
+            # newer Clang. Upstream is unmaintained, so patch in place.
+            Label("//tools/workspace/clipp:01-cxx20-and-werror.diff"),
+        ],
+        patch_args = ["-p1"],
     )
