@@ -469,13 +469,18 @@ class FileWriter::Impl : public ThreadWriter::Reclaimer {
 
     Write(std::move(buffer));
 
-    if (options_.seek_block_period_s != 0.0) {
+    // Seek-block bookkeeping must use the timestamp that actually
+    // got serialised (which may have been filled in from the system
+    // clock when the caller passed not_a_date_time).  Pre-fix this
+    // tracked the user-supplied parameter and so never advanced
+    // past the initial NaT in timestamps_system mode.
+    if (options_.seek_block_period_s != 0.0 && timestamp_to_write) {
+      const auto& effective = *timestamp_to_write;
       if (last_seek_block_.is_not_a_date_time()) {
-        last_seek_block_ = timestamp;
-      } else if (!timestamp.is_not_a_date_time() &&
-                 (timestamp - last_seek_block_) >= seek_block_period_) {
-        WriteSeekBlock(timestamp);
-        last_seek_block_ = timestamp;
+        last_seek_block_ = effective;
+      } else if ((effective - last_seek_block_) >= seek_block_period_) {
+        WriteSeekBlock(effective);
+        last_seek_block_ = effective;
       }
     }
   }

@@ -14,8 +14,10 @@
 
 #include "mjlib/telemetry/file_writer.h"
 
+#include <chrono>
 #include <sstream>
 #include <string>
+#include <thread>
 
 #include <fmt/format.h>
 
@@ -356,4 +358,33 @@ BOOST_AUTO_TEST_CASE(FileWriterSeek) {
 
   const auto contents = Contents(temp.native());
   BOOST_TEST(contents == expected);
+}
+
+BOOST_AUTO_TEST_CASE(FileWriterSystemTimestampSeek) {
+  // Seek-block bookkeeping used the user-supplied timestamp instead
+  // of the timestamp that actually got serialised, so a writer with
+  // timestamps_system = true (the default) and a default ptime
+  // never emitted any seek blocks despite seek_block_period_s != 0.
+  mjlib::base::TemporaryFile temp;
+  {
+    FileWriter dut{temp.native(), []() {
+        FileWriter::Options options;
+        options.default_compression = false;
+        options.default_checksum_data = false;
+        options.index_block = false;
+        options.seek_block_period_s = 0.001;  // 1 ms
+        return options;
+      }()};
+    const auto id = dut.AllocateIdentifier("test");
+    dut.WriteSchema(id, "testschema");
+    for (int i = 0; i < 10; i++) {
+      dut.WriteData({}, id, "x");
+      std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    }
+  }
+
+  // Look for the seek-marker constant 0xfdcab9a897867564.
+  const auto contents = Contents(temp.native());
+  const std::string magic("\x64\x75\x86\x97\xa8\xb9\xca\xfd", 8);
+  BOOST_TEST(contents.find(magic) != std::string::npos);
 }
