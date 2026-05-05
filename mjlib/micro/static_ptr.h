@@ -39,7 +39,9 @@ class StaticPtr {
 
   StaticPtr(StaticPtr&& rhs)
       : present_(!!rhs) {
-    new (get()) T(std::move(*rhs.get()));
+    if (present_) {
+      new (get()) T(std::move(*rhs.get()));
+    }
     rhs.reset();
   }
 

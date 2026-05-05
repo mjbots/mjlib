@@ -96,3 +96,23 @@ BOOST_AUTO_TEST_CASE(BasicStaticPtr) {
     BOOST_TEST(destruct_count == 1);
   }
 }
+
+BOOST_AUTO_TEST_CASE(MoveConstructFromEmptyStaticPtr) {
+  // Move-construction from an empty StaticPtr used to call get() on
+  // the empty source (returns nullptr) and then placement-new at the
+  // empty destination's null get() — UB and a segfault on host.
+  micro::StaticPtr<int, 16> empty;
+  BOOST_TEST(!empty);
+
+  micro::StaticPtr<int, 16> moved(std::move(empty));
+  BOOST_TEST(!moved);
+  BOOST_TEST(!empty);
+
+  // std::swap on two empties uses the move constructor; it must not
+  // crash either.
+  micro::StaticPtr<int, 16> a;
+  micro::StaticPtr<int, 16> b;
+  std::swap(a, b);
+  BOOST_TEST(!a);
+  BOOST_TEST(!b);
+}
