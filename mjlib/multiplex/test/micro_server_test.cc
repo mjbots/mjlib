@@ -14,6 +14,9 @@
 
 #include "mjlib/multiplex/micro_server.h"
 
+#include <vector>
+
+#include <boost/crc.hpp>
 #include <boost/test/auto_unit_test.hpp>
 
 #include "mjlib/micro/stream_pipe.h"
@@ -1785,4 +1788,55 @@ BOOST_FIXTURE_TEST_CASE(FlowPollMixClientToServerDataTest, Fixture) {
 
   BOOST_TEST(std::string_view(receive_buffer, read_size) ==
              str(kExpectedClean));
+}
+
+BOOST_FIXTURE_TEST_CASE(ResponseBufferOverflowTest, Fixture) {
+  // A crafted frame: 84 unknown-register int8 writes (each emits a
+  // 3-byte write-error response) followed by a 0x42 ClientPollServer
+  // subframe.  Pre-fix the trailing tunnel handler would emit a 5-byte
+  // varuint computed from a negative remaining-space arithmetic,
+  // walking past the end of the 256-byte response buffer and tripping
+  // the BufferWriteStream::skip assertion.  Post-fix ProcessSubframes
+  // bails out once the response buffer no longer has headroom for any
+  // subframe.
+  server.next_write_error_ = MicroServer::Server::kUnknownRegister;
+
+  constexpr int kNumWrites = 84;
+
+  std::vector<uint8_t> payload;
+  payload.push_back(0x00);          // write multiple int8
+  payload.push_back(kNumWrites);    // count varuint (< 128)
+  payload.push_back(0x01);          // start register 1
+  for (int i = 0; i < kNumWrites; i++) {
+    payload.push_back(0x00);        // value
+  }
+  payload.push_back(0x42);          // kClientPollServer
+  payload.push_back(0x09);          // channel 9
+  payload.push_back(0x00);          // max_bytes = 0
+
+  std::vector<uint8_t> frame;
+  frame.push_back(0x54);            // header LSB
+  frame.push_back(0xab);            // header MSB
+  frame.push_back(0x82);            // source = 2 with response bit
+  frame.push_back(0x01);            // destination = 1
+  BOOST_TEST_REQUIRE(payload.size() < 128);
+  frame.push_back(static_cast<uint8_t>(payload.size()));
+  frame.insert(frame.end(), payload.begin(), payload.end());
+
+  boost::crc_ccitt_type crc;
+  crc.process_bytes(frame.data(), frame.size());
+  const uint16_t crc_value = crc.checksum();
+  frame.push_back(crc_value & 0xff);
+  frame.push_back((crc_value >> 8) & 0xff);
+
+  AsyncWrite(*dut_stream.side_a(),
+             std::string_view(reinterpret_cast<const char*>(frame.data()),
+                              frame.size()),
+             [](micro::error_code ec) { BOOST_TEST(!ec); });
+
+  // Pre-fix: this Poll() would assert inside BufferWriteStream::skip.
+  Poll();
+
+  // Bail-out fired at least once for this frame.
+  BOOST_TEST(dut.stats()->response_buffer_full > 0u);
 }

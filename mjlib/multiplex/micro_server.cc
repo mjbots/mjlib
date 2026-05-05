@@ -117,6 +117,14 @@ class MicroServer::Impl {
     ssize_t flow_pending_size_ = 0;
   };
 
+  // Worst-case bytes the response code may emit for a single subframe
+  // (subframe type varuint + register/channel varuint + payload size
+  // varuint + CRC + slack).  ProcessSubframes refuses to invoke a
+  // handler when the response buffer's remaining space drops below
+  // this threshold so handlers cannot scribble past the end.
+  static constexpr ssize_t kResponseTailReserve =
+      Format::kMaxVaruintSize + Format::kCrcSize + 16;
+
   Impl(micro::Pool* pool,
        MicroDatagramServer* datagram_server,
        const Options& options)
@@ -263,6 +271,16 @@ class MicroServer::Impl {
     BufferReadStream str(buffer_stream);
 
     while (buffer_stream.remaining()) {
+      // Stop processing if the response buffer no longer has headroom
+      // for any handler's worst-case emit; further subframes would
+      // either overflow write_buffer_ or wrap a negative remaining-
+      // space arithmetic into an inflated varuint.
+      if (response_buffer_stream &&
+          response_buffer_stream->remaining() < kResponseTailReserve) {
+        stats_.response_buffer_full++;
+        return;
+      }
+
       const auto maybe_subframe_type = str.ReadVaruint();
       if (!maybe_subframe_type) {
         // The final subframe was malformed.  Guess we'll just ignore it.
@@ -314,7 +332,7 @@ class MicroServer::Impl {
           subframe_type < u8(Subframe::kWriteBase) + 16) {
         const auto write_action =
             ProcessSubframeWrite(subframe_type - u8(Subframe::kWriteBase),
-                                 str, response_stream);
+                                 str, response_buffer_stream, response_stream);
         switch (write_action) {
           case kMalformed: {
             stats_.malformed_subframe++;
@@ -334,7 +352,8 @@ class MicroServer::Impl {
       if (subframe_type >= u8(Subframe::kReadBase) &&
           subframe_type < u8(Subframe::kReadBase) + 16) {
         if (ProcessSubframeRead(subframe_type - u8(Subframe::kReadBase),
-                                 str, response_stream)) {
+                                 str, response_buffer_stream,
+                                 response_stream)) {
           stats_.malformed_subframe++;
           return;
         }
@@ -390,15 +409,13 @@ class MicroServer::Impl {
       response_stream->WriteVaruint(static_cast<uint8_t>(Subframe::kServerToClient));
       response_stream->WriteVaruint(*maybe_channel);
 
-      const ssize_t kExtraPadding = 16;
-      const ssize_t kNeededOverhead =
-          kMaxVaruintSize + kCrcSize + kExtraPadding;
-      const auto to_copy =
+      const auto to_copy = std::max<std::streamsize>(0,
           std::min<std::streamsize>(
-              datagram_properties_.max_size - kNeededOverhead,
+              datagram_properties_.max_size - kResponseTailReserve,
               std::min<std::streamsize>(
                   tunnel.write_buffer_.size(),
-                  response_buffer_stream->remaining() - kNeededOverhead));
+                  response_buffer_stream->remaining() -
+                      kResponseTailReserve)));
       response_stream->WriteVaruint(to_copy);
       if (to_copy > 0) {
         response_stream->base()->write(tunnel.write_buffer_.substr(0, to_copy));
@@ -438,17 +455,15 @@ class MicroServer::Impl {
       response_stream->WriteVaruint(static_cast<uint8_t>(Subframe::kServerToClient));
       response_stream->WriteVaruint(*maybe_channel);
 
-      const ssize_t kExtraPadding = 16;
-      const ssize_t kNeededOverhead =
-          kMaxVaruintSize + kCrcSize + kExtraPadding;
-      const auto to_copy =
+      const auto to_copy = std::max<std::streamsize>(0,
           std::min<std::streamsize>(
-              datagram_properties_.max_size - kNeededOverhead,
+              datagram_properties_.max_size - kResponseTailReserve,
               std::min<std::streamsize>(
                   *maybe_max_bytes,
                   std::min<std::streamsize>(
                       tunnel.write_buffer_.size(),
-                      response_buffer_stream->remaining() - kNeededOverhead)));
+                      response_buffer_stream->remaining() -
+                          kResponseTailReserve))));
       response_stream->WriteVaruint(to_copy);
       if (to_copy > 0) {
         response_stream->base()->write(tunnel.write_buffer_.substr(0, to_copy));
@@ -521,17 +536,15 @@ class MicroServer::Impl {
         tunnel.flow_packet_number_++;
         response_stream->Write(tunnel.flow_packet_number_);
 
-        const ssize_t kExtraPadding = 16;
-        const ssize_t kNeededOverhead =
-            kMaxVaruintSize + kCrcSize + kExtraPadding;
-        const auto to_copy =
+        const auto to_copy = std::max<std::streamsize>(0,
             std::min<std::streamsize>(
-                datagram_properties_.max_size - kNeededOverhead,
+                datagram_properties_.max_size - kResponseTailReserve,
                 std::min<std::streamsize>(
                     *maybe_max_bytes,
                     std::min<std::streamsize>(
                         tunnel.write_buffer_.size(),
-                        response_buffer_stream->remaining() - kNeededOverhead)));
+                        response_buffer_stream->remaining() -
+                            kResponseTailReserve))));
         response_stream->WriteVaruint(to_copy);
 
         if (to_copy > 0) {
@@ -576,6 +589,7 @@ class MicroServer::Impl {
 
   WriteAction ProcessSubframeWrite(uint8_t type_length,
                                    BufferReadStream& str,
+                                   base::BufferWriteStream* response_buffer_stream,
                                    BufferWriteStream* response)
       __attribute__ ((optimize("O3"))) {
     const auto encoded_length = type_length % 4;
@@ -595,14 +609,26 @@ class MicroServer::Impl {
       if (!maybe_value) { return kMalformed; }
 
       if (server_) {
+        // A response is emitted per error.  Stop emitting once the
+        // response buffer no longer has worst-case headroom; we still
+        // consume the remaining values from the request to keep the
+        // read-side cursor in sync.
+        const bool response_full =
+            response && response_buffer_stream &&
+            response_buffer_stream->remaining() < kResponseTailReserve;
+        if (response_full) { stats_.response_buffer_full++; }
         const auto write_action = server_->Write(current_register, *maybe_value);
         switch (write_action) {
           case Server::kUnknownRegister: {
-            EmitWriteError(response, current_register, 1);
+            if (!response_full) {
+              EmitWriteError(response, current_register, 1);
+            }
             break;
           }
           case Server::kNotWriteable: {
-            EmitWriteError(response, current_register, 2);
+            if (!response_full) {
+              EmitWriteError(response, current_register, 2);
+            }
             break;
           }
           case Server::kDiscardRemaining: {
@@ -651,6 +677,7 @@ class MicroServer::Impl {
 
   bool ProcessSubframeRead(uint8_t type_length,
                            BufferReadStream& str,
+                           base::BufferWriteStream* response_buffer_stream,
                            BufferWriteStream* response)
       __attribute__ ((optimize("O3"))) {
     if (!response) { return false; }
@@ -666,6 +693,14 @@ class MicroServer::Impl {
     const auto start_register = str.ReadVaruint();
     if (!start_register) { return true; }
 
+    // If the response buffer no longer has worst-case headroom for
+    // even an error, drop this read entirely rather than scribble
+    // past the end.
+    if (response_buffer_stream &&
+        response_buffer_stream->remaining() < kResponseTailReserve) {
+      stats_.response_buffer_full++;
+      return false;
+    }
 
     // Save our write position, in case we need to abort and emit an
     // error.

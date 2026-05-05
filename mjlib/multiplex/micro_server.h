@@ -104,6 +104,7 @@ class MicroServer : public Format {
     uint32_t write_error = 0;
     uint32_t last_write_error = 0;
     uint32_t discards = 0;
+    uint32_t response_buffer_full = 0;
 
     template <typename Archive>
     void Serialize(Archive* a) {
@@ -115,6 +116,7 @@ class MicroServer : public Format {
       a->Visit(MJ_NVP(write_error));
       a->Visit(MJ_NVP(last_write_error));
       a->Visit(MJ_NVP(discards));
+      a->Visit(MJ_NVP(response_buffer_full));
     }
   };
 
