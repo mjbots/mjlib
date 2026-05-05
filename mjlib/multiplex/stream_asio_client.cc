@@ -429,18 +429,24 @@ class StreamAsioClient::Impl {
         return;
       }
 
-      // OK, we've got something.
-      boost::asio::buffer_copy(
+      // OK, we've got something.  buffer_copy returns the actual
+      // number of bytes copied — clamped by both source and target —
+      // and that, not *maybe_size, is what the user-visible byte
+      // count must reflect.  Pre-fix, when the frame's payload was
+      // larger than the user's buffer, ctx->bytes_read was inflated
+      // past buffer_size and the user handler saw a size > the
+      // buffer they owned.
+      const size_t copied = boost::asio::buffer_copy(
           ctx->buffers,
           boost::asio::buffer(&frame.payload[stream.offset()],
                               *maybe_size));
 
-      ctx->bytes_read += *maybe_size;
+      ctx->bytes_read += copied;
 
       // See if there is more waiting to be flushed out, in which
       // case, get it all before relinquishing to our final callback.
       if (parent_->frame_stream_.read_data_queued() &&
-          *maybe_size < boost::asio::buffer_size(ctx->buffers)) {
+          copied < boost::asio::buffer_size(ctx->buffers)) {
         // Hmmm, we have more data available and room to put it.
         // This isn't possible unless either a slave was talking in
         // an unsolicited manner, or we actually got a response to a
@@ -450,7 +456,7 @@ class StreamAsioClient::Impl {
         // stream.
 
         auto offset_buffers =
-            io::OffsetBufferSequence(ctx->buffers, *maybe_size);
+            io::OffsetBufferSequence(ctx->buffers, copied);
 
         ctx->buffers = std::move(offset_buffers);
 

@@ -182,6 +182,40 @@ BOOST_FIXTURE_TEST_CASE(StreamAsioClientTunnelRead, Fixture) {
   BOOST_TEST(std::string(buf, 2) == "ab");
 }
 
+BOOST_FIXTURE_TEST_CASE(StreamAsioClientTunnelReadOverflow, Fixture) {
+  // Same on-the-wire response as StreamAsioClientTunnelRead (2 bytes
+  // "ab"), but the user's buffer is only 1 byte.  Pre-fix the size
+  // reported to the handler was the frame's claimed size (2), even
+  // though only 1 byte was actually copied into the buffer.
+  auto tunnel = dut.MakeTunnel(2, 3);
+
+  char buf[1] = {};
+  int read_done = 0;
+  size_t size = 0;
+  tunnel->async_read_some(
+      boost::asio::buffer(buf),
+      [&](auto&& ec, size_t size_in) {
+        base::FailIf(ec);
+        read_done++;
+        size = size_in;
+      });
+
+  Poll();
+
+  boost::asio::async_write(
+      *server_side,
+      boost::asio::buffer("\x54\xab\x02\x00\x05\x41\x03\x02\x61\x62\xa8\x40", 12),
+      [&](auto&& ec, size_t) {
+        base::FailIf(ec);
+      });
+
+  Poll();
+
+  BOOST_TEST(read_done == 1);
+  BOOST_TEST(size <= 1u);
+  BOOST_TEST(buf[0] == 'a');
+}
+
 BOOST_FIXTURE_TEST_CASE(StreamAsioClientTunnelReadCancel, Fixture) {
   auto tunnel = dut.MakeTunnel(2, 3);
 
