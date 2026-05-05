@@ -217,7 +217,13 @@ struct EnumerateArchive : public mjlib::base::VisitArchive<EnumerateArchive> {
     *it = ' ';
     ++it;
 
-    FormatValue(&it, &end, value);
+    // Reserve room for the trailing "\r\n" so the value cannot
+    // consume it, then bail out if the formatted value does not fit.
+    const auto value_avail = std::distance(it, end) - 2;
+    if (value_avail < 0) { return std::string_view(); }
+    if (!FormatValue(&it, value_avail, value)) {
+      return std::string_view();
+    }
     *it = '\r';
     ++it;
     *it = '\n';
@@ -226,12 +232,25 @@ struct EnumerateArchive : public mjlib::base::VisitArchive<EnumerateArchive> {
   }
 
   template <typename Iterator, typename T>
-  void FormatValue(Iterator* current, Iterator* end, T value) {
-    int result = ::snprintf(
-        &(**current), std::distance(*current, *end),
+  bool FormatValue(Iterator* current, std::ptrdiff_t avail, T value) {
+    // snprintf reserves the last byte for a NUL we do not want to
+    // emit, so format into a stack scratch and copy.  40 bytes is
+    // ample for any scalar (int64 min: 20 chars, "%g" double: ~24).
+    char scratch[40];
+    const int result = ::snprintf(
+        scratch, sizeof(scratch),
         FormatSpecifier::GetFormat(value),
         MaybeToDouble<typename std::remove_reference<T>::type>()(value));
-    (*current) += result;
+    if (result < 0 ||
+        result >= static_cast<int>(sizeof(scratch)) ||
+        static_cast<std::ptrdiff_t>(result) > avail) {
+      return false;
+    }
+    for (int i = 0; i < result; i++) {
+      **current = scratch[i];
+      ++(*current);
+    }
+    return true;
   }
 
  private:

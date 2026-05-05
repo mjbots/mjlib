@@ -283,3 +283,35 @@ BOOST_AUTO_TEST_CASE(SetArrayMalformedIndex) {
   BOOST_TEST(dut.Set("array_value.0", "5.0") == 0);
   BOOST_TEST(my_struct.array_value[0] == 5.0);
 }
+
+BOOST_AUTO_TEST_CASE(EnumerateUndersizedBufferOverflow) {
+  // Sandwich a too-small enumeration buffer between sentinel bytes.
+  // Pre-fix, snprintf-truncated values would advance the iterator
+  // past the buffer end, planting '\r' and '\n' in the sentinel
+  // region.  The fix drops oversized fields silently; sentinels must
+  // remain intact.
+  EventQueue event_queue;
+  StreamPipe stream_pipe{event_queue.MakePoster()};
+  test::Reader reader{stream_pipe.side_b()};
+
+  char raw[64];
+  for (auto& c : raw) { c = '\xAA'; }
+  base::string_span buffer{raw + 16, 25};
+
+  MyStruct my_struct;
+  SerializableHandler<MyStruct> dut(&my_struct);
+  detail::EnumerateArchive::Context context;
+
+  int done_count = 0;
+  dut.Enumerate(&context, buffer, "prefix", *stream_pipe.side_a(),
+                [&](error_code) { done_count++; });
+  event_queue.Poll();
+  BOOST_TEST(done_count == 1);
+
+  for (int i = 0; i < 16; i++) {
+    BOOST_TEST(raw[i] == '\xAA');
+  }
+  for (int i = 16 + 25; i < 64; i++) {
+    BOOST_TEST(raw[i] == '\xAA');
+  }
+}
