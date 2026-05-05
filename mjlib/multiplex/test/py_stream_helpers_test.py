@@ -70,7 +70,7 @@ class PipeStreamTest(unittest.TestCase):
 
     def test_basic(self):
         # import pdb; pdb.set_trace()
-        _run(asyncio.Task(self.async_test_basic()))
+        _run(self.async_test_basic())
 
 
 class AsyncStreamWriteTest(unittest.TestCase):
