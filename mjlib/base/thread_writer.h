@@ -23,6 +23,7 @@
 #include <string_view>
 #include <thread>
 
+#include <boost/assert.hpp>
 #include <boost/circular_buffer.hpp>
 #include <boost/noncopyable.hpp>
 
