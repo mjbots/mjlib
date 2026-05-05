@@ -60,7 +60,7 @@ async def main():
 
     with open(args.data, 'rb') as data:
         for line in data.readlines():
-            if line.strip() == '':
+            if not line.strip():
                 continue
 
             print(line.strip().decode('latin1'))
