@@ -116,3 +116,37 @@ BOOST_AUTO_TEST_CASE(MoveConstructFromEmptyStaticPtr) {
   BOOST_TEST(!a);
   BOOST_TEST(!b);
 }
+
+BOOST_AUTO_TEST_CASE(SwapMember) {
+  // The member swap() previously failed to compile when both sides
+  // were populated (std::swap(*rhs, *this) mixed T& with StaticPtr&).
+  // It is now exercised here for all four populated/empty combos.
+  {
+    micro::StaticPtr<int, 16> a(1);
+    micro::StaticPtr<int, 16> b(2);
+    a.swap(b);
+    BOOST_TEST(*a == 2);
+    BOOST_TEST(*b == 1);
+  }
+  {
+    micro::StaticPtr<int, 16> a(1);
+    micro::StaticPtr<int, 16> b;
+    a.swap(b);
+    BOOST_TEST(!a);
+    BOOST_TEST(*b == 1);
+  }
+  {
+    micro::StaticPtr<int, 16> a;
+    micro::StaticPtr<int, 16> b(2);
+    a.swap(b);
+    BOOST_TEST(*a == 2);
+    BOOST_TEST(!b);
+  }
+  {
+    micro::StaticPtr<int, 16> a;
+    micro::StaticPtr<int, 16> b;
+    a.swap(b);
+    BOOST_TEST(!a);
+    BOOST_TEST(!b);
+  }
+}

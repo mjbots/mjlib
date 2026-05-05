@@ -46,18 +46,9 @@ class StaticPtr {
   }
 
   void swap(StaticPtr& rhs) {
-    if (present_ && !!rhs) {
-      std::swap(*rhs, *this);
-      std::swap(present_, rhs.present_);
-    } else if (present_ != !!rhs) {
-      if (present_) {
-        rhs = std::move(*this);
-      } else {
-        *this = std::move(rhs);
-      }
-    } else {
-      // We are both empty already.
-    }
+    StaticPtr tmp(std::move(rhs));
+    rhs = std::move(*this);
+    *this = std::move(tmp);
   }
 
   StaticPtr& operator=(StaticPtr&& rhs) {
