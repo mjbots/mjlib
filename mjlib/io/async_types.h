@@ -46,7 +46,9 @@ class BufferSequence {
   BufferSequence() {}
 
   template <typename Sequence>
-  BufferSequence(const Sequence& s) : data_(s.begin(), s.end()) {}
+  BufferSequence(const Sequence& s)
+      : data_(boost::asio::buffer_sequence_begin(s),
+              boost::asio::buffer_sequence_end(s)) {}
 
   const_iterator begin() const { return data_.begin(); }
   const_iterator end() const { return data_.end(); }
