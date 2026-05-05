@@ -30,7 +30,7 @@ struct WriteFixture {
 BOOST_FIXTURE_TEST_CASE(WriteString, WriteFixture) {
   dut.WriteString("abc");
   BOOST_TEST(ostr.data()->size() == 4);
-  BOOST_TEST(ostr.data()->data() == "\x03" "abc");
+  BOOST_TEST(ostr.str() == std::string("\x03" "abc", 4));
 }
 
 BOOST_FIXTURE_TEST_CASE(BoolWrite, WriteFixture) {
