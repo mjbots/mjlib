@@ -180,3 +180,34 @@ BOOST_FIXTURE_TEST_CASE(Rs485FrameStreamReadCancelTest, Fixture) {
 
   BOOST_TEST(read_done2 == 1);
 }
+
+BOOST_FIXTURE_TEST_CASE(Rs485FrameStreamReadOversizeVaruintTest, Fixture) {
+  // ReadVaruint maps a 5-byte all-continuation varuint to UINT32_MAX.
+  // Without the cap, the parser would attempt a 4 GB resize from this
+  // 14-byte malformed frame.
+  Frame to_receive;
+  int read_done = 0;
+  dut.AsyncRead(&to_receive, {}, [&](auto&& ec) {
+      mjlib::base::FailIf(ec);
+      read_done++;
+    });
+  Poll();
+
+  int write_done = 0;
+  boost::asio::async_write(
+      *server_side,
+      boost::asio::buffer(
+          "\x54\xab\x00\x00\xff\xff\xff\xff\xff\x00\x00\x00\x00\x00", 14),
+      [&](auto&& ec, size_t size) {
+        mjlib::base::FailIf(ec);
+        write_done++;
+        BOOST_TEST(size == 14);
+      });
+
+  Poll();
+  // The write must complete and we must NOT crash with bad_alloc or
+  // attempt to allocate 4 GB.  The malformed varuint causes resync
+  // rather than a successful read.
+  BOOST_TEST(write_done == 1);
+  BOOST_TEST(read_done == 0);
+}

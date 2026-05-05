@@ -172,18 +172,35 @@ class Rs485FrameStream::Impl {
       auto maybe_payload_size = reader.ReadVaruint();
       if (!maybe_payload_size) { return; }
 
-      if (stream.remaining() < (*maybe_payload_size + 2)) {
+      // Cap payload size at something well above any sane multiplex
+      // frame.  ReadVaruint deliberately returns UINT32_MAX on
+      // overflow; without an upper bound, `*maybe_payload_size + 2`
+      // would wrap to ~0 in uint32_t arithmetic, the size check
+      // would pass, and resize() would attempt a 4 GB allocation
+      // from a single 14-byte malformed packet.
+      constexpr uint32_t kMaxFramePayload = 65535;
+      if (*maybe_payload_size > kMaxFramePayload) {
+        streambuf_.consume(2);
+        continue;
+      }
+
+      const std::streamsize needed =
+          static_cast<std::streamsize>(*maybe_payload_size) + 2;
+      if (stream.remaining() < needed) {
         return;
       }
 
       current_frame_->payload.resize(*maybe_payload_size);
-      crc_stream.read(base::string_span(&current_frame_->payload[0],
-                                        *maybe_payload_size));
+      if (*maybe_payload_size > 0) {
+        crc_stream.read(base::string_span(&current_frame_->payload[0],
+                                          *maybe_payload_size));
+      }
 
       const auto calculated_checksum = crc_stream.checksum();
       const auto read_checksum = reader.Read<uint16_t>();
+      if (!read_checksum) { return; }
 
-      // We have enough data. Lets see if the checksum matches.
+      // We have enough data.  Let's see if the checksum matches.
       if (calculated_checksum != *read_checksum) {
         // Nope.  Skip this header and try again.
         streambuf_.consume(2);
