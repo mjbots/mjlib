@@ -62,6 +62,9 @@ class AioSerial:
         self._loop = value
 
     async def read(self, size: int = 1, block=True) -> bytes:
+        if size <= 0:
+            return bytearray()
+
         result = bytearray()
 
         while True:

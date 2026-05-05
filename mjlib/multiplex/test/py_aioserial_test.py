@@ -15,22 +15,57 @@
 # limitations under the License.
 
 
+import asyncio
 import unittest
 
 from mjlib.multiplex import aioserial
 
 
+def _make_bare_aioserial():
+    # AioSerial.__init__ touches a real serial port; build the
+    # instance without running it so the tests can poke at the
+    # plumbing in isolation.
+    instance = aioserial.AioSerial.__new__(aioserial.AioSerial)
+    instance._loop = None
+    instance._read_data = bytearray()
+    instance._write_data = bytearray()
+    instance._read_event = asyncio.Event()
+    return instance
+
+
+def _run(coro):
+    return asyncio.get_event_loop().run_until_complete(coro)
+
+
 class AioSerialLoopSetterTest(unittest.TestCase):
     def test_loop_setter_writes_backing_attribute(self):
-        # AioSerial.__init__ touches a real serial port, so build the
-        # instance without running it and exercise the setter directly.
         # Pre-fix this recurses to RecursionError.
-        instance = aioserial.AioSerial.__new__(aioserial.AioSerial)
-        instance._loop = None
+        instance = _make_bare_aioserial()
         sentinel = object()
 
         aioserial.AioSerial.loop.fset(instance, sentinel)
         self.assertIs(instance._loop, sentinel)
+
+
+class AioSerialReadSizeZeroTest(unittest.TestCase):
+    def test_read_zero_with_buffered_data_returns_empty(self):
+        # Pre-fix the assertion `read_size > 0` fired when size==0
+        # and any data was buffered.
+        instance = _make_bare_aioserial()
+        instance._read_data = bytearray(b'hello')
+
+        result = _run(instance.read(0))
+        self.assertEqual(result, bytearray())
+        # Buffered bytes must not be consumed.
+        self.assertEqual(instance._read_data, bytearray(b'hello'))
+
+    def test_read_zero_with_empty_buffer_returns_empty(self):
+        # Pre-fix this blocked forever on the read_event because the
+        # zero-size case was not short-circuited.
+        instance = _make_bare_aioserial()
+
+        result = _run(asyncio.wait_for(instance.read(0), timeout=0.5))
+        self.assertEqual(result, bytearray())
 
 
 if __name__ == '__main__':
