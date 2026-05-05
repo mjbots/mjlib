@@ -98,8 +98,10 @@ class BinaryReadArchive : public base::VisitArchive<BinaryReadArchive> {
     }
     const auto size = *maybe_size;
     value->resize(size);
+    // Forming &(*value)[0] on an empty vector is UB (null reference).
+    if (size == 0) { return; }
     const bool valid =
-        stream_.RawRead(reinterpret_cast<char*>(&(*value)[0]), size);
+        stream_.RawRead(reinterpret_cast<char*>(value->data()), size);
     if (!valid) { error_ = true; }
   }
 

@@ -84,3 +84,26 @@ BOOST_AUTO_TEST_CASE(BinaryReadArchive) {
     BOOST_TEST(*another_all_types.value_optional == 9);
   }
 }
+
+namespace {
+struct EmptyBytesStruct {
+  base::Bytes data;
+  template <typename Archive> void Serialize(Archive* a) {
+    a->Visit(MJ_NVP(data));
+  }
+};
+}
+
+BOOST_AUTO_TEST_CASE(BinaryReadArchiveEmptyBytes) {
+  // varuint(0) — empty Bytes payload.  Pre-fix this dereferenced a
+  // null pointer via &(*value)[0] on the empty vector, surfacing
+  // under UBSan.
+  std::string source(1, '\x00');
+  base::FastIStringStream istr(source);
+
+  telemetry::BinaryReadArchive dut(istr);
+  EmptyBytesStruct value;
+  dut.Accept(&value);
+
+  BOOST_TEST(value.data.size() == 0u);
+}

@@ -90,8 +90,9 @@ class BinaryWriteArchive : public base::VisitArchive<BinaryWriteArchive> {
                    base::Bytes* value,
                    base::PriorityTag<2>) {
     stream_.WriteVaruint(value->size());
+    if (value->empty()) { return; }
     stream_.RawWrite({
-        reinterpret_cast<const char*>(&(*value)[0]), value->size()});
+        reinterpret_cast<const char*>(value->data()), value->size()});
   }
 
   template <typename NameValuePair, typename T, std::size_t N>
