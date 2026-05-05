@@ -66,7 +66,7 @@ class StreamAsioClientBuilder : public AsioClient {
   void AsyncStart(mjlib::io::ErrorCallback callback) {
     if (options_.frame_type == "socketcan") {
       frame_stream_ = std::make_unique<SocketcanFrameStream>(executor_, options_.can);
-      client_.emplace(frame_stream_.get());
+      client_.emplace(frame_stream_.get(), options_.client);
       boost::asio::post(
           executor_,
           std::bind(std::move(callback), base::error_code()));
@@ -120,7 +120,7 @@ class StreamAsioClientBuilder : public AsioClient {
       return;
     }
 
-    client_.emplace(frame_stream_selector_.selected());
+    client_.emplace(frame_stream_selector_.selected(), options_.client);
     boost::asio::post(
         executor_,
         std::bind(std::move(callback), base::error_code()));
