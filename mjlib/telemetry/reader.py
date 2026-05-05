@@ -281,20 +281,23 @@ class ObjectType:
         object_flags = schema_stream.read_varuint()
         fields = []
 
+        # Don't shadow `name` (the object's own name) with each
+        # field's name, and don't conflate the loop's per-field flags
+        # with the object_flags slot.
         while True:
-            flags = schema_stream.read_varuint()
-            name = schema_stream.read_string()
+            field_flags = schema_stream.read_varuint()
+            field_name = schema_stream.read_string()
             naliases = schema_stream.read_varuint()
             aliases = [schema_stream.read_string() for _ in range(naliases)]
-            type_class = Type.from_binary(schema_stream, name=name)
+            type_class = Type.from_binary(schema_stream, name=field_name)
             is_default = schema_stream.read_u8() != 0
             default_value = type_class.read(schema_stream) if is_default else None
             if isinstance(type_class, FinalType):
                 break
             fields.append(
-                Field(flags, name, aliases, type_class, default_value))
+                Field(field_flags, field_name, aliases, type_class, default_value))
 
-        return ObjectType(flags, fields, name)
+        return ObjectType(object_flags, fields, name)
 
     def __init__(self, flags, fields, name):
         self.flags = flags

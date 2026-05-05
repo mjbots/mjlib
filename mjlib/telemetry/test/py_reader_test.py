@@ -106,6 +106,22 @@ class ReaderTest(unittest.TestCase):
         actual_value = actual_type.read(reader.Stream(io.BytesIO(bytes([10]))))
         self.assertEqual(actual_value, 10)
 
+    def test_object_flags_preserved(self):
+        # Pre-fix the loop overwrote `flags` with each field's flags
+        # (and the FinalType marker's flags), discarding object_flags.
+        schema = bytes([
+            16,  # kObject
+            5,   # object_flags=5
+            7,   # FinalType marker field_flags=7
+            0,   # field name length=0
+            0,   # naliases=0
+            0,   # kFinal
+            0,   # is_default=0
+        ])
+
+        object_type = reader.Type.from_binary(io.BytesIO(schema))
+        self.assertEqual(object_type.flags, 5)
+
 
 if __name__ == '__main__':
     unittest.main()
