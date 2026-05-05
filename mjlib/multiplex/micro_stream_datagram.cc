@@ -219,8 +219,18 @@ class MicroStreamDatagram::Impl : public Format {
       return false;
     }
 
-    if (payload_size > (options_.buffer_size - 7))  {
-      // We can't fit this either.
+    // Pre-fix the check used `payload_size > buffer_size - 7`, which
+    // assumes a 1-byte size varuint.  A non-canonical 2-5 byte
+    // varuint could pass this and produce a frame that doesn't fit;
+    // the receiver would then post zero-length AsyncReadSome calls
+    // forever.  Recompute against the actual varuint length so the
+    // entire frame is bounded by buffer_size.
+    const std::streamsize varuint_size =
+        data.position() - &read_buffer_[kHeaderSize];
+    const std::streamsize required_total =
+        kHeaderSize + varuint_size +
+        static_cast<std::streamsize>(payload_size) + kCrcSize;
+    if (required_total > static_cast<std::streamsize>(options_.buffer_size)) {
       read_start_ = 0;
       return false;
     }
