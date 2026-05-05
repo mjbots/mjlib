@@ -14,6 +14,8 @@
 
 #include "mjlib/telemetry/emit_json.h"
 
+#include <limits>
+
 #include <boost/test/auto_unit_test.hpp>
 
 #include "mjlib/base/buffer_stream.h"
@@ -36,4 +38,38 @@ BOOST_AUTO_TEST_CASE(EmitJsonTest) {
   base::BufferReadStream read_stream(data);
   telemetry::EmitJson(ostr, parser.root(), read_stream);
   BOOST_TEST(ostr.str() == R"XX({"value_bool" : false, "value_i8" : -1, "value_i16" : -2, "value_i32" : -3, "value_i64" : -4, "value_u8" : 5, "value_u16" : 6, "value_u32" : 7, "value_u64" : 8, "value_f32" : 9, "value_f64" : 10, "value_bytes" : "CwwN", "value_str" : "de", "value_object" : {"value_u32" : 3}, "value_enum" : "kValue1", "value_array" : [{"value_u32" : 3}], "value_fixedarray" : [14, 15], "value_optional" : 21, "value_timestamp" : "1970-Jan-01 00:00:01", "value_duration" : "00:00:00.500000"})XX");
+}
+
+namespace {
+struct NonFiniteFloats {
+  float value_f32 = std::numeric_limits<float>::quiet_NaN();
+  double value_f64 = std::numeric_limits<double>::infinity();
+  double value_neg = -std::numeric_limits<double>::infinity();
+
+  template <typename Archive>
+  void Serialize(Archive* a) {
+    a->Visit(MJ_NVP(value_f32));
+    a->Visit(MJ_NVP(value_f64));
+    a->Visit(MJ_NVP(value_neg));
+  }
+};
+}
+
+BOOST_AUTO_TEST_CASE(EmitJsonNonFinite) {
+  // NaN/Inf used to emit bare `nan`/`inf` tokens, which neither JSON
+  // nor JSON5 accepts.  Emit JSON5's NaN / Infinity / -Infinity
+  // literals instead.
+  const NonFiniteFloats values;
+  const std::string data = telemetry::BinaryWriteArchive::Write(&values);
+  const std::string schema =
+      telemetry::BinarySchemaArchive::Write<NonFiniteFloats>();
+
+  telemetry::BinarySchemaParser parser(schema);
+  std::ostringstream ostr;
+  base::BufferReadStream read_stream(data);
+  telemetry::EmitJson(ostr, parser.root(), read_stream);
+
+  BOOST_TEST(
+      ostr.str() ==
+      R"({"value_f32" : NaN, "value_f64" : Infinity, "value_neg" : -Infinity})");
 }

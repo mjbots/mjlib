@@ -14,6 +14,8 @@
 
 #include "mjlib/telemetry/emit_json.h"
 
+#include <cmath>
+
 #include <boost/beast/core/detail/base64.hpp>
 
 #include <boost/date_time/posix_time/posix_time.hpp>
@@ -66,7 +68,18 @@ void EmitJson(std::ostream& ostr, const Element* schema,
     }
     case FT::kFloat32:
     case FT::kFloat64: {
-      ostr << schema->ReadFloatLike(data);
+      const double v = schema->ReadFloatLike(data);
+      // ostream's default formatting renders non-finite values as
+      // bare `nan` / `inf` / `-inf`, none of which any JSON or JSON5
+      // parser accepts.  Emit JSON5's `NaN` / `Infinity` /
+      // `-Infinity` literals instead (https://spec.json5.org/).
+      if (std::isfinite(v)) {
+        ostr << v;
+      } else if (std::isnan(v)) {
+        ostr << "NaN";
+      } else {
+        ostr << (v > 0 ? "Infinity" : "-Infinity");
+      }
       return;
     }
     case FT::kBytes: {
