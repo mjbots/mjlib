@@ -420,3 +420,19 @@ BOOST_AUTO_TEST_CASE(SeekTest) {
                      (*items.begin()).timestamp - query)) < 200.0);
   }
 }
+
+BOOST_AUTO_TEST_CASE(IndexedLogWithNoDataReportsNoFinalItem) {
+  // A log with a trailing index block but no data records previously
+  // had final_item() return 0 (an offset that lands inside the file
+  // header) instead of the documented -1 sentinel.
+  base::TemporaryFile tempfile;
+  {
+    telemetry::FileWriter writer{tempfile.native()};
+    const auto id = writer.AllocateIdentifier("test");
+    writer.WriteSchema(id, "\x0a");  // string
+    // No WriteData; the index will record final_record == -1.
+  }
+
+  DUT dut{tempfile.native()};
+  BOOST_TEST(dut.final_item() == -1);
+}

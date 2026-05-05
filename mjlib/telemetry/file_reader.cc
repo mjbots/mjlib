@@ -640,7 +640,9 @@ class FileReader::Impl {
     // Now go and find all the schemas so that we can fill in our
     // records structures.
     MJ_ASSERT(records_.empty());
-    final_item_ = 0;
+    // Leave final_item_ at its -1 sentinel; an indexed log with no
+    // data records (every schema's final_record == -1) must still
+    // report "no items" the same way FullScan does.
     for (const auto& local_record : local_records) {
       fptr_.Seek(local_record.schema_location);
       const auto header = ReadHeader(file_).value();
