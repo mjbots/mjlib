@@ -70,7 +70,8 @@ async def main():
             result = (await readline(mc)).strip()
             print('>', result.decode('latin1'))
             if result != b'OK':
-                raise RuntimeError('Unknown response: ' + result)
+                raise RuntimeError(
+                    'Unknown response: ' + result.decode('latin1'))
 
 
 if __name__ == '__main__':
