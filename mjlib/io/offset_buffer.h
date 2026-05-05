@@ -27,15 +27,17 @@ namespace io {
 /// Take a buffer sequence, and return one whose start is offset by @p
 /// offset (and thus its overall size is reduced).
 template <typename Buffers>
-BufferSequence<typename Buffers::value_type> OffsetBufferSequence(
-    Buffers buffers, size_t offset) {
+auto OffsetBufferSequence(Buffers buffers, size_t offset) {
   BOOST_ASSERT(offset < boost::asio::buffer_size(buffers));
 
-  using Buffer = typename Buffers::value_type;
+  using Buffer = typename std::iterator_traits<
+      decltype(boost::asio::buffer_sequence_begin(buffers))>::value_type;
   std::vector<Buffer> result;
 
   size_t consumed_so_far = 0;
-  for (auto& buffer : buffers) {
+  for (auto it = boost::asio::buffer_sequence_begin(buffers);
+       it != boost::asio::buffer_sequence_end(buffers); ++it) {
+    Buffer buffer = *it;
     if (consumed_so_far > offset) {
       // Don't bother counting anymore.
       result.push_back(buffer);
@@ -50,7 +52,7 @@ BufferSequence<typename Buffers::value_type> OffsetBufferSequence(
     }
   }
 
-  return result;
+  return BufferSequence<Buffer>(result);
 }
 
 }
