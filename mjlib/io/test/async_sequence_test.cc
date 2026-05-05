@@ -23,12 +23,12 @@ namespace {
 struct Fixture {
   void Poll() {
     context.poll();
-    context.reset();
+    context.restart();
   }
 
   void PollOne() {
     context.poll_one();
-    context.reset();
+    context.restart();
   }
 
   boost::asio::io_context context;

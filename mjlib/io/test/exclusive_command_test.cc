@@ -58,7 +58,7 @@ BOOST_AUTO_TEST_CASE(ExclusiveCommandTest) {
   BOOST_TEST(item2_done == 0);
 
   context.poll();
-  context.reset();
+  context.restart();
 
   // Now the first item should have started.
   BOOST_TEST(item1_started == 1);
@@ -74,7 +74,7 @@ BOOST_AUTO_TEST_CASE(ExclusiveCommandTest) {
   BOOST_TEST(item2_done == 0);
 
   context.poll();
-  context.reset();
+  context.restart();
 
   BOOST_TEST(item1_started == 1);
   BOOST_TEST(item1_done == 1);
@@ -126,7 +126,7 @@ BOOST_AUTO_TEST_CASE(CancelTest) {
   }
 
   context.poll();
-  context.reset();
+  context.restart();
 
   BOOST_TEST(item1_started == 1);
   BOOST_TEST(item1_done == 0);
@@ -134,7 +134,7 @@ BOOST_AUTO_TEST_CASE(CancelTest) {
   item1_callback();
 
   context.poll();
-  context.reset();
+  context.restart();
 
   BOOST_TEST(item1_done == 1);
   BOOST_TEST(item2_started == 0);

@@ -33,12 +33,12 @@ namespace {
 struct Fixture {
   void Poll() {
     context.poll();
-    context.reset();
+    context.restart();
   }
 
   void PollOne() {
     context.poll_one();
-    context.reset();
+    context.restart();
   }
 
   void AsyncRegister(const mp::RegisterRequest& request_in) {

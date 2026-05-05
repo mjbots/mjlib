@@ -31,7 +31,7 @@ BOOST_AUTO_TEST_CASE(DebugDeadlineServiceDestroyWithPendingWait) {
   boost::asio::io_context context;
   auto poll = [&] {
     context.poll();
-    context.reset();
+    context.restart();
   };
   auto* const debug_time = io::DebugDeadlineService::Install(context);
 

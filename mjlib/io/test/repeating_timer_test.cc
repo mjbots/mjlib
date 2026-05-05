@@ -24,7 +24,7 @@ BOOST_AUTO_TEST_CASE(BasicRepeatingTimer) {
   boost::asio::io_context context;
   auto poll = [&]() {
     context.poll();
-    context.reset();
+    context.restart();
   };
   auto* const debug_time = DebugDeadlineService::Install(context);
   auto now = boost::posix_time::ptime(
@@ -114,7 +114,7 @@ BOOST_AUTO_TEST_CASE(CancelThenLaterStart) {
   boost::asio::io_context context;
   auto poll = [&]() {
     context.poll();
-    context.reset();
+    context.restart();
   };
   auto* const debug_time = DebugDeadlineService::Install(context);
   auto now = boost::posix_time::ptime(
