@@ -394,6 +394,11 @@ class MicroServer::Impl {
 
     if (*maybe_bytes > remaining_space) {
       stats_.receive_overrun++;
+      // Drop the un-buffered bytes; otherwise the next ProcessSubframes
+      // iteration would re-parse them as new subframes, allowing a
+      // peer to smuggle register RPCs / cross-tunnel injection by
+      // exceeding the destination tunnel's remaining capacity.
+      str.base()->ignore(*maybe_bytes);
     } else {
       str.base()->read({&tunnel.read_data_[tunnel.read_data_size_],
               static_cast<ssize_t>(*maybe_bytes)});

@@ -23,6 +23,7 @@
 #include "mjlib/micro/test/persistent_config_fixture.h"
 #include "mjlib/micro/test/str.h"
 
+#include "mjlib/multiplex/frame.h"
 #include "mjlib/multiplex/micro_stream_datagram.h"
 
 namespace base = mjlib::base;
@@ -1839,4 +1840,40 @@ BOOST_FIXTURE_TEST_CASE(ResponseBufferOverflowTest, Fixture) {
 
   // Bail-out fired at least once for this frame.
   BOOST_TEST(dut.stats()->response_buffer_full > 0u);
+}
+
+BOOST_FIXTURE_TEST_CASE(ReceiveOverrunReinterpretsAsSubframes, Fixture) {
+  // No tunnel reader is posted, so kClientToServer data accumulates
+  // in tunnel.read_data_ (capacity 128).  A second kClientToServer
+  // that exceeds the remaining capacity used to skip the data-byte
+  // consume, causing the next ProcessSubframes iteration to re-parse
+  // those bytes as new subframes — turning a tunnel overrun into a
+  // back-channel for register RPCs.
+  std::string payload;
+  payload.push_back(static_cast<char>(0x40));  // kClientToServer
+  payload.push_back(static_cast<char>(0x09));  // channel 9
+  payload.push_back(static_cast<char>(0x80));  // varuint 128 lsb
+  payload.push_back(static_cast<char>(0x01));  // varuint 128 msb
+  payload.append(128, 'A');
+  payload.push_back(static_cast<char>(0x40));  // kClientToServer
+  payload.push_back(static_cast<char>(0x09));  // channel 9
+  payload.push_back(static_cast<char>(0x05));  // 5 bytes (overrun)
+  payload.push_back(static_cast<char>(0x01));  // would-be kWriteInt8
+  payload.push_back(static_cast<char>(0x00));  // would-be register 0
+  payload.push_back(static_cast<char>(0x42));  // would-be value
+  payload.push_back(static_cast<char>(0x50));  // kNop
+  payload.push_back(static_cast<char>(0x50));  // kNop
+
+  Frame frame{0x02, false, 0x01, payload};
+  const std::string encoded = frame.encode();
+
+  AsyncWrite(*dut_stream.side_a(),
+             std::string_view(encoded.data(), encoded.size()),
+             [](micro::error_code ec) { BOOST_TEST(!ec); });
+
+  Poll();
+
+  BOOST_TEST(dut.stats()->receive_overrun == 1u);
+  // No spurious register write should be observed.
+  BOOST_TEST(server.writes_.empty());
 }
