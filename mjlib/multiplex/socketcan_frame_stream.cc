@@ -65,6 +65,8 @@ size_t RoundUpDlc(size_t value) {
   if (value <= 32) { return 32; }
   if (value <= 48) { return 48; }
   if (value <= 64) { return 64; }
+  // Caller must clamp before reaching here; CAN-FD has no DLC > 64.
+  MJ_ASSERT(false);
   return 0;
 }
 }
@@ -102,6 +104,12 @@ class SocketcanFrameStream::Impl {
     if (send_frame_.can_id > 0x7ff) {
       send_frame_.can_id |= CAN_EFF_FLAG;
     }
+
+    // Without this guard a payload > 64 bytes would memcpy past the
+    // end of send_frame_.data[] (CANFD_MAX_DLEN == 64), corrupting
+    // adjacent members like recv_frame_, while RoundUpDlc would
+    // wrongly emit len=0 on the wire and silently drop the payload.
+    MJ_ASSERT(frame->payload.size() <= CANFD_MAX_DLEN);
 
     const auto actual_size = RoundUpDlc(frame->payload.size());
     send_frame_.len = actual_size;
