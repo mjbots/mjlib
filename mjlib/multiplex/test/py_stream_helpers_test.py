@@ -22,8 +22,14 @@ import unittest
 
 import mjlib.multiplex.stream_helpers as sh
 
+# Python 3.14 no longer auto-creates an event loop in the main thread on
+# get_event_loop(). Create one explicitly so this also works on Python 3.10
+# (Ubuntu 22.04), where get_event_loop() did create one implicitly.
+_LOOP = asyncio.new_event_loop()
+asyncio.set_event_loop(_LOOP)
+
 def _run(coro):
-    return asyncio.get_event_loop().run_until_complete(coro)
+    return _LOOP.run_until_complete(coro)
 
 
 class RecordingStreamTest(unittest.TestCase):
