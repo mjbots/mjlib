@@ -272,17 +272,21 @@ struct ItemArchive : public mjlib::base::VisitArchive<Derived> {
   void VisitArray(const NameValuePair& pair) {
     base::Tokenizer tokenizer(remaining_key_, ".");
     const auto index_str = tokenizer.next();
-    char* str_end = nullptr;
-    const char* const actual_end = index_str.data() + index_str.size();
-
-    const std::size_t index = std::strtol(index_str.data(), &str_end, 0);
-    if (index < 0 ||
-        index >= pair.value()->size() ||
-        str_end == nullptr ||
-        str_end != actual_end) {
+    if (index_str.empty()) {
       found_ = false;
       return;
     }
+    char* str_end = nullptr;
+    const char* const actual_end = index_str.data() + index_str.size();
+
+    const long signed_index = std::strtol(index_str.data(), &str_end, 0);
+    if (signed_index < 0 ||
+        str_end != actual_end ||
+        static_cast<std::size_t>(signed_index) >= pair.value()->size()) {
+      found_ = false;
+      return;
+    }
+    const std::size_t index = static_cast<std::size_t>(signed_index);
 
     auto remaining = tokenizer.remaining();
     auto mapped_remaining =

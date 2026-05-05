@@ -265,3 +265,21 @@ BOOST_AUTO_TEST_CASE(EnumerateTest) {
 
   BOOST_TEST(reader.data_.str() == expected);
 }
+
+BOOST_AUTO_TEST_CASE(SetArrayMalformedIndex) {
+  MyStruct my_struct;
+  SerializableHandler<MyStruct> dut(&my_struct);
+
+  // Each of these used to dereference a null pointer in strtol or
+  // wrap a negative index into a huge unsigned value.  Now they must
+  // simply report "not found".
+  BOOST_TEST(dut.Set("array_value", "1.0") == 1);
+  BOOST_TEST(dut.Set("array_value.", "1.0") == 1);
+  BOOST_TEST(dut.Set("array_value.-1", "1.0") == 1);
+  BOOST_TEST(dut.Set("array_value.abc", "1.0") == 1);
+  BOOST_TEST(dut.Set("array_value.99", "1.0") == 1);
+
+  // Sanity: the original well-formed key still works.
+  BOOST_TEST(dut.Set("array_value.0", "5.0") == 0);
+  BOOST_TEST(my_struct.array_value[0] == 5.0);
+}
