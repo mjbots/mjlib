@@ -100,6 +100,24 @@ BOOST_FIXTURE_TEST_CASE(TelemetryManagerText, Fixture) {
   ExpectResponse("my_data.value 0\r\nOK\r\n");
 }
 
+BOOST_FIXTURE_TEST_CASE(TelemetryManagerRateText, Fixture) {
+  // Periodic text-mode telemetry must not append "OK\r\n" — that is
+  // the command-response terminator and would conflate unsolicited
+  // emissions with command acks on the same stream.
+  Command("tel fmt my_data 1\n");
+  ExpectResponse("OK\r\n");
+
+  Command("tel rate my_data 20\n");
+  ExpectResponse("OK\r\n");
+
+  for (int i = 0; i < 50; i++) {
+    dut.PollMillisecond();
+    event_queue.Poll();
+  }
+
+  ExpectResponse("my_data.value 0\r\nmy_data.value 0\r\n");
+}
+
 namespace {
 std::map<std::string, int> CountReceipts(std::string data) {
   std::map<std::string, int> result;

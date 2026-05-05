@@ -137,7 +137,7 @@ class TelemetryManager::Impl {
                 copy();
               };
               CommandManager::Response response{stream, actual_release};
-              this->EmitData(eptr, response);
+              this->EmitData(eptr, response, /*unsolicited=*/true);
             });
         last_sent_ = to_check;
         return;
@@ -157,7 +157,8 @@ class TelemetryManager::Impl {
   }
 
   void Enumerate(Element* element,
-                 const CommandManager::Response& response) {
+                 const CommandManager::Response& response,
+                 bool unsolicited) {
     current_response_ = response;
 
     element->base->Enumerate(
@@ -165,15 +166,23 @@ class TelemetryManager::Impl {
         output_buffer_,
         element->name,
         *response.stream,
-        [this](error_code) {
-          this->WriteOK(current_response_);
+        [this, unsolicited](error_code ec) {
+          if (unsolicited) {
+            // Periodic emissions are not command responses; an
+            // "OK\r\n" terminator here would look like a stray ack
+            // to anyone interleaving commands on the same stream.
+            this->current_response_.callback(ec);
+          } else {
+            this->WriteOK(current_response_);
+          }
         });
   }
 
   void EmitData(Element* element,
-                const CommandManager::Response& response) {
+                const CommandManager::Response& response,
+                bool unsolicited = false) {
     if (element->text) {
-      Enumerate(element, response);
+      Enumerate(element, response, unsolicited);
     } else {
       Emit(
           "emit ",
