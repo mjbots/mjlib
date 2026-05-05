@@ -45,9 +45,11 @@ _CHECK_SUFFIX = "_self_contained_check"
 
 def _self_contained_src_impl(ctx):
     out = ctx.actions.declare_file(ctx.label.name + ".cc")
+    # Include the header twice so any header missing `#pragma once` /
+    # include guards fails the check (redefinition error).
     ctx.actions.write(
         output = out,
-        content = '#include "{}"\n'.format(ctx.attr.header),
+        content = '#include "{0}"\n#include "{0}"\n'.format(ctx.attr.header),
     )
     return [DefaultInfo(files = depset([out]))]
 
