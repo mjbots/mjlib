@@ -14,8 +14,11 @@
 
 #include "mjlib/telemetry/mapped_binary_reader.h"
 
+#include <optional>
+
 #include <boost/test/auto_unit_test.hpp>
 
+#include "mjlib/base/system_error.h"
 #include "mjlib/base/test/all_types_struct.h"
 #include "mjlib/telemetry/binary_schema_parser.h"
 
@@ -252,4 +255,16 @@ BOOST_AUTO_TEST_CASE(ParseExternalSerializer) {
     auto copy = dut.Read(tl::BinaryWriteArchive::Write(Compatible()));
     BOOST_TEST(copy.baz == 23);
   }
+}
+
+BOOST_AUTO_TEST_CASE(OptionalSchemaValidationRejectsBadShape) {
+  // Pre-fix the validation predicate used `&&` instead of `||`, so a
+  // schema that wasn't [kNull, T] slipped past and children.at(1)
+  // threw std::out_of_range.  Now it must surface as kTypeMismatch.
+  // 0x15 == kUnion, 0x01 == kNull, 0x00 == kFinal.
+  const std::string just_null_schema = std::string("\x15\x01\x00", 3);
+  tl::BinarySchemaParser parser(just_null_schema);
+  BOOST_CHECK_THROW(
+      (tl::MappedBinaryReader<std::optional<int32_t>>(&parser)),
+      base::system_error);
 }

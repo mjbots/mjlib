@@ -183,7 +183,7 @@ class MappedBinaryReader {
   template <typename T>
   void SetupContainerReaders(const Element* element,
                              std::optional<T>*, base::PriorityTag<1>) {
-    if (element->children.size() != 2 &&
+    if (element->children.size() != 2 ||
         element->children.front()->type != Format::Type::kNull) {
       throw base::system_error(
           base::error_code(
