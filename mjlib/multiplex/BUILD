@@ -293,6 +293,12 @@ py_test(
     deps = [":py_multiplex_protocol"],
 )
 
+py_test(
+    name = "py_aioserial_test",
+    srcs = ["test/py_aioserial_test.py"],
+    deps = [":aioserial"],
+)
+
 py_library(
     name = "aioserial",
     srcs = ["aioserial.py"],
@@ -303,6 +309,7 @@ test_suite(
     tests = [
         "py_stream_helpers_test",
         "py_multiplex_protocol_test",
+        "py_aioserial_test",
     ],
 )
 

@@ -59,7 +59,7 @@ class AioSerial:
 
     @loop.setter
     def loop(self, value: Optional[asyncio.AbstractEventLoop]):
-        self.loop = value
+        self._loop = value
 
     async def read(self, size: int = 1, block=True) -> bytes:
         result = bytearray()
