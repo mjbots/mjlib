@@ -315,3 +315,26 @@ BOOST_AUTO_TEST_CASE(EnumerateUndersizedBufferOverflow) {
     BOOST_TEST(raw[i] == '\xAA');
   }
 }
+
+BOOST_AUTO_TEST_CASE(ReadUndersizedBufferReturn) {
+  // INT64_MIN formats to 20 chars; a 5-byte buffer used to come back
+  // as a string_view advertising 20 bytes, leaking 15 bytes past the
+  // end of the buffer onto the wire.
+  EventQueue event_queue;
+  StreamPipe stream_pipe{event_queue.MakePoster()};
+  test::Reader reader{stream_pipe.side_b()};
+
+  char buffer[5] = {};
+  MyStruct my_struct;
+  SerializableHandler<MyStruct> dut(&my_struct);
+
+  int complete_count = 0;
+  const int result =
+      dut.Read("i64_value", buffer, *stream_pipe.side_a(),
+               [&](error_code) { complete_count++; });
+  BOOST_TEST(result == 0);
+
+  event_queue.Poll();
+  BOOST_TEST(complete_count == 1);
+  BOOST_TEST(reader.data_.str().size() <= sizeof(buffer));
+}

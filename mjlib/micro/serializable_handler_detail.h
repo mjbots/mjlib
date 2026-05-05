@@ -434,10 +434,24 @@ struct ReadArchive : public ItemArchive<ReadArchive> {
 
   template <typename T>
   std::string_view EmitValue(T value) {
-    const int out_size = ::snprintf(
-        &*buffer_.begin(), buffer_.size(),
+    return ClampedSnprintf(
         FormatSpecifier::GetFormat(value), value);
-    return std::string_view(buffer_.begin(), out_size);
+  }
+
+  // snprintf returns the would-have-been length, not what was
+  // actually written; advertising that as a string_view would let
+  // AsyncWrite read past the end of buffer_.  Clamp to the bytes
+  // that snprintf actually emitted (at most buffer_.size() - 1
+  // because of the trailing NUL).
+  template <typename... Args>
+  std::string_view ClampedSnprintf(const char* fmt, Args... args) {
+    if (buffer_.size() == 0) { return std::string_view(); }
+    const int out_size = ::snprintf(
+        &*buffer_.begin(), buffer_.size(), fmt, args...);
+    if (out_size < 0) { return std::string_view(); }
+    const std::size_t written = std::min<std::size_t>(
+        out_size, buffer_.size() - 1);
+    return std::string_view(buffer_.begin(), written);
   }
 
   const base::string_span buffer_;
@@ -447,10 +461,7 @@ struct ReadArchive : public ItemArchive<ReadArchive> {
 
 template <>
 inline std::string_view ReadArchive::EmitValue<float>(float value) {
-  const int out_size = ::snprintf(
-      &*buffer_.begin(), buffer_.size(), "%g",
-      static_cast<double>(value));
-  return std::string_view(buffer_.begin(), out_size);
+  return ClampedSnprintf("%g", static_cast<double>(value));
 }
 
 }
