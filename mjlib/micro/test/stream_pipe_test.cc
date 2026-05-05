@@ -152,3 +152,106 @@ BOOST_AUTO_TEST_CASE(StreamPipeWriteEnqueue) {
   event_queue.Poll();
   BOOST_TEST(receive_count == 3);
 }
+
+BOOST_AUTO_TEST_CASE(StreamPipeZeroReadDuringWrite) {
+  // A zero-byte read while a non-empty write is outstanding must NOT
+  // consume or discard the write data.
+  EventQueue event_queue;
+  StreamPipe dut(event_queue.MakePoster());
+
+  const char data_to_send[] = "hello";
+
+  int write_complete = 0;
+  std::ptrdiff_t write_size = -1;
+  dut.side_a()->AsyncWriteSome(
+      std::string_view(data_to_send, 5),
+      [&](error_code ec, std::ptrdiff_t size) {
+        BOOST_TEST(!ec);
+        write_complete++;
+        write_size = size;
+      });
+
+  int read_complete = 0;
+  std::ptrdiff_t read_size = -1;
+  dut.side_b()->AsyncReadSome(
+      base::string_span(nullptr, std::ptrdiff_t(0)),
+      [&](error_code ec, std::ptrdiff_t size) {
+        BOOST_TEST(!ec);
+        read_complete++;
+        read_size = size;
+      });
+
+  event_queue.Poll();
+  BOOST_TEST(read_complete == 1);
+  BOOST_TEST(read_size == 0);
+  BOOST_TEST(write_complete == 0);
+
+  char data_to_receive[5] = {};
+  int second_read_complete = 0;
+  std::ptrdiff_t second_read_size = -1;
+  dut.side_b()->AsyncReadSome(
+      base::string_span(data_to_receive, 5),
+      [&](error_code ec, std::ptrdiff_t size) {
+        BOOST_TEST(!ec);
+        second_read_complete++;
+        second_read_size = size;
+      });
+
+  event_queue.Poll();
+  BOOST_TEST(second_read_complete == 1);
+  BOOST_TEST(second_read_size == 5);
+  BOOST_TEST(std::string_view(data_to_receive, 5) == "hello");
+  BOOST_TEST(write_complete == 1);
+  BOOST_TEST(write_size == 5);
+}
+
+BOOST_AUTO_TEST_CASE(StreamPipeZeroWriteDuringRead) {
+  // Symmetric: a zero-byte write while a non-empty read is
+  // outstanding must NOT discard the read.
+  EventQueue event_queue;
+  StreamPipe dut(event_queue.MakePoster());
+
+  char data_to_receive[5] = {};
+  int read_complete = 0;
+  std::ptrdiff_t read_size = -1;
+  dut.side_b()->AsyncReadSome(
+      base::string_span(data_to_receive, 5),
+      [&](error_code ec, std::ptrdiff_t size) {
+        BOOST_TEST(!ec);
+        read_complete++;
+        read_size = size;
+      });
+
+  int write_complete = 0;
+  std::ptrdiff_t write_size = -1;
+  dut.side_a()->AsyncWriteSome(
+      std::string_view(),
+      [&](error_code ec, std::ptrdiff_t size) {
+        BOOST_TEST(!ec);
+        write_complete++;
+        write_size = size;
+      });
+
+  event_queue.Poll();
+  BOOST_TEST(write_complete == 1);
+  BOOST_TEST(write_size == 0);
+  BOOST_TEST(read_complete == 0);
+
+  const char data_to_send[] = "hello";
+  int second_write_complete = 0;
+  std::ptrdiff_t second_write_size = -1;
+  dut.side_a()->AsyncWriteSome(
+      std::string_view(data_to_send, 5),
+      [&](error_code ec, std::ptrdiff_t size) {
+        BOOST_TEST(!ec);
+        second_write_complete++;
+        second_write_size = size;
+      });
+
+  event_queue.Poll();
+  BOOST_TEST(second_write_complete == 1);
+  BOOST_TEST(second_write_size == 5);
+  BOOST_TEST(read_complete == 1);
+  BOOST_TEST(read_size == 5);
+  BOOST_TEST(std::string_view(data_to_receive, 5) == "hello");
+}

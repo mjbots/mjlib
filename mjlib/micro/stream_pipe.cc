@@ -24,6 +24,18 @@ namespace micro {
 void StreamPipe::Side::AsyncReadSome(
     const base::string_span& buffer,
     const SizeCallback& callback) {
+  // A zero-byte read must never touch the peer's outstanding write
+  // state — clearing it here would silently drop pending data.
+  if (buffer.size() == 0) {
+    pending_read_callback_ = callback;
+    parent_->poster_([this]() {
+        auto cbk = pending_read_callback_;
+        pending_read_callback_ = {};
+        cbk({}, 0);
+      });
+    return;
+  }
+
   // Does our other side have an outstanding write?  If so, satisfy
   // it.
   if (other_->outstanding_write_buffer_.size()) {
@@ -52,24 +64,26 @@ void StreamPipe::Side::AsyncReadSome(
     // the first time.
     MJ_ASSERT(outstanding_read_buffer_.size() == 0);
 
-    // If this is a zero byte read, fulfill it immediately.
-    if (buffer.size() == 0) {
-      pending_read_callback_ = callback;
-      parent_->poster_([this]() {
-          auto cbk = pending_read_callback_;
-          pending_read_callback_ = {};
-          cbk({}, 0);
-        });
-    } else {
-      outstanding_read_buffer_ = buffer;
-      outstanding_read_callback_ = callback;
-    }
+    outstanding_read_buffer_ = buffer;
+    outstanding_read_callback_ = callback;
   }
 }
 
 void StreamPipe::Side::AsyncWriteSome(
     const std::string_view& buffer,
     const SizeCallback& callback) {
+  // A zero-byte write must never touch the peer's outstanding read
+  // state — clearing it here would silently drop the pending read.
+  if (buffer.size() == 0) {
+    pending_write_callback_ = callback;
+    parent_->poster_([this]() {
+        auto cbk = pending_write_callback_;
+        pending_write_callback_ = {};
+        cbk({}, 0);
+      });
+    return;
+  }
+
   // Does our other side have an outstanding read?
   if (other_->outstanding_read_buffer_.size()) {
     auto to_copy = std::min<std::ptrdiff_t>(
@@ -96,18 +110,8 @@ void StreamPipe::Side::AsyncWriteSome(
     // the first time.
     MJ_ASSERT(outstanding_write_buffer_.size() == 0);
 
-    // If this is a zero byte write, fulfill it immediately.
-    if (buffer.size() == 0) {
-      pending_write_callback_ = callback;
-      parent_->poster_([this]() {
-          auto cbk = pending_write_callback_;
-          pending_write_callback_ = {};
-          cbk({}, 0);
-        });
-    } else {
-      outstanding_write_buffer_ = buffer;
-      outstanding_write_callback_ = callback;
-    }
+    outstanding_write_buffer_ = buffer;
+    outstanding_write_callback_ = callback;
   }
 }
 
