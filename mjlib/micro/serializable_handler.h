@@ -101,7 +101,12 @@ class SerializableHandler : public SerializableHandlerBase {
       return done;
     };
 
-    context->evaluate_enumerate_archive();
+    if (!context->evaluate_enumerate_archive()) {
+      // Nothing was emitted, so no AsyncWrite chain will run to
+      // signal completion.  Fire the callback here to avoid hanging
+      // any caller driving a state machine off it.
+      callback({});
+    }
   }
 
   /// Write a value of a sub-item to an asynchronous stream.

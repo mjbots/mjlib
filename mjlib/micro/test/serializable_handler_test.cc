@@ -28,6 +28,19 @@ using namespace mjlib::micro;
 namespace base = mjlib::base;
 
 namespace {
+struct EmptyStruct {
+  template <typename Archive>
+  void Serialize(Archive*) {}
+};
+
+struct OuterEmpty {
+  EmptyStruct inner;
+  template <typename Archive>
+  void Serialize(Archive* a) {
+    a->Visit(MJ_NVP(inner));
+  }
+};
+
 struct SubStruct {
   int32_t detailed = 23;
 
@@ -337,4 +350,47 @@ BOOST_AUTO_TEST_CASE(ReadUndersizedBufferReturn) {
   event_queue.Poll();
   BOOST_TEST(complete_count == 1);
   BOOST_TEST(reader.data_.str().size() <= sizeof(buffer));
+}
+
+BOOST_AUTO_TEST_CASE(EnumerateEmptyStructFiresCallback) {
+  // A struct whose Serialize visits nothing produces no AsyncWrite
+  // calls, so the completion callback would never fire if Enumerate
+  // didn't watch the initial walk's return value.
+  EventQueue event_queue;
+  StreamPipe stream_pipe{event_queue.MakePoster()};
+  test::Reader reader{stream_pipe.side_b()};
+
+  char buffer[100] = {};
+
+  EmptyStruct my_struct;
+  SerializableHandler<EmptyStruct> dut(&my_struct);
+  detail::EnumerateArchive::Context context;
+
+  int done_count = 0;
+  dut.Enumerate(&context, buffer, "prefix", *stream_pipe.side_a(),
+                [&](error_code) { done_count++; });
+  event_queue.Poll();
+  BOOST_TEST(done_count == 1);
+  BOOST_TEST(reader.data_.str() == "");
+}
+
+BOOST_AUTO_TEST_CASE(EnumerateNestedEmptyStructFiresCallback) {
+  // Same hazard but reached via a nested struct that visits an empty
+  // struct: VisitSerializable recurses but never reaches an EmitValue.
+  EventQueue event_queue;
+  StreamPipe stream_pipe{event_queue.MakePoster()};
+  test::Reader reader{stream_pipe.side_b()};
+
+  char buffer[100] = {};
+
+  OuterEmpty my_struct;
+  SerializableHandler<OuterEmpty> dut(&my_struct);
+  detail::EnumerateArchive::Context context;
+
+  int done_count = 0;
+  dut.Enumerate(&context, buffer, "prefix", *stream_pipe.side_a(),
+                [&](error_code) { done_count++; });
+  event_queue.Poll();
+  BOOST_TEST(done_count == 1);
+  BOOST_TEST(reader.data_.str() == "");
 }
