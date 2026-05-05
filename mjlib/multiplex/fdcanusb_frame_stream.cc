@@ -172,8 +172,13 @@ class FdcanusbFrameStream::Impl {
     if (read_outstanding_) { return; }
     if (!current_callback_) { return; }
 
-    // Try parsing what we have first.
-    ParseFrame();
+    // Drain whatever is already buffered.  A single OS read may have
+    // delivered multiple complete frames; if we only consumed one of
+    // them last time, the rest are still here and must be surfaced
+    // before issuing a fresh read that could block on more bytes.
+    while (current_callback_) {
+      if (!ParseFrame()) { break; }
+    }
 
     // If that satisfied us, then we're done and don't have to read
     // more.

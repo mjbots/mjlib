@@ -198,3 +198,45 @@ BOOST_FIXTURE_TEST_CASE(FdcanusbStaleReadTest, Fixture) {
   BOOST_TEST(read_done == 2);
   BOOST_TEST(!dut.read_data_queued());
 }
+
+BOOST_FIXTURE_TEST_CASE(FdcanusbBackToBackFramesTest, Fixture) {
+  // Two rcv frames arrive in a single OS read.  The first AsyncRead
+  // consumes the first; the second AsyncRead must consume the
+  // already-buffered second frame without needing any further bytes
+  // from the device.
+  Frame to_receive1;
+  int read_done = 0;
+  dut.AsyncRead(&to_receive1, {}, [&](auto&& ec) {
+      mjlib::base::FailIf(ec);
+      read_done++;
+    });
+
+  int write_done = 0;
+  boost::asio::async_write(
+      *server_side,
+      boost::asio::buffer("rcv 201 20\r\nrcv 405 30\r\n", 24),
+      [&](auto&& ec, size_t) {
+        mjlib::base::FailIf(ec);
+        write_done++;
+      });
+
+  Poll();
+
+  BOOST_TEST(write_done == 1);
+  BOOST_TEST(read_done == 1);
+  BOOST_TEST(to_receive1.source_id == 2);
+  BOOST_TEST(to_receive1.dest_id == 1);
+
+  // Second AsyncRead with no further server bytes.
+  Frame to_receive2;
+  dut.AsyncRead(&to_receive2, {}, [&](auto&& ec) {
+      mjlib::base::FailIf(ec);
+      read_done++;
+    });
+
+  Poll();
+
+  BOOST_TEST(read_done == 2);
+  BOOST_TEST(to_receive2.source_id == 4);
+  BOOST_TEST(to_receive2.dest_id == 5);
+}
