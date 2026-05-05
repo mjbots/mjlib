@@ -64,3 +64,13 @@ BOOST_AUTO_TEST_CASE(BasicStaticVector) {
     BOOST_TEST(copy[0] == 13);
   }
 }
+
+BOOST_AUTO_TEST_CASE(StaticVectorIteratorConversion) {
+  // Force the templated iterator -> const_iterator conversion that
+  // previously failed to compile due to a typo on the source members.
+  micro::StaticVector<int, 10> dut;
+  dut.push_back(7);
+
+  micro::StaticVector<int, 10>::const_iterator cit = dut.begin();
+  BOOST_TEST(*cit == 7);
+}

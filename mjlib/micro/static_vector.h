@@ -38,7 +38,7 @@ class StaticVector {
         : parent_(parent), index_(index) {}
     template <class OtherValue>
     iterator_base(const iterator_base<OtherValue>& other)
-        : parent_(other.parent), index_(other.index) {}
+        : parent_(other.parent_), index_(other.index_) {}
 
    private:
     friend class boost::iterator_core_access;
