@@ -51,7 +51,7 @@ struct SchemaRecord {
   Identifier identifier = 0;
   uint64_t block_schema_flags = 0;
   std::string schema;
-  FilePosition schema_position;
+  FilePosition schema_position = -1;
   FilePosition last_position = -1;
 
   SchemaRecord(std::string_view name,
