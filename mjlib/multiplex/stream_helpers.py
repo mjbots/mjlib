@@ -76,7 +76,7 @@ class AsyncStream:
         return self._base.read(size)
 
     def write(self, data):
-        return self._base.write(size)
+        return self._base.write(data)
 
     async def drain(self):
         return

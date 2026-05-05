@@ -67,5 +67,13 @@ class PipeStreamTest(unittest.TestCase):
         _run(asyncio.Task(self.async_test_basic()))
 
 
+class AsyncStreamWriteTest(unittest.TestCase):
+    def test_write_passes_data_to_base(self):
+        base = io.BytesIO()
+        stream = sh.AsyncStream(base)
+        stream.write(bytes([0x01, 0x02, 0x03]))
+        self.assertEqual(base.getvalue(), bytes([0x01, 0x02, 0x03]))
+
+
 if __name__ == '__main__':
     unittest.main()
