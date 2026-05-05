@@ -214,7 +214,14 @@ class CommandRunner {
       std::string id_str;
       istr >> id_str;
 
-      if (id_str.at(0) == ':') {
+      // Empty / whitespace-only segments fall out of `1|` or `||`
+      // typos; ignore them rather than aborting the session.
+      if (id_str.empty()) {
+        requests_.pop_back();
+        continue;
+      }
+
+      if (id_str[0] == ':') {
         delay_timer_.expires_from_now(
             boost::posix_time::milliseconds(std::stoi(id_str.substr(1))));
         delay_timer_.async_wait(
