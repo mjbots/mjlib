@@ -14,6 +14,8 @@
 
 #include "mjlib/multiplex/register.h"
 
+#include <limits>
+
 #include "mjlib/base/assert.h"
 #include "mjlib/base/fail.h"
 
@@ -144,7 +146,13 @@ bool ParseSubframe(BaseReadStream& stream, std::vector<RegisterValue>* output) {
     for (size_t i = 0; i < num_registers; i++) {
       const auto maybe_value = ReadValue(stream, type);
       if (!maybe_value) { return false; }
-      output->push_back(std::make_pair(start_reg + i, *maybe_value));
+      // start_reg + i is computed in size_t and silently narrows on
+      // push_back; reject overflow rather than wrap into the
+      // low-numbered register space.
+      const uint64_t reg = static_cast<uint64_t>(start_reg) + i;
+      if (reg > std::numeric_limits<uint32_t>::max()) { return false; }
+      output->push_back(std::make_pair(
+          static_cast<uint32_t>(reg), *maybe_value));
     }
   } else if (subframe_id == u32(Format::Subframe::kWriteError) ||
              subframe_id == u32(Format::Subframe::kReadError)) {

@@ -21,6 +21,7 @@
 namespace base = mjlib::base;
 using mjlib::multiplex::RegisterRequest;
 using mjlib::multiplex::ParseRegisterReply;
+using mjlib::multiplex::RegisterValue;
 using Value = mjlib::multiplex::Format::Value;
 using ReadResult = mjlib::multiplex::Format::ReadResult;
 
@@ -115,5 +116,21 @@ BOOST_AUTO_TEST_CASE(ParseRegisterReplyTest) {
     BOOST_TEST(dut.size() == 2);
     BOOST_TEST((dut.at(0x03) == ReadResult(Value(static_cast<int8_t>(5)))));
     BOOST_TEST((dut.at(0x04) == ReadResult(Value(static_cast<int8_t>(7)))));
+  }
+  {
+    // Multi-register reply spanning the top of the 32-bit register
+    // address space used to silently wrap into low-numbered
+    // registers.  Now the parse must reject the overflowing
+    // subframe rather than emit a colliding entry.
+    // 0x20 reply int8, 0x02 num_registers,
+    // FF FF FF FF 0F = varuint(0xFFFFFFFF), then two int8 values.
+    base::FastIStringStream data(
+        std::string("\x20"
+                    "\x02"
+                    "\xff\xff\xff\xff\x0f"
+                    "\xaa\xbb", 9));
+    std::vector<RegisterValue> result;
+    ParseRegisterReply(data, &result);
+    BOOST_TEST(result.empty());
   }
 }
