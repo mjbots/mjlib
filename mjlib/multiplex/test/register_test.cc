@@ -104,4 +104,16 @@ BOOST_AUTO_TEST_CASE(ParseRegisterReplyTest) {
     const auto dut = ParseRegisterReply(data);
     BOOST_TEST(dut.size() == 0);
   }
+  {
+    // A NOP between two replies used to terminate parsing,
+    // dropping every subsequent subframe.
+    base::FastIStringStream data(
+        std::string("\x21\x03\x05"
+                    "\x50"
+                    "\x21\x04\x07", 7));
+    const auto dut = ParseRegisterReply(data);
+    BOOST_TEST(dut.size() == 2);
+    BOOST_TEST((dut.at(0x03) == ReadResult(Value(static_cast<int8_t>(5)))));
+    BOOST_TEST((dut.at(0x04) == ReadResult(Value(static_cast<int8_t>(7)))));
+  }
 }

@@ -155,7 +155,9 @@ bool ParseSubframe(BaseReadStream& stream, std::vector<RegisterValue>* output) {
     }
     output->push_back(std::make_pair(*maybe_this_reg, *maybe_this_err));
   } else if (subframe_id == u32(Format::Subframe::kNop)) {
-    return false;
+    // No-op subframe: contributes no value, but later subframes
+    // in the same payload must still be parsed.
+    return true;
   } else {
     // We could report an error someday.  For now, we'll just call
     // ourselves done.
