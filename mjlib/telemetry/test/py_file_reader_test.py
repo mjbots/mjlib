@@ -103,6 +103,21 @@ class FileReaderTest(unittest.TestCase):
         # up denoting the string length.
         self.assertEqual(datalist[0].data, 'a' * ord('a'))
 
+    def test_item_position_token(self):
+        # Item.position used to be left at None, and items(start=...)
+        # mis-read a BlockType byte as file_flags and asserted.
+        dut = file_reader.FileReader(io.BytesIO(_SAMPLE_LOG))
+        items = list(dut.items())
+        self.assertEqual(len(items), 1)
+        self.assertIsNotNone(items[0].position)
+
+        # Schemas were already populated by the first scan, so a
+        # restart from the data block's position should yield the
+        # same item.
+        again = list(dut.items(start=items[0].position))
+        self.assertEqual(len(again), 1)
+        self.assertEqual(again[0].data, items[0].data)
+
 
 if __name__ == '__main__':
     unittest.main()

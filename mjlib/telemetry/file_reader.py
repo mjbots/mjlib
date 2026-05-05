@@ -61,11 +61,18 @@ class FileReader:
 
     def _read_blocks(self, start=None, end=None):
         '''Iterate over all blocks, yielding their data.'''
-        self._fd.seek(start if start else len(_HEADER), 0)
-
-        stream = reader.Stream(self._fd)
-        file_flags = stream.read_varuint()
-        assert file_flags == 0
+        # When iterating from a position token, that token already
+        # points at a block boundary; don't try to re-parse the
+        # file's HeaderFlags varuint that lives only at offset
+        # len(_HEADER).
+        if start is None:
+            self._fd.seek(len(_HEADER), 0)
+            stream = reader.Stream(self._fd)
+            file_flags = stream.read_varuint()
+            assert file_flags == 0
+        else:
+            self._fd.seek(start, 0)
+            stream = reader.Stream(self._fd)
 
         while True:
             result = FileReader.Block()
@@ -194,6 +201,7 @@ class FileReader:
                 item = self._parse_data(id_set, block.data)
                 if item is None:
                     continue
+                item.position = block.position
                 yield item
 
     def get(self, records=[]):
