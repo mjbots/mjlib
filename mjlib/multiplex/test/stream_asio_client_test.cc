@@ -216,6 +216,27 @@ BOOST_FIXTURE_TEST_CASE(StreamAsioClientTunnelReadOverflow, Fixture) {
   BOOST_TEST(buf[0] == 'a');
 }
 
+BOOST_FIXTURE_TEST_CASE(StreamAsioClientTunnelWriteCancel, Fixture) {
+  // Cancelling a tunnel after async_write_some has been queued used
+  // to leave write_handler_ empty, after which the cancel-stub
+  // invoked an empty fu2::unique_function and threw
+  // bad_function_call.
+  auto tunnel = dut.MakeTunnel(2, 3);
+
+  int write_done = 0;
+  base::error_code last_ec;
+  tunnel->async_write_some(
+      boost::asio::buffer("hello", 5),
+      [&](auto&& ec, size_t) { write_done++; last_ec = ec; });
+
+  BOOST_TEST(write_done == 0);
+  tunnel->cancel();
+  Poll();
+
+  BOOST_TEST(write_done == 1);
+  BOOST_TEST(last_ec == boost::asio::error::operation_aborted);
+}
+
 BOOST_FIXTURE_TEST_CASE(StreamAsioClientTunnelReadCancel, Fixture) {
   auto tunnel = dut.MakeTunnel(2, 3);
 

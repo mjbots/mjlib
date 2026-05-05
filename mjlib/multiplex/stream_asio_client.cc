@@ -307,7 +307,17 @@ class StreamAsioClient::Impl {
             auto copy = std::move(this->write_handler_);
             this->write_handler_ = {};
             this->write_nonce_ = {};
-            copy(_1, _2);
+            // cancel() may have already moved the handler out and
+            // signalled completion; don't invoke an empty
+            // unique_function (would throw bad_function_call).
+            if (copy) {
+              if (this->write_canceled_) {
+                copy(boost::asio::error::operation_aborted, 0);
+              } else {
+                copy(_1, _2);
+              }
+            }
+            this->write_canceled_ = false;
           });
     }
 
@@ -338,12 +348,21 @@ class StreamAsioClient::Impl {
       read_context_ = {};
 
       if (parent_->lock_.remove(write_nonce_)) {
+        // The write was still queued.  Synthesise the
+        // operation_aborted completion ourselves and clear the
+        // handler — the cancel-stub will never run for this nonce.
         boost::asio::post(
             get_executor(),
             std::bind(std::move(write_handler_),
                       boost::asio::error::operation_aborted, 0));
+        write_handler_ = {};
+      } else if (write_handler_) {
+        // The write is already in flight; let the cancel-stub run,
+        // but flag it so the user sees operation_aborted instead of
+        // the eventual real completion.  Keep write_handler_ alive
+        // for the stub to consume.
+        write_canceled_ = true;
       }
-      write_handler_ = {};
 
       read_nonce_ = {};
       write_nonce_ = {};
@@ -544,6 +563,7 @@ class StreamAsioClient::Impl {
     io::ExclusiveCommand::Nonce read_nonce_;
     io::ExclusiveCommand::Nonce write_nonce_;
     io::WriteHandler write_handler_;
+    bool write_canceled_ = false;
     std::shared_ptr<ReadContext> read_context_;
   };
 
