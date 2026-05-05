@@ -234,18 +234,25 @@ class ReadStream {
   std::optional<uint64_t> ReadVaruint() {
     uint64_t result = 0;
     int position = 0;
-    uint8_t value = 0;
-    do {
+    // 10 bytes is the maximum canonical encoding for a 64-bit
+    // varuint.  Past that, the (value & 0x7f) << position shift
+    // would be UB (count >= 64), and on the 10th byte only bit 0
+    // is representable in the result.
+    for (int i = 0; i < 10; ++i) {
       const auto maybe_value = Read<uint8_t>();
       if (!maybe_value) { return {}; }
-      value = *maybe_value;
+      const uint8_t value = *maybe_value;
 
+      if (i == 9 && (value & 0x7e) != 0) {
+        // Overflow: bits beyond 63 cannot fit in uint64_t.
+        return {};
+      }
       result |= static_cast<uint64_t>(value & 0x7f) << position;
+      if ((value & 0x80) == 0) { return result; }
       position += 7;
-      // TODO jpieper: Handle malformed values that overflow a uint64.
-    } while (value >= 0x80);
-
-    return result;
+    }
+    // 10 continuation bytes consumed without a terminator.
+    return {};
   }
 
   std::optional<int64_t> ReadVarint() {

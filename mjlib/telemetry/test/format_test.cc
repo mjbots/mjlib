@@ -165,6 +165,23 @@ BOOST_AUTO_TEST_CASE(ReadVaruint) {
     BOOST_TEST(!!maybe_found);
     BOOST_TEST(*maybe_found == std::numeric_limits<uint64_t>::max());
   }
+  {
+    // 10-byte encoding whose final byte sets bits beyond the 64-bit
+    // result.  Pre-fix this silently truncated to UINT64_MAX
+    // (collision with the canonical encoding); now it must report
+    // overflow.
+    ReadFixture f({0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x7f});
+    const auto maybe_found = f.dut.ReadVaruint();
+    BOOST_TEST(!maybe_found);
+  }
+  {
+    // 11+ continuation bytes used to invoke UB via shift-by->=64
+    // and silently return a wrong value.  Now: report malformed.
+    ReadFixture f({0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+                   0xff, 0x00});
+    const auto maybe_found = f.dut.ReadVaruint();
+    BOOST_TEST(!maybe_found);
+  }
 }
 
 BOOST_AUTO_TEST_CASE(ReadVarint) {
