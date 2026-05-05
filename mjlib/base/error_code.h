@@ -16,6 +16,7 @@
 
 #include <iostream>
 #include <string>
+#include <type_traits>
 
 #include <boost/system/error_code.hpp>
 
@@ -36,11 +37,18 @@ class error_code {
              const std::string& message = "")
       : error_code(boost::system::error_code(val, category), message) {}
 
-  template <typename ErrorCodeEnum>
+  // Restrict this catch-all template to actual error code enums; without
+  // the constraint it greedily matches unrelated types and then fails
+  // inside the body, breaking SFINAE-based overload resolution at call
+  // sites that pass such values.
+  template <typename ErrorCodeEnum,
+            typename = std::enable_if_t<
+                boost::system::is_error_code_enum<ErrorCodeEnum>::value ||
+                boost::system::is_error_condition_enum<ErrorCodeEnum>::value>>
   error_code(ErrorCodeEnum value, const std::string& message = "")
       : error_code(boost::system::error_code(value), message) {}
 
-  error_code() {}
+  error_code() noexcept {}
 
   static error_code einval(const std::string& message) {
     return error_code(boost::system::errc::invalid_argument,
