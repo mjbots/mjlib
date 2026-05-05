@@ -34,10 +34,10 @@ class TcpStream : public AsyncStream {
         options_(options),
         resolver_(executor),
         socket_(executor) {
-    tcp::resolver::query query(options.tcp_target,
-                               fmt::format("{}", options.tcp_target_port));
     resolver_.async_resolve(
-        query, std::bind(&TcpStream::HandleResolve, this, pl::_1, pl::_2));
+        options.tcp_target,
+        fmt::format("{}", options.tcp_target_port),
+        std::bind(&TcpStream::HandleResolve, this, pl::_1, pl::_2));
   }
 
   ~TcpStream() override {}
@@ -63,7 +63,7 @@ class TcpStream : public AsyncStream {
 
  private:
   void HandleResolve(base::error_code ec,
-                     tcp::resolver::iterator it) {
+                     tcp::resolver::results_type results) {
     if (ec) {
       ec.Append(fmt::format("when resolving: {}:{}",
                             options_.tcp_target, options_.tcp_target_port));
@@ -73,7 +73,8 @@ class TcpStream : public AsyncStream {
       return;
     }
 
-    socket_.async_connect(*it, std::bind(&TcpStream::HandleConnect, this, pl::_1));
+    socket_.async_connect(results.begin()->endpoint(),
+                          std::bind(&TcpStream::HandleConnect, this, pl::_1));
   }
 
   void HandleConnect(base::error_code ec) {
