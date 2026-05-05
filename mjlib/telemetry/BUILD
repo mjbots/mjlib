@@ -113,6 +113,7 @@ cc_library(
         ":binary_schema_parser",
         ":binary_write_archive",
         "//mjlib/base:visitor",
+        "@fmt",
     ],
 )
 

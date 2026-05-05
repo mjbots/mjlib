@@ -247,6 +247,7 @@ cc_library(
         ":system_error",
         ":visit_archive",
         "@com_github_muellan_clipp//:clipp",
+        "@fmt",
     ],
 )
 
