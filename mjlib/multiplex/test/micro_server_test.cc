@@ -1842,6 +1842,61 @@ BOOST_FIXTURE_TEST_CASE(ResponseBufferOverflowTest, Fixture) {
   BOOST_TEST(dut.stats()->response_buffer_full > 0u);
 }
 
+BOOST_FIXTURE_TEST_CASE(ReadResponseCappedToTransportMaxSize, Fixture) {
+  // ProcessFrame caps the response BufferWriteStream view to
+  // min(buffer_size, datagram_properties_.max_size).  The test
+  // fixture's MicroStreamDatagram reports max_size = 115, so a
+  // multi-register float read large enough to need >115 bytes must
+  // be aborted by ProcessSubframeRead with a kReadError rather than
+  // emitted past the cap (which on FDCan would overflow the
+  // transport's fixed-size staging buffer).
+  for (uint32_t i = 0; i < 30; i++) {
+    server.float_values[i] = static_cast<float>(i);
+  }
+
+  char receive_buffer[256] = {};
+  int read_count = 0;
+  ssize_t read_size = 0;
+  dut_stream.side_a()->AsyncReadSome(
+      receive_buffer, [&](micro::error_code ec, ssize_t size) {
+        BOOST_TEST(!ec);
+        read_count++;
+        read_size = size;
+      });
+
+  Poll();
+
+  std::string payload;
+  payload.push_back(static_cast<char>(0x1c));  // kReadFloat, encoded_length=0
+  payload.push_back(static_cast<char>(30));    // num_registers varuint
+  payload.push_back(static_cast<char>(0));     // start_register varuint
+
+  Frame frame{0x02, true, 0x01, payload};
+  const std::string encoded = frame.encode();
+
+  AsyncWrite(*dut_stream.side_a(),
+             std::string_view(encoded.data(), encoded.size()),
+             [](micro::error_code ec) { BOOST_TEST(!ec); });
+
+  Poll();
+  BOOST_TEST(read_count == 1);
+
+  // The reply would be 1 (subframe_id) + 1 (num_registers varuint) +
+  // 1 (start_register varuint) + 30 * 4 = 123 bytes, exceeding the
+  // 115-byte cap, so ProcessSubframeRead aborts and emits a single
+  // kReadError for the start register with error code 2.
+  std::string expected_payload;
+  expected_payload.push_back(static_cast<char>(0x31));  // kReadError
+  expected_payload.push_back(static_cast<char>(0));     // start register
+  expected_payload.push_back(static_cast<char>(2));     // error
+  Frame expected_frame{0x01, false, 0x02, expected_payload};
+  const std::string expected_encoded = expected_frame.encode();
+
+  BOOST_TEST(std::string_view(receive_buffer, read_size) ==
+             std::string_view(expected_encoded));
+  BOOST_TEST(dut.stats()->response_buffer_full > 0u);
+}
+
 BOOST_FIXTURE_TEST_CASE(ReceiveOverrunReinterpretsAsSubframes, Fixture) {
   // No tunnel reader is posted, so kClientToServer data accumulates
   // in tunnel.read_data_ (capacity 128).  A second kClientToServer

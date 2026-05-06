@@ -216,8 +216,23 @@ class MicroServer::Impl {
       }
     }
 
+    // Cap the response buffer view to the transport's advertised
+    // maximum payload.  Without this, ProcessSubframeRead and the
+    // tunnel handlers will happily fill up to options_.buffer_size
+    // bytes, but datagram_server_->AsyncWrite is then asked to
+    // transmit a payload larger than the transport can carry — at
+    // best a silent truncation, at worst a buffer overflow inside
+    // the transport (e.g. the fixed 64-byte staging buffer in
+    // FDCanMicroServer).  The existing kResponseTailReserve checks
+    // operate on remaining(), so capping the view here transparently
+    // bounds every subframe handler.
+    const std::streamsize effective_size =
+        (datagram_properties_.max_size > 0) ?
+        std::min<std::streamsize>(options_.buffer_size,
+                                  datagram_properties_.max_size) :
+        options_.buffer_size;
     base::BufferWriteStream buffer_write_stream{
-      base::string_span(write_buffer_, options_.buffer_size)};
+      base::string_span(write_buffer_, effective_size)};
     BufferWriteStream write_stream{buffer_write_stream};
     const bool need_response =
         ((read_header_.source) & 0x80) != 0 &&
@@ -703,6 +718,34 @@ class MicroServer::Impl {
     // past the end.
     if (response_buffer_stream &&
         response_buffer_stream->remaining() < kResponseTailReserve) {
+      stats_.response_buffer_full++;
+      return false;
+    }
+
+    // Bytes written per emitted register, matching response->Write()
+    // below.
+    const std::streamsize value_size =
+        (type == 0) ? sizeof(int8_t) :
+        (type == 1) ? sizeof(int16_t) :
+        (type == 2) ? sizeof(int32_t) :
+        sizeof(float);
+
+    // The successful reply emits a fixed-shape subframe — header
+    // varuints plus N values — so the entire size is known here.
+    // Bail out before writing anything if it would not fit (possibly
+    // because the BufferWriteStream view was capped to the
+    // transport's max_size in ProcessFrame).  Without this guard, the
+    // BufferWriteStream specializations in multiplex/stream.h write
+    // the payload before checking bounds, so an overrun would corrupt
+    // memory before any assert fires.
+    const std::streamsize reply_size =
+        1  // subframe_id always < 128
+        + ((encoded_length == 0) ? GetVaruintSize(*num_registers) : 0)
+        + GetVaruintSize(*start_register)
+        + static_cast<std::streamsize>(*num_registers) * value_size;
+    if (response_buffer_stream &&
+        response_buffer_stream->remaining() < reply_size) {
+      EmitReadError(response, *start_register, 2);
       stats_.response_buffer_full++;
       return false;
     }
