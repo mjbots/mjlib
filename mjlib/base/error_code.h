@@ -99,3 +99,38 @@ inline std::ostream& operator<<(std::ostream& ostr, const error_code& ec) {
 
 }
 }
+
+// Boost.Asio (>= 1.81) introduced a "disposition" concept used by awaitable
+// completion machinery to convert error-style completion arguments into
+// exceptions. Asio ships a specialisation for boost::system::error_code; for
+// mjlib::base::error_code (a wrapper that adds context messages) we need our
+// own. The trait inherently throws, so it's only available when exceptions
+// are enabled -- e.g. host builds, not embedded firmware.
+#ifdef __cpp_exceptions
+#include <boost/asio/disposition.hpp>
+
+namespace boost {
+namespace asio {
+
+template <>
+struct disposition_traits<mjlib::base::error_code> {
+  static bool not_an_error(const mjlib::base::error_code& ec) noexcept {
+    return !ec;
+  }
+
+  static void throw_exception(const mjlib::base::error_code& ec) {
+    throw boost::system::system_error(ec.boost_error_code(), ec.message());
+  }
+
+  static std::exception_ptr to_exception_ptr(
+      const mjlib::base::error_code& ec) noexcept {
+    return ec
+        ? std::make_exception_ptr(
+              boost::system::system_error(ec.boost_error_code(), ec.message()))
+        : nullptr;
+  }
+};
+
+}
+}
+#endif  // __cpp_exceptions

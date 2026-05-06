@@ -17,7 +17,6 @@
 #include <boost/asio/any_io_executor.hpp>
 #include <boost/asio/defer.hpp>
 #include <boost/asio/dispatch.hpp>
-#include <boost/asio/execution/execute.hpp>
 #include <boost/asio/execution_context.hpp>
 #include <boost/asio/post.hpp>
 
@@ -79,8 +78,8 @@ class RealtimeExecutor {
   void execute(Callback&& callback) const {
     Service& s = const_cast<Service&>(service());
     s.StartWork();
-    boost::asio::execution::execute(
-        base_, Wrap<typename std::decay<Callback>::type>(&s, std::move(callback)));
+    base_.execute(
+        Wrap<typename std::decay<Callback>::type>(&s, std::move(callback)));
   }
 
   template <typename Callback, typename Allocator>

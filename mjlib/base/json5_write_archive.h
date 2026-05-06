@@ -184,7 +184,7 @@ class Json5WriteArchive : public VisitArchive<Json5WriteArchive> {
     } else if (!std::isfinite(value)) {
       stream_ << (options_.standard ? "null" : "NaN");
     } else {
-      stream_ << fmt::format(format_string, value);
+      stream_ << fmt::format(fmt::runtime(format_string), value);
     }
   }
 

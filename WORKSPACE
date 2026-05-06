@@ -28,7 +28,7 @@ bazel_toolchain_dependencies()
 load("@com_github_mjbots_bazel_toolchain//toolchain:rules.bzl", "llvm_toolchain")
 llvm_toolchain(
     name = "llvm_toolchain",
-    llvm_version = "10.0.0",
+    llvm_version = "20.1.8",
     urls = {
         "windows" : ["https://github.com/mjbots/bazel-toolchain/releases/download/0.5.6-mj20201011/LLVM-10.0.0-win64.tar.xz"],
     },

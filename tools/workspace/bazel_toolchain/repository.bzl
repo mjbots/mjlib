@@ -20,6 +20,6 @@ def bazel_toolchain_repository():
     github_archive(
         name = "com_github_mjbots_bazel_toolchain",
         repo = "mjbots/bazel-toolchain",
-        commit = "47efd434976067fec4689a3e5cca9859b82b08ec",
-        sha256 = "86428e992ad64e74bca6e388e4dc2846dee8fd8060b1b5cd8dfdc33631ef9103",
+        commit = "9cc9535ef65a9361ba144be54d3f72c19346abf2",
+        sha256 = "54ce65745967b8447c095385d23aca8e56c2ae889d51b61bd2239e450ccb43fd",
     )

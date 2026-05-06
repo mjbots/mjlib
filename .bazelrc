@@ -13,6 +13,12 @@ test --test_output=errors
 
 build:host --platforms=@local_config_platform//:host
 build:host --linkopt=-lrt
+# bazel_deps select()s on this to pick compiler-specific copts (e.g.
+# libxcb's -Wno-* warnings). The host build uses the bundled
+# llvm_toolchain, so declare CLANG. Target builds use a different
+# toolchain and don't go through these select()s.
+build:host --define CLANG=true
+test:host --define CLANG=true
 build:host --copt=-Werror
 build:host --copt=-Wno-parentheses-equality
 # Catch the `return X(); if (...) ...` family at compile time. clang

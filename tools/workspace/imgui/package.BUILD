@@ -41,6 +41,14 @@ cc_library(
         ],
     }),
     includes = ["."],
+    copts = select({
+        "@com_github_mjbots_bazel_deps//conditions:clang" : [
+            # imgui zero-initializes its own structs with memset/memcpy;
+            # newer clang flags this on non-trivially-copyable types.
+            "-Wno-nontrivial-memcall",
+        ],
+        "//conditions:default" : [],
+    }),
     deps = select({
         "@bazel_tools//src/conditions:windows" : [
         ],

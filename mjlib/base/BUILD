@@ -83,6 +83,15 @@ cc_library(
     name = "error_code",
     hdrs = ["error_code.h"],
     srcs = ["error_code.cc"],
+    # Boost.System (>= 1.84) uses std::mutex internally to guard error
+    # category init. Embedded toolchains (no OS) don't ship <mutex>; tell
+    # Boost to use a no-op mutex instead. This is propagated to all
+    # consumers via cc_library.defines so any downstream firmware build
+    # picks it up automatically.
+    defines = select({
+        "@platforms//os:none": ["BOOST_SYSTEM_DISABLE_THREADS"],
+        "//conditions:default": [],
+    }),
     deps = [
         ":stringify",
         "@boost//:system",
