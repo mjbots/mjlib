@@ -14,20 +14,45 @@
 
 #pragma once
 
+#include <cstdint>
 #include <string_view>
 
 #include "mjlib/base/stream.h"
 #include "mjlib/base/string_span.h"
 
-#include "mjlib/telemetry/binary_read_archive.h"
-#include "mjlib/telemetry/binary_write_archive.h"
-
 #include "mjlib/micro/async_stream.h"
 #include "mjlib/micro/async_types.h"
-#include "mjlib/micro/serializable_handler_detail.h"
+#include "mjlib/micro/type_descriptor.h"
 
 namespace mjlib {
 namespace micro {
+
+/// State for an in-progress SerializableHandlerBase::Enumerate.  It
+/// must remain valid until the callback is invoked.
+struct EnumerateContext {
+  /// The deepest nesting of structures and arrays that can be
+  /// enumerated.
+  static constexpr int kMaxDepth = 12;
+
+  std::string_view root_prefix;
+  base::string_span buffer;
+  AsyncWriteStream* stream = nullptr;
+  ErrorCallback callback;
+
+  void* object = nullptr;
+  const TypeDescriptor* type = nullptr;
+
+  /// The path to the most recently emitted field: the field or element
+  /// index at each level of nesting.
+  uint8_t last_depth = 0;
+  uint16_t last_path[kMaxDepth] = {};
+};
+
+namespace detail {
+struct EnumerateArchive {
+  using Context = EnumerateContext;
+};
+}
 
 class SerializableHandlerBase {
  public:
@@ -38,7 +63,7 @@ class SerializableHandlerBase {
   virtual int ReadBinary(base::ReadStream&) = 0;
   virtual int Set(const std::string_view& key,
                   const std::string_view& value) = 0;
-  virtual void Enumerate(detail::EnumerateArchive::Context*,
+  virtual void Enumerate(EnumerateContext*,
                          const base::string_span& buffer,
                          const std::string_view& prefix,
                          AsyncWriteStream&,
@@ -50,64 +75,33 @@ class SerializableHandlerBase {
   virtual void SetDefault() = 0;
 };
 
-template <typename T>
-class SerializableHandler : public SerializableHandlerBase {
+/// Implements SerializableHandlerBase for any type, given a
+/// TypeDescriptor.  All serializable types share this single
+/// implementation, so that the flash cost of each new type is only
+/// its constant descriptors.
+class TypeErasedSerializableHandler : public SerializableHandlerBase {
  public:
-  SerializableHandler(T* item) : item_(item) {}
-  ~SerializableHandler() override {}
+  /// The per-type information needed beyond the TypeDescriptor.
+  struct Root {
+    const TypeDescriptor* type;
+    void (*set_default)(void* object);
+    WithDefaultFunction with_default;
+  };
 
-  int WriteBinary(base::WriteStream& stream) override final {
-    telemetry::BinaryWriteArchive archive(stream);
-    archive.Accept(item_);
-    return 0;
-  }
+  TypeErasedSerializableHandler(void* item, const Root* root)
+      : item_(item), root_(root) {}
+  ~TypeErasedSerializableHandler() override {}
 
-  void WriteSchema(base::WriteStream& stream) override final {
-    telemetry::BinarySchemaArchive archive(stream);
-    T temporary;
-    archive.Accept(&temporary);
-  }
-
-  int ReadBinary(base::ReadStream& stream) override final {
-    telemetry::BinaryReadArchive archive(stream);
-    archive.Accept(item_);
-    if (archive.error()) { return 1; }
-    return 0;
-  }
-
+  int WriteBinary(base::WriteStream&) override;
+  void WriteSchema(base::WriteStream&) override;
+  int ReadBinary(base::ReadStream&) override;
   int Set(const std::string_view& key,
-          const std::string_view& value) override final {
-    auto archive = detail::SetArchive(key, value);
-    archive.Accept(item_);
-    return archive.found() ? 0 : 1;
-  }
-
-  void Enumerate(detail::EnumerateArchive::Context* context,
+          const std::string_view& value) override;
+  void Enumerate(EnumerateContext*,
                  const base::string_span& buffer,
                  const std::string_view& prefix,
-                 AsyncWriteStream& stream,
-                 ErrorCallback callback) override final {
-    context->root_prefix = prefix;
-    context->stream = &stream;
-    context->buffer = buffer;
-    context->callback = callback;
-    context->current_field_index_to_write = 0;
-    context->evaluate_enumerate_archive = [this, context]() {
-      uint16_t current_index = 0;
-      bool done = false;
-      detail::EnumerateArchive(
-          context, context->root_prefix,
-          &current_index, &done, nullptr).Accept(this->item_);
-      return done;
-    };
-
-    if (!context->evaluate_enumerate_archive()) {
-      // Nothing was emitted, so no AsyncWrite chain will run to
-      // signal completion.  Fire the callback here to avoid hanging
-      // any caller driving a state machine off it.
-      callback({});
-    }
-  }
+                 AsyncWriteStream&,
+                 ErrorCallback) override;
 
   /// Write a value of a sub-item to an asynchronous stream.
   ///
@@ -120,19 +114,35 @@ class SerializableHandler : public SerializableHandlerBase {
   /// @return non-zero if the item was not found
   int Read(const std::string_view& key,
            const base::string_span& buffer,
-           AsyncWriteStream& stream,
-           ErrorCallback callback) override final {
-    detail::ReadArchive archive(key, buffer, stream, callback);
-    archive.Accept(item_);
-    return archive.found() ? 0 : 1;
-  }
-
-  void SetDefault() override final {
-    *item_ = T();
-  }
+           AsyncWriteStream&,
+           ErrorCallback) override;
+  void SetDefault() override;
 
  private:
-  T* const item_;
+  void* const item_;
+  const Root* const root_;
+};
+
+/// The constant information needed to handle a T.
+template <typename T>
+inline constexpr TypeErasedSerializableHandler::Root kSerializableRoot = {
+  GetTypeDescriptor<T>(),
+  &detail::AssignValue<T>,
+  &detail::WithDefaultInitialized<T>,
+};
+
+/// A convenience wrapper for TypeErasedSerializableHandler.  Note,
+/// that each instantiation has its own vtable, so code concerned
+/// about size should use TypeErasedSerializableHandler with
+/// kSerializableRoot<T> directly.
+template <typename T>
+class SerializableHandler : public TypeErasedSerializableHandler {
+ public:
+  static_assert(base::IsSerializable<T>(),
+                "SerializableHandler requires a serializable structure");
+
+  SerializableHandler(T* item)
+      : TypeErasedSerializableHandler(item, &kSerializableRoot<T>) {}
 };
 
 }

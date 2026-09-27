@@ -183,11 +183,27 @@ cc_library(
     name = "serializable_handler",
     hdrs = [
         "serializable_handler.h",
-        "serializable_handler_detail.h",
+        "type_descriptor.h",
     ],
+    srcs = ["serializable_handler.cc"],
     deps = [
         ":async_stream",
         ":async_types",
+        "//mjlib/base:stream",
+        "//mjlib/base:string_span",
+        "//mjlib/base:tokenizer",
+        "//mjlib/base:visitor",
+        "//mjlib/telemetry:format",
+    ],
+)
+
+cc_library(
+    name = "serializable_handler_legacy",
+    hdrs = ["serializable_handler_legacy.h"],
+    deps = [
+        ":async_stream",
+        ":async_types",
+        ":error_code",
         "//mjlib/base:inplace_function",
         "//mjlib/base:stream",
         "//mjlib/base:string_span",
@@ -196,6 +212,7 @@ cc_library(
         "//mjlib/telemetry:binary_read_archive",
         "//mjlib/telemetry:binary_write_archive",
     ],
+    testonly = True,
 )
 
 cc_library(
@@ -265,6 +282,23 @@ cc_library(
     testonly = True,
 )
 
+cc_library(
+    name = "serializable_handler_equivalence",
+    hdrs = ["test/serializable_handler_equivalence.h"],
+    deps = [
+        "//mjlib/base:visit_archive",
+        ":event_queue",
+        ":serializable_handler",
+        ":serializable_handler_legacy",
+        ":stream_pipe",
+        ":test_fixtures",
+        "//mjlib/base:buffer_stream",
+        "//mjlib/base:fast_stream",
+        "@boost//:test",
+    ],
+    testonly = True,
+)
+
 filegroup(
     name = "target",
     srcs = [
@@ -307,6 +341,7 @@ cc_test(
             "test/command_manager_test.cc",
             "test/persistent_config_test.cc",
             "test/serializable_handler_test.cc",
+            "test/serializable_handler_equivalence_test.cc",
             "test/telemetry_manager_test.cc",
         ],
     }),
@@ -322,6 +357,8 @@ cc_test(
         ":required_success",
         ":self_contained_check",
         ":serializable_handler",
+        ":serializable_handler_equivalence",
+        ":serializable_handler_legacy",
         ":static_ptr",
         ":static_vector",
         ":stream_pipe",

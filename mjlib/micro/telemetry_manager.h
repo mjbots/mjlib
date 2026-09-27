@@ -45,8 +45,8 @@ class TelemetryManager {
   template <typename Serializable>
   base::inplace_function<void ()> Register(
       const std::string_view& name, Serializable* serializable) {
-    PoolPtr<SerializableHandler<Serializable>> concrete(pool(), serializable);
-    return RegisterDetail(name, concrete.get());
+    return RegisterDetail(name, serializable,
+                          &kSerializableRoot<Serializable>);
   }
 
   /// This should be invoked every millisecond.
@@ -54,9 +54,9 @@ class TelemetryManager {
 
  private:
   base::inplace_function<void ()> RegisterDetail(
-      const std::string_view& name, SerializableHandlerBase*);
-
-  Pool* pool() const;
+      const std::string_view& name,
+      void* serializable,
+      const TypeErasedSerializableHandler::Root*);
 
   class Impl;
   PoolPtr<Impl> impl_;

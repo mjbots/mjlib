@@ -395,13 +395,16 @@ void TelemetryManager::PollMillisecond() {
   impl_->PollMillisecond();
 }
 
-Pool* TelemetryManager::pool() const { return impl_->pool_; }
-
 base::inplace_function<void ()> TelemetryManager::RegisterDetail(
-    const std::string_view& name, SerializableHandlerBase* base) {
+    const std::string_view& name,
+    void* serializable,
+    const TypeErasedSerializableHandler::Root* root) {
+  PoolPtr<TypeErasedSerializableHandler> handler(
+      impl_->pool_, serializable, root);
+
   Impl::Element element;
   element.name = name;
-  element.base = base;
+  element.base = handler.get();
 
   const auto result = impl_->elements_.insert({name, element});
   // We don't allow duplicates.

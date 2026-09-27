@@ -508,11 +508,16 @@ void PersistentConfig::Load() {
 }
 
 void PersistentConfig::RegisterDetail(
-    const std::string_view& name, SerializableHandlerBase* base,
+    const std::string_view& name,
+    void* serializable,
+    const TypeErasedSerializableHandler::Root* root,
     base::inplace_function<void ()> updated,
     const RegisterOptions& options) {
+  PoolPtr<TypeErasedSerializableHandler> handler(
+      &impl_->pool_, serializable, root);
+
   Impl::Element element;
-  element.serializable = base;
+  element.serializable = handler.get();
   element.updated = updated;
   element.enumerate = options.enumerate;
 
@@ -520,8 +525,6 @@ void PersistentConfig::RegisterDetail(
   // We do not allow duplicate names.
   MJ_ASSERT(result.second == true);
 }
-
-Pool* PersistentConfig::pool() const { return &impl_->pool_; }
 
 }
 }
